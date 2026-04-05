@@ -16,7 +16,7 @@ Una interfaz gráfica de usuario (GUI) avanzada y profesional construida con Pyt
 
 Para ejecutar esta aplicación, necesitas tener instalado Python 3.8 o superior, además de las siguientes librerías:
 
-```bash
+bash
 pip install PySide6 camilladsp
 (Nota: Asegúrate de tener CamillaDSP ejecutándose en tu servidor local o remoto, y que el puerto WebSocket esté habilitado en su configuración).
 
@@ -30,6 +30,7 @@ Ejecuta el script principal:
 
 Bash
 python camilladsp_comp.py
+
 📖 Guía de Uso
 1. Conexión y Modo de Trabajo
 Al iniciar, la aplicación te pedirá la IP y el Puerto de tu servidor CamillaDSP.
