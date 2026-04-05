@@ -3,6 +3,7 @@ import json
 import math
 import time
 import re
+from datetime import datetime
 from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                              QWidget, QLabel, QLineEdit, QPushButton, 
                              QStackedWidget, QTextEdit, QFrame, QRadioButton, QGroupBox,
@@ -408,6 +409,11 @@ class PEQApp(QMainWindow):
 
     def clean_name(self, n): return re.sub(r'[^a-zA-Z0-9]', '', str(n))
 
+    def log_debug(self, msg):
+        """Registra mensajes con timestamp en la consola"""
+        ts = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        self.log_v.append(f"[{ts}] {msg}")
+
     def init_login(self):
         self.p_login = QWidget(); l_main = QVBoxLayout(self.p_login); card = QFrame(); card.setFixedWidth(620); card.setObjectName("MainCard")
         
@@ -519,9 +525,9 @@ class PEQApp(QMainWindow):
         try:
             self.cdsp.connect(); c = self.cdsp.query("GetConfigJson"); self.config_raw = json.loads(c) if isinstance(c, str) else c
             self.sample_rate = self.config_raw.get("devices", {}).get("samplerate", 44100)
-            self.log_v.append(f"Conectado a {ip}:{port}. Sample Rate configurado: {self.sample_rate} Hz")
+            self.log_debug(f"✓ Conectado a {ip}:{port}. Sample Rate: {self.sample_rate} Hz")
             self.g_mode.show(); self.btn_go.show(); self.btn_s.hide()
-        except Exception as e: self.log_v.append(f"Error al conectar con {ip}:{port} -> {e}")
+        except Exception as e: self.log_debug(f"✗ Error al conectar con {ip}:{port} -> {e}")
 
     def get_labels(self, target):
         num_channels = 0
@@ -598,7 +604,7 @@ class PEQApp(QMainWindow):
         self.tabs = QTabWidget()
         self.tabs.setStyleSheet("""
             QTabWidget::pane { border: 1px solid #333; background: #050505; }
-            QTabBar::tab { background: #222; color: #ccc; padding: 10px 20px; border: 1px solid #333; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; font-weight: bold; }
+            QTabBar::tab { background: #222; color: #ccc; padding: 10px 20px; border: 1px solid #333; border-bottom: none; border-top-left-radius: 4px; border-top-right-radius: 4px; font-weight: bold;}
             QTabBar::tab:selected { background: #007bff; color: white; border-top: 2px solid #00ffff; }
         """)
         
@@ -727,11 +733,12 @@ class PEQApp(QMainWindow):
                 if mapping.get("dest") == ch_index:
                     for src in mapping.get("sources", []): src["inverted"] = is_inverted
             try:
+                self.log_debug(f"➤ PatchConfig Polarity: CH {ch_index} = {'INVERTIDA' if is_inverted else 'NORMAL'}")
                 self.cdsp.query("PatchConfig", {"mixers": {mixer_name: m_conf}})
                 self.guardar_config()
-                estado = "INVERTIDA" if is_inverted else "NORMAL"
-                self.log_v.append(f"Polaridad CH {ch_index}: {estado}")
-            except Exception as e: pass
+                self.log_debug(f"✓ Polaridad CH {ch_index}: {'INVERTIDA' if is_inverted else 'NORMAL'}")
+            except Exception as e: 
+                self.log_debug(f"✗ Error polarity: {e}")
 
     def toggle_mute(self, ch_index, is_muted, vu_ref):
         mixer_name = None
@@ -743,15 +750,20 @@ class PEQApp(QMainWindow):
             for mapping in m_conf.get("mapping", []):
                 if mapping.get("dest") == ch_index: mapping["mute"] = is_muted
             try:
+                self.log_debug(f"➤ PatchConfig Mute: CH {ch_index} = {'MUTEADO' if is_muted else 'ACTIVO'}")
                 self.cdsp.query("PatchConfig", {"mixers": {mixer_name: m_conf}})
                 self.guardar_config()
-                estado = "MUTEADO" if is_muted else "ACTIVO"
-                self.log_v.append(f"Canal OUT {ch_index}: {estado}")
-            except Exception as e: pass
+                self.log_debug(f"✓ Canal OUT {ch_index}: {'MUTEADO' if is_muted else 'ACTIVO'}")
+            except Exception as e:
+                self.log_debug(f"✗ Error mute: {e}")
 
     def guardar_config(self):
-        try: self.cdsp.query("SetConfigJson", json.dumps(self.config_raw))
-        except: pass
+        try:
+            self.log_debug(f"➤ SetConfigJson (guardar_config) - Tamaño: {len(json.dumps(self.config_raw))} bytes")
+            response = self.cdsp.query("SetConfigJson", json.dumps(self.config_raw))
+            self.log_debug(f"✓ SetConfigJson respuesta: {response}")
+        except Exception as e:
+            self.log_debug(f"✗ Error guardar_config: {e}")
 
     def marcar_fila_activa(self, fid):
         self.table.blockSignals(True)
@@ -768,11 +780,28 @@ class PEQApp(QMainWindow):
                 self.table.setItem(r, col, QTableWidgetItem(val_str)); break
         self.table.blockSignals(False)
 
-    def enviar_parche(self, n, p): self.cdsp.query("PatchConfig", {"filters": {n: {"parameters": p}}})
+    def enviar_parche(self, n, p):
+        try:
+            self.log_debug(f"➤ PatchConfig Filtro: {n}")
+            payload = {"filters": {n: {"parameters": p}}}
+            response = self.cdsp.query("PatchConfig", payload)
+            self.log_debug(f"✓ PatchConfig respuesta: {response}")
+        except Exception as e:
+            self.log_debug(f"✗ Error enviar_parche: {e}")
 
     def crear_compresor(self, name, ch_index, threshold_db, vu_ref):
+        self.log_debug(f"═══════════════════════════════════════════════��═══════════")
+        self.log_debug(f"➤ CREAR COMPRESOR - INICIO")
+        self.log_debug(f"  • Nombre canal: {name}")
+        self.log_debug(f"  • Índice canal: {ch_index}")
+        self.log_debug(f"  • Threshold: {threshold_db:.1f} dB")
+        
         comp_name = f"Comp_{self.clean_name(name)}"
+        self.log_debug(f"  • ID Compresor: {comp_name}")
+        
         total_out_ch = self.config_raw.get("devices", {}).get("playback", {}).get("channels", len(self.v_out))
+        self.log_debug(f"  • Total canales de salida: {total_out_ch}")
+        
         comp_data = {
             "type": "Compressor",
             "parameters": {
@@ -782,45 +811,79 @@ class PEQApp(QMainWindow):
                 "monitor_channels": [ch_index], "process_channels": [ch_index]
             }
         }
+        
+        self.log_debug(f"  • Datos del compresor:")
+        self.log_debug(f"    {json.dumps(comp_data, indent=6)}")
+        
         self.config_raw.setdefault("processors", {})[comp_name] = comp_data
-        if "pipeline" not in self.config_raw: self.config_raw["pipeline"] = []
+        self.log_debug(f"  ✓ Compresor agregado a config_raw['processors']")
+        
+        # VERIFICAR PIPELINE
+        self.log_debug(f"  • Buscando Processor en pipeline...")
         target = next((s for s in self.config_raw["pipeline"] if s.get("type") == "Processor" and s.get("name") == comp_name), None)
         if not target:
-            target = {"type": "Processor", "name": comp_name}; self.config_raw["pipeline"].append(target)
+            target = {"type": "Processor", "name": comp_name}
+            self.config_raw["pipeline"].append(target)
+            self.log_debug(f"  ✓ Processor '{comp_name}' agregado al pipeline")
+        else:
+            self.log_debug(f"  ✓ Processor '{comp_name}' ya existe en pipeline")
+        
+        # ENVIAR CONFIGURACIÓN COMPLETA
         try:
-            self.cdsp.query("SetConfigJson", json.dumps(self.config_raw))
-            self.log_v.append(f"COMPRESOR CREADO: Salida {name} | Threshold {threshold_db:.1f} dB")
-            vu_ref.comp_threshold = threshold_db; vu_ref.update(); self.actualizar_tabla_comp_ui()
-        except Exception as e: self.log_v.append(f"Error al inyectar Compresor: {e}")
+            config_json = json.dumps(self.config_raw)
+            self.log_debug(f"  ➤ ENVIANDO SetConfigJson...")
+            self.log_debug(f"    • Tamaño JSON: {len(config_json)} bytes")
+            
+            response = self.cdsp.query("SetConfigJson", config_json)
+            self.log_debug(f"  ✓ Respuesta CamillaDSP: {response}")
+            self.log_debug(f"✓ COMPRESOR CREADO: {name} | Threshold {threshold_db:.1f} dB")
+            self.log_debug(f"═══════════════════════════════════════════════════════════")
+            
+            vu_ref.comp_threshold = threshold_db
+            vu_ref.update()
+            self.actualizar_tabla_comp_ui()
+            
+        except Exception as e:
+            self.log_debug(f"  ✗ ERROR AL ENVIAR: {type(e).__name__}: {str(e)}")
+            self.log_debug(f"═══════════════════════════════════════════════════════════")
+            import traceback
+            self.log_debug(traceback.format_exc())
 
     def borrar_compresor_por_id(self, comp_name):
+        self.log_debug(f"➤ BORRAR COMPRESOR: {comp_name}")
         changed = False
         if "processors" in self.config_raw and comp_name in self.config_raw["processors"]:
             del self.config_raw["processors"][comp_name]; changed = True
+            self.log_debug(f"  ✓ Removido de processors")
         if "pipeline" in self.config_raw:
             new_pipe = [s for s in self.config_raw["pipeline"] if not (s.get("type") == "Processor" and s.get("name") == comp_name)]
             if len(new_pipe) != len(self.config_raw["pipeline"]):
                 self.config_raw["pipeline"] = new_pipe; changed = True
+                self.log_debug(f"  ✓ Removido del pipeline")
         if changed:
             try:
-                self.cdsp.query("SetConfigJson", json.dumps(self.config_raw)); self.log_v.append(f"COMPRESOR BORRADO: {comp_name}")
+                self.log_debug(f"  ➤ ENVIANDO SetConfigJson...")
+                response = self.cdsp.query("SetConfigJson", json.dumps(self.config_raw))
+                self.log_debug(f"  ✓ Respuesta: {response}")
+                self.log_debug(f"✓ COMPRESOR BORRADO: {comp_name}")
                 ch_name = comp_name.replace("Comp_", "")
                 for vu in self.v_out:
                     if self.clean_name(vu.name) == ch_name:
                         vu.comp_threshold = None; vu.update(); break
                 self.actualizar_tabla_comp_ui()
-            except Exception as e: self.log_v.append(f"Error al borrar Compresor: {e}")
+            except Exception as e:
+                self.log_debug(f"✗ Error al borrar Compresor: {e}")
 
     def iniciar_auto_compresion(self, pid, btn):
         ch_index = self.config_raw["processors"][pid]["parameters"]["process_channels"][0]
         self.auto_samplers[pid] = {"ticks": 100, "ch": ch_index, "history": [], "btn": btn}
         btn.setText("5s"); btn.setEnabled(False); btn.setStyleSheet("background: #aa8800; color: white; border-radius: 3px; font-weight: bold;")
-        self.log_v.append(f"AUTO-MUESTREO {pid}: Leyendo dinámica por 5 segundos...")
+        self.log_debug(f"➤ AUTO-MUESTREO {pid}: Leyendo dinámica por 5 segundos...")
 
     def finalizar_auto_compresion(self, pid):
         data = self.auto_samplers.pop(pid); btn = data["btn"]
         history = [x for x in data["history"] if x > -70.0]
-        if not history: self.log_v.append(f"AUTO-COMP {pid}: No se detectó audio en el canal. Abortado.")
+        if not history: self.log_debug(f"AUTO-COMP {pid}: No se detectó audio en el canal. Abortado.")
         else:
             delta = max(history) - (sum(history) / len(history))
             atk, rel = (0.005, 0.05) if delta > 12.0 else (0.025, 0.25) if delta > 6.0 else (0.050, 0.50)
@@ -828,9 +891,9 @@ class PEQApp(QMainWindow):
             self.config_raw["processors"][pid]["parameters"]["release"] = rel
             try:
                 self.cdsp.query("SetConfigJson", json.dumps(self.config_raw))
-                self.log_v.append(f"AUTO-COMP {pid}: Rango dinámico {delta:.1f}dB -> Attack: {atk}s | Release: {rel}s")
+                self.log_debug(f"AUTO-COMP {pid}: Rango dinámico {delta:.1f}dB -> Attack: {atk}s | Release: {rel}s")
                 self.actualizar_tabla_comp_ui()
-            except Exception as e: self.log_v.append(f"Error al guardar Auto-Comp: {e}")
+            except Exception as e: self.log_debug(f"Error al guardar Auto-Comp: {e}")
         try: btn.setText("AUTO"); btn.setEnabled(True); btn.setStyleSheet("background: #007bff; color: white; border-radius: 3px; font-weight: bold;")
         except: pass
 
@@ -868,6 +931,7 @@ class PEQApp(QMainWindow):
             if self.mode == "Input": self.config_raw["pipeline"].insert(0, target)
             else: self.config_raw["pipeline"].append(target)
         if fid not in target["names"]: target["names"].append(fid)
+        self.log_debug(f"➤ Crear Filtro: {fid} @ {f:.0f}Hz, {g:.1f}dB")
         self.cdsp.query("SetConfigJson", json.dumps(self.config_raw)); self.actualizar_tabla_ui(); self.graph.update()
 
     def up_v(self):
@@ -956,9 +1020,11 @@ class PEQApp(QMainWindow):
                     if self.clean_name(vu.name) == ch_name:
                         vu.comp_threshold = val; vu.update(); break
             try:
+                self.log_debug(f"➤ Compresor {pid} actualizado: {param} = {val}")
                 self.cdsp.query("SetConfigJson", json.dumps(self.config_raw))
-                self.log_v.append(f"Compresor {pid} actualizado: {param} = {val}")
-            except: pass
+                self.log_debug(f"✓ Compresor {pid} actualizado: {param} = {val}")
+            except Exception as e:
+                self.log_debug(f"✗ Error: {e}")
 
     def cambiar_tipo(self, fid, nt):
         if fid in self.filtros_biquad:
