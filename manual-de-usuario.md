@@ -1,5 +1,3 @@
----
-
 ### 3. `manual-de-usuario.md`
 
 ```markdown
