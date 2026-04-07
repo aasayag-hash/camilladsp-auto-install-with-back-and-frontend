@@ -1,54 +1,57 @@
 ### 3. `manual-de-usuario.md`
 
-```markdown
-# Manual de Usuario - CamillaDSP Master Console
+## === BARRA SUPERIOR Y CANALES ===
 
-Este documento detalla el funcionamiento de las diversas herramientas gráficas incluidas en la consola de control maestro de CamillaDSP.
+Botones IN / OUT: Seleccionan qué canales visualizar. Además, dictan sobre qué canales se aplicarán los nuevos filtros que crees o sobre cuáles actuará el botón de Bypass.
 
-## Interfaz Principal y Navegación
+Botón ALL: Selecciona o deselecciona todos los canales simultáneamente de forma rápida.
 
-Tras conectar la aplicación con éxito al hardware de audio (introduciendo IP y Puerto), la interfaz se divide en **3 pestañas principales**:
-1. Vúmetros y Dinámica (Vumeters & Dynamics)
-2. Filtros y EQ (EQ & Filters)
-3. Crossovers
+CONSOLE (Consola / Log): Abre una ventana independiente que muestra en tiempo real todos los comandos y comunicaciones internas entre el software y el hardware de CamillaDSP.
 
-En la esquina superior derecha encontrarás un **selector rápido de canales (IN/OUT)**. Activa o desactiva canales en estos botones para que las gráficas y filtros creados solo se inyecten o visualicen en la ruta de audio que desees afectar.
+=== GRÁFICOS DE EQ Y CROSSOVERS ===
 
----
+Doble Clic Izquierdo (en el fondo vacío): CREA un nuevo filtro (Peaking en EQ, o Linkwitz-Riley en Crossover) asignado automáticamente a los canales que tengas seleccionados en la botonera superior.
 
-## 1. Pestaña Vúmetros y Dinámica (Mixer y Compresores)
+Clic Izquierdo Sostenido (sobre el punto): Arrastra el punto libremente para ajustar la Frecuencia (Hz) y la Ganancia (dB).
 
-Esta pestaña se encarga de la visualización en tiempo real y la nivelación general del sonido. 
+Rueda del Mouse (sobre el punto): Ajusta el Ancho de Banda (Factor Q) en los ecualizadores, o cambia el Orden (las pendientes) en los Crossovers.
 
-### Faders de Volumen y Fase
-- **Volumen Principal:** Arrastra el punto de control azul verticalmente. El fader está escalado de forma profesional con un tope superior de **+10 dB** y un corte inferior de **-50 dB**.
-- **Reset Rápido:** Haz *Clic Derecho* en la franja del fader para devolverlo instantáneamente a **0.0 dB**.
-- **Polaridad (+/-):** El botón invierte 180 grados la fase acústica del canal. 
-- **Delay:** Ingresa el valor en milisegundos (`ms`). Para desactivarlo, pon el valor a `0` o haz *Clic Derecho* sobre el cuadro numérico.
+Clic Derecho (sobre el punto): BORRA definitivamente el ecualizador o crossover seleccionado de la memoria.
 
-### Compresores y Limitadores
-- **Creación:** Haz un *Doble Clic Izquierdo* sobre el nivel del Vúmetro de salida al que quieres limitar. La posición vertical en la que hagas clic determinará el *Threshold* (umbral) de inicio. Inmediatamente aparecerá registrado en la tabla inferior y una línea roja de limitación cruzará el Vúmetro.
-- **Borrado:** Haz *Clic Derecho* sobre el Vúmetro, o haz clic en la **X** de la fila en la tabla de compresores. **Esto elimina el bloque completamente de la memoria.**
-- **Bypass del Canal (Mute):** Un *Clic Izquierdo* sobre el Nombre del canal debajo del Vúmetro lo silenciará (se tornará Rojo). Haz clic nuevamente para reactivarlo (Verde).
+=== MATRIZ MIXER (RUTEO) ===
 
-### El Botón AUTO (Magia Dinámica)
-Si presionas el botón **AUTO** en la tabla de compresores, el sistema empezará a "escuchar" el canal durante 5 segundos:
-* **Attack & Release:** Medirá los *transientes* (velocidad en que aparecen los picos vs la caída) usando percentiles de densidad P50 y P95. Asignará tiempos ultra-rápidos si detecta golpes bruscos (como baterías) y tiempos suaves/lentos para sonidos continuos.
-* **Makeup Gain:** Utiliza un cálculo "perceptual ponderado por energía". Evita subir ruidos silenciosos y calcula con precisión cuántos dB "útiles" fueron aplastados para luego compensarlos matemáticamente de forma transparente.
+Doble Clic Izquierdo (sobre los Nombres): Permite renombrar globalmente cualquier entrada (Top) o salida (Izquierda).
 
----
+Clic Izquierdo (en celda vacía '+'): CREA una conexión de ruteo enviando la señal de esa entrada hacia esa salida.
 
-## 2. Pestaña Filtros y EQ (Ecualizador Vectorial)
+Clic Derecho (en celda verde): ELIMINA / Desconecta esa ruta de la matriz de audio en tiempo real.
 
-- **Crear un Filtro:** Asegúrate de tener al menos un canal seleccionado arriba (IN o OUT). Luego, haz **Doble Clic** en cualquier parte vacía de la gráfica negra. El filtro (tipo *Peaking* por defecto) se creará en las coordenadas de frecuencia y ganancia correspondientes.
-- **Manipular Filtros:** Haz **Clic y arrastra** el punto creado para moverlo sobre el espectro de frecuencias.
-- **Ancho de banda (Factor Q):** Selecciona un filtro y usa la **Rueda del Ratón (Scroll)** hacia arriba o abajo para hacer que la curva del ecualizador sea más estrecha o más amplia.
-- **Borrar Filtros:** Haz un **Clic Derecho** sobre el punto de ecualización que desees eliminar.
+=== VÚMETROS, FADERS Y COMPRESORES ===
 
-## 3. Pestaña Crossovers
+Clic Derecho en el Nombre del Canal: Renombra el canal (IN o OUT).
 
-Esta pestaña se enfoca en dividir frecuencias para enviar bajos a subwoofers y altos a tweeters. Funciona de forma similar al ecualizador.
-- **Creación:** Haz doble clic sobre el lienzo (asegúrate de tener un canal OUT seleccionado). 
-- **Control:** Arrastra el punto para deslizar el corte de frecuencia de cruce.
-- **Curva / Orden:** Selecciona el punto y usa la **Rueda del Ratón** para aumentar o disminuir la dureza (orden) del corte (ej. subir hasta 4to Orden / 24dB por octava). En la tabla inferior puedes alternar entre tipologías como Butterworth o Linkwitz-Riley.
-- **Borrar:** Clic derecho sobre el punto del crossover.
+Clic Izquierdo en el Nombre del Canal (Salidas): Mutea (se pone Rojo) o Desmutea (se pone Verde) el canal de salida completo.
+
+Clic Izquierdo Sostenido (Fader): Ajusta el volumen maestro de esa salida (Gain) desde -50 dB hasta +10 dB sin saltos.
+
+Clic Derecho (Fader o cuadro de Delay): Resetea instantáneamente el valor a 0.0.
+
+Botón +/-: Invierte la polaridad (fase) de la salida correspondiente.
+
+Doble Clic Izquierdo (Barra del Vúmetro): CREA un compresor/limitador dinámico en ese canal, ajustando el Threshold (Umbral) exactamente en los dB donde hiciste el clic.
+
+Clic Derecho (Barra del Vúmetro): BORRA de forma definitiva y quirúrgica el compresor de ese canal.
+
+Botón AUTO (Tabla de Compresores): Escucha y muestrea el audio real del canal durante 5 segundos, y configura automáticamente el Attack, Release y Makeup Gain en base al factor de cresta detectado (Loudness Matching).
+
+Botón X (Tablas): Borra permanentemente el elemento de esa fila (Filtro, Crossover o Compresor).
+
+=== BOTONES DE GESTIÓN ===
+
+BYPASS EQ (SEL.): Apaga/Enciende temporalmente sólo los filtros de ecualización de los canales seleccionados. Se vuelve ROJO brillante al activarse. Crossovers, delays y volúmenes siguen intactos.
+
+Importar / Exportar Filtros: Carga o guarda únicamente tus ecualizaciones (Compatible con los .txt exportados desde Room EQ Wizard - REW).
+
+Importar / Exportar Config: Hace un backup o restaura una copia COMPLETA del estado del equipo (Matriz, Volúmenes, Nombres, EQ, Crossovers, Compresores y Delays) en archivos .yml o .json.
+
+Config Default: Formatea todo el hardware y lo devuelve a un estado inicial plano y limpio (reset de fábrica).
