@@ -63,15 +63,8 @@ El instalador detectará automáticamente tu sistema operativo y arquitectura, d
 
 ## Después de instalar
 
-### Iniciar servicios
+El instalador inicia automáticamente los servicios al finalizar. Para acceder a la interfaz web:
 
-```bash
-~/camilladsp/scripts/start_all.sh
-```
-
-### Acceder a la interfaz web
-
-Abre tu navegador y accede a:
 ```
 http://localhost:5005
 ```
@@ -86,6 +79,12 @@ http://localhost:5005
 
 ```bash
 ~/camilladsp/scripts/stop_all.sh
+```
+
+### Iniciar servicios (si están detenidos)
+
+```bash
+~/camilladsp/scripts/start_all.sh
 ```
 
 ## Inicio automático (Linux con systemd)
