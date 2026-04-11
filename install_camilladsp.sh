@@ -543,25 +543,45 @@ create_default_engine_config() {
   esac
   cat > "$config_file" << EOF
 ---
-# Configuración básica de CamillaDSP
-# Documentación: https://github.com/HEnquist/camilladsp
+description: default
 
 devices:
-  samplerate: 48000
-  chunksize: 1024
+  adjust_period: null
   capture:
-    type: ${device_type}
     channels: 2
-    device: ${device_name}
+    device: 'null'
     format: null
+    labels: null
+    link_mute_control: null
+    link_volume_control: null
+    stop_on_inactive: null
+    type: ${device_type}
+  capture_samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: null
+  multithreaded: null
   playback:
-    type: ${device_type}
     channels: 2
-    device: ${device_name}
+    device: 'null'
     format: null
+    type: ${device_type}
+  queuelimit: null
+  rate_measure_interval: null
+  resampler: null
+  samplerate: 48000
+  silence_threshold: null
+  silence_timeout: null
+  stop_on_rate_change: null
+  target_level: null
+  volume_limit: null
+  volume_ramp_time: null
+  worker_threads: null
 
 filters: {}
+mixers: {}
 pipeline: []
+processors: {}
+title: default
 EOF
 }
 
