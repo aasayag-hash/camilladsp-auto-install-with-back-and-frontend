@@ -444,7 +444,7 @@ install_engine() {
   }
 
   log_info "Consultando GitHub para la última versión del engine..."
-  github_api_get "$CAMILLADSP_REPO" || return 1
+  github_api_get "$CAMILLADSP_REPO" || { log_error "GH_JSON: $GH_JSON"; return 1; }
 
   local tag version
   tag=$(json_get "$GH_JSON" "tag_name")
@@ -453,6 +453,7 @@ install_engine() {
 
   local assets_list
   assets_list=$(json_array_urls "$GH_JSON")
+  echo "[DEBUG] assets_list: $assets_list"
 
   find_engine_asset "$assets_list" || {
     log_error "No se encontró paquete para ${OS_NAME}/${ARCH}."
@@ -586,7 +587,7 @@ install_gui() {
   log_info "Python encontrado: ${python_exec} ($($python_exec --version 2>&1))"
 
   log_info "Consultando GitHub para la última versión de la GUI..."
-  github_api_get "$CAMILLAGUI_REPO" || return 1
+  github_api_get "$CAMILLAGUI_REPO" || { log_error "GH_JSON: $GH_JSON"; return 1; }
 
   local tag version
   tag=$(json_get "$GH_JSON" "tag_name")
@@ -597,6 +598,7 @@ install_gui() {
 
   local assets_list
   assets_list=$(json_array_urls "$GH_JSON")
+  echo "[DEBUG] GUI assets_list: $assets_list"
 
   local gui_dir="${INSTALL_BASE}/gui"
 
