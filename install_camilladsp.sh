@@ -11,7 +11,7 @@
 #    bash install_camilladsp.sh --dir /ruta  # directorio personalizado
 # ==============================================================
 
-set -euo pipefail
+set -eo pipefail
 
 SCRIPT_VERSION="1.0.0"
 
@@ -823,6 +823,22 @@ echo "Estado de CamillaDSP:"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 check_svc engine
 check_svc gui
+
+if command -v systemctl &>/dev/null; then
+  echo ""
+  echo "Servicios systemd:"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  if systemctl --user is-active camilladsp-engine &>/dev/null; then
+    echo "  [ON]  systemd: camilladsp-engine.service"
+  else
+    echo "  [OFF] systemd: camilladsp-engine.service"
+  fi
+  if systemctl --user is-active camilladsp-gui &>/dev/null; then
+    echo "  [ON]  systemd: camilladsp-gui.service"
+  else
+    echo "  [OFF] systemd: camilladsp-gui.service"
+  fi
+fi
 echo ""
 SCRIPT
 
@@ -856,8 +872,8 @@ create_systemd() {
   local engine_bin="${INSTALL_BASE}/engine/camilladsp"
   local config_file="${INSTALL_BASE}/config/camilladsp.yml"
   local gui_dir="${INSTALL_BASE}/gui"
+  local gui_bin="${gui_dir}/camillagui_backend"
   local logs_dir="${INSTALL_BASE}/logs"
-  local python_exec; command -v python3 &>/dev/null && python_exec="$(command -v python3)" || python_exec="$(command -v python)"
 
   cat > "${svc_dir}/camilladsp-engine.service" << EOF
 [Unit]
@@ -884,7 +900,7 @@ After=network.target camilladsp-engine.service
 [Service]
 Type=simple
 WorkingDirectory=${gui_dir}
-ExecStart=${python_exec} ${gui_dir}/main.py
+ExecStart=${gui_bin} --config ${gui_dir}/config/camillagui.yml
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:${logs_dir}/gui.log
@@ -911,8 +927,8 @@ create_launchd() {
   local engine_bin="${INSTALL_BASE}/engine/camilladsp"
   local config_file="${INSTALL_BASE}/config/camilladsp.yml"
   local gui_dir="${INSTALL_BASE}/gui"
+  local gui_bin="${gui_dir}/camillagui_backend"
   local logs_dir="${INSTALL_BASE}/logs"
-  local python_exec; command -v python3 &>/dev/null && python_exec="$(command -v python3)" || python_exec="$(command -v python)"
 
   cat > "${agents_dir}/com.camilladsp.engine.plist" << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -944,8 +960,9 @@ EOF
   <key>Label</key><string>com.camilladsp.gui</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${python_exec}</string>
-    <string>${gui_dir}/main.py</string>
+    <string>${gui_bin}</string>
+    <string>--config</string>
+    <string>${gui_dir}/config/camillagui.yml</string>
   </array>
   <key>WorkingDirectory</key><string>${gui_dir}</string>
   <key>RunAtLoad</key><false/>
