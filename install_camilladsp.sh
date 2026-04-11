@@ -453,10 +453,9 @@ install_engine() {
 
   local assets_list
   assets_list=$(json_array_urls "$GH_JSON")
-  echo "[DEBUG] assets_list: $assets_list"
 
+  FOUND_ASSET=""
   find_engine_asset "$assets_list" || {
-    log_error "FOUND_ASSET: $FOUND_ASSET"
     log_error "No se encontró paquete para ${OS_NAME}/${ARCH}."
     log_error "Descarga manual: https://github.com/HEnquist/camilladsp/releases"
     return 1
@@ -603,11 +602,11 @@ install_gui() {
 
   local assets_list
   assets_list=$(json_array_urls "$GH_JSON")
-  echo "[DEBUG] GUI assets_list: $assets_list"
 
   local gui_dir="${INSTALL_BASE}/gui"
   local asset_name asset_url use_zipball=0
 
+  FOUND_ASSET=""
   if find_gui_asset "$assets_list"; then
     asset_name="${FOUND_ASSET%%|*}"
     asset_url="${FOUND_ASSET##*|}"
