@@ -273,9 +273,23 @@ install_gui() {
     log_info "Extrayendo..."
     extract_archive "$archive" "$extract_dir"
 
+    local config_backup=""
+    if [ -f "${gui_dir}/config/camillagui.yml" ]; then
+      config_backup=$(mktemp)
+      cp "${gui_dir}/config/camillagui.yml" "$config_backup"
+    fi
+    
     [ -d "$gui_dir" ] && rm -rf "$gui_dir"
     cp -r "$extract_dir"/* "$gui_dir/"
     echo "$version" > "${gui_dir}/VERSION"
+    
+    if [ -n "$config_backup" ]; then
+      mkdir -p "${gui_dir}/config"
+      cp "$config_backup" "${gui_dir}/config/camillagui.yml"
+      rm -f "$config_backup"
+    else
+      create_gui_config
+    fi
 
     rm -rf "$tmpdir"
   else
@@ -306,18 +320,35 @@ GUI=/home/user/camilladsp/gui/camillagui_backend
 start_svc() {
   local name=$1; shift
   local pid_file=$PIDS/$name.pid
-  [ -f $pid_file ] && kill $(cat $pid_file) 2>/dev/null
-  sleep 1
-  [ -f $pid_file ] && kill -0 $(cat $pid_file) 2>/dev/null && kill -9 $(cat $pid_file) 2>/dev/null
-  setsid "$@" >> $LOGS/$name.log 2>&1 &
-  echo $! > $pid_file
-  sleep 1
-  echo "  [OK] $name iniciado (PID $!)"
+  
+  if [ -f $pid_file ]; then
+    local old_pid=$(cat $pid_file 2>/dev/null)
+    if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+      kill "$old_pid" 2>/dev/null
+      sleep 1
+    fi
+    if kill -0 "$old_pid" 2>/dev/null; then
+      kill -9 "$old_pid" 2>/dev/null
+    fi
+    rm -f $pid_file
+  fi
+  
+  > "$LOGS/$name.log"
+  setsid "$@" >> "$LOGS/$name.log" 2>&1 &
+  local new_pid=$!
+  echo $new_pid > $pid_file
+  sleep 2
+  
+  if kill -0 "$new_pid" 2>/dev/null; then
+    echo "  [OK] $name iniciado (PID $new_pid)"
+  else
+    echo "  [ERROR] $name no pudo iniciar"
+  fi
 }
 
 echo "Iniciando CamillaDSP..."
 start_svc engine $ENGINE $CONFIG -p 1234
-sleep 1
+sleep 2
 start_svc gui $GUI --config /home/user/camilladsp/gui/config/camillagui.yml
 echo ""
 echo "  Abre: http://localhost:5005"
@@ -378,6 +409,7 @@ EOF
 create_gui_config() {
   local cfg="${INSTALL_BASE}/gui/config/camillagui.yml"
   mkdir -p "${INSTALL_BASE}/gui/config"
+  mkdir -p "${INSTALL_BASE}/coeffs"
   cat > "$cfg" << EOF
 ---
 camilla_host: "localhost"
@@ -432,12 +464,24 @@ main() {
     exit 1
   fi
 
-  # Crear config y scripts solo si no es actualización
+  # Crear config y scripts
   if [ "$ARG_UPDATE" != "1" ]; then
     create_default_config
     create_gui_config
+  else
+    if [ ! -f "${INSTALL_BASE}/gui/config/camillagui.yml" ]; then
+      log_info "Creando configuración de GUI..."
+      create_gui_config
+    fi
   fi
   create_scripts
+
+  # Asegurar que existen los directorios necesarios
+  mkdir -p "${INSTALL_BASE}/config"
+  mkdir -p "${INSTALL_BASE}/coeffs"
+  mkdir -p "${INSTALL_BASE}/logs"
+  mkdir -p "${INSTALL_BASE}/pids"
+  mkdir -p "${INSTALL_BASE}/scripts"
 
   # Iniciar servicios
   if [ "$ARG_NO_SERVICE" != "1" ]; then
@@ -446,17 +490,23 @@ main() {
     sleep 3
   fi
 
+  local host_ip
+  host_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  
+  echo ""
   if [ "$ARG_UPDATE" = "1" ]; then
-    echo ""
     log_ok "Actualización completada"
   else
-    echo ""
     log_ok "Instalación completada"
-    echo ""
-    echo -e "  ${GREEN}Accede a:${RESET}"
-    echo -e "  ${CYAN}  → http://localhost:5005${RESET}"
-    echo ""
   fi
+  
+  echo ""
+  echo -e "  ${GREEN}Accede a:${RESET}"
+  echo -e "    ${CYAN}→ http://localhost:5005${RESET}"
+  if [ -n "$host_ip" ]; then
+    echo -e "    ${CYAN}→ http://${host_ip}:5005${RESET}"
+  fi
+  echo ""
 }
 
 main "$@"
