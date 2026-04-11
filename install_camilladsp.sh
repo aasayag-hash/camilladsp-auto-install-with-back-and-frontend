@@ -223,10 +223,12 @@ github_api_get() {
   fi
   
   if [ "$DOWNLOADER" = "curl" ]; then
+    echo "[DEBUG] Ejecutando curl..."
     GH_JSON=$(curl -s \
       -H "User-Agent: CamillaDSP-Installer/$SCRIPT_VERSION" \
       -H "Accept: application/vnd.github.v3+json" \
-      "$url") || { echo "[DEBUG] curl falló"; return 1; }
+      "$url") || { echo "[DEBUG] curl falló con código: $?"; return 1; }
+    echo "[DEBUG] curl返回值: ${GH_JSON:0:50}"
   else
     GH_JSON=$(wget -q -O- \
       --header="User-Agent: CamillaDSP-Installer/$SCRIPT_VERSION" \
