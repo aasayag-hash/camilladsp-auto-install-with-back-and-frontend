@@ -447,7 +447,8 @@ install_engine() {
   }
 
   log_info "Consultando GitHub para la última versión del engine..."
-  github_api_get "$CAMILLADSP_REPO" || return 1
+  github_api_get "$CAMILLADSP_REPO" || { echo "[DEBUG] github_api_get falló"; return 1; }
+  echo "[DEBUG] GH_JSON tiene datos: $(echo "$GH_JSON" | head -c 100)"
 
   local tag version
   tag=$(json_get "$GH_JSON" "tag_name")
@@ -456,6 +457,7 @@ install_engine() {
 
   local assets_list
   assets_list=$(json_array_urls "$GH_JSON")
+  echo "[DEBUG] assets_list: $assets_list"
 
   FOUND_ASSET=""
   find_engine_asset "$assets_list" || {
