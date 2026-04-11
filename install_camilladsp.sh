@@ -11,7 +11,7 @@
 #    bash install_camilladsp.sh --dir /ruta  # directorio personalizado
 # ==============================================================
 
-set -e
+#!/bin/bash
 
 SCRIPT_VERSION="1.0.0"
 
@@ -1517,12 +1517,16 @@ main() {
   ENGINE_OK=0
   GUI_OK=0
   
-  [ "$DO_ENGINE" = "1" ] && { install_engine && ENGINE_OK=1; }
-  [ "$DO_GUI"    = "1" ] && { install_gui    && GUI_OK=1; }
+  if [ "$DO_ENGINE" = "1" ]; then
+    install_engine && ENGINE_OK=1
+  fi
+  
+  if [ "$DO_GUI" = "1" ]; then
+    install_gui && GUI_OK=1
+  fi
 
-  if [ "$ENGINE_OK" = "0" ] && [ "$GUI_OK" = "0" ] && \
-     [ "$DO_ENGINE" = "1" ] && [ "$DO_GUI" = "1" ]; then
-    log_error "La instalación falló. Ningún componente se instaló."
+  if [ "$ENGINE_OK" = "0" ] && [ "$GUI_OK" = "0" ]; then
+    log_error "La instalación falló."
     exit 1
   fi
 
