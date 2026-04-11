@@ -301,6 +301,58 @@ install_gui() {
   return 0
 }
 
+# Liberar puertos y detener servicios conflictivos
+stop_conflicting_services() {
+  log_step "Liberando puertos..."
+
+  # Detener servicios systemd del sistema (instalaciones previas en /opt etc.)
+  for svc in camilladsp-backend camilladsp-engine camilladsp; do
+    if systemctl is-active --quiet "${svc}.service" 2>/dev/null; then
+      log_info "Deteniendo servicio del sistema: ${svc}..."
+      if sudo -n systemctl stop "${svc}.service" 2>/dev/null; then
+        sudo -n systemctl disable "${svc}.service" 2>/dev/null || true
+        log_ok "${svc} detenido"
+      else
+        # Sin sudo: matar el proceso directamente por PID
+        local main_pid
+        main_pid=$(systemctl show -p MainPID --value "${svc}.service" 2>/dev/null)
+        if [ -n "$main_pid" ] && [ "$main_pid" != "0" ]; then
+          kill "$main_pid" 2>/dev/null && log_ok "${svc} detenido (PID $main_pid)" || log_warn "No se pudo detener ${svc}"
+        fi
+      fi
+    fi
+  done
+
+  # Detener servicios systemd de usuario si están activos
+  for svc in camilladsp-backend camilladsp-engine; do
+    if systemctl --user is-active --quiet "${svc}.service" 2>/dev/null; then
+      log_info "Deteniendo servicio de usuario: ${svc}..."
+      systemctl --user stop "${svc}.service" 2>/dev/null || true
+    fi
+  done
+
+  # Matar cualquier proceso que ocupe el puerto de la GUI
+  local pid
+  pid=$(ss -tlnp 2>/dev/null | grep ":${GUI_HTTP_PORT} " | grep -oP 'pid=\K[0-9]+' | head -1)
+  if [ -n "$pid" ]; then
+    log_info "Liberando puerto ${GUI_HTTP_PORT} (PID $pid)..."
+    kill "$pid" 2>/dev/null
+    sleep 1
+    kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+    log_ok "Puerto ${GUI_HTTP_PORT} liberado"
+  fi
+
+  # Matar cualquier proceso que ocupe el puerto del engine
+  pid=$(ss -tlnp 2>/dev/null | grep ":${ENGINE_WS_PORT} " | grep -oP 'pid=\K[0-9]+' | head -1)
+  if [ -n "$pid" ]; then
+    log_info "Liberando puerto ${ENGINE_WS_PORT} (PID $pid)..."
+    kill "$pid" 2>/dev/null
+    sleep 1
+    kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true
+    log_ok "Puerto ${ENGINE_WS_PORT} liberado"
+  fi
+}
+
 # Scripts de control
 create_scripts() {
   log_step "Creando scripts"
@@ -482,6 +534,11 @@ main() {
   mkdir -p "${INSTALL_BASE}/logs"
   mkdir -p "${INSTALL_BASE}/pids"
   mkdir -p "${INSTALL_BASE}/scripts"
+
+  # Liberar puertos y detener servicios conflictivos antes de iniciar
+  if [ "$ARG_NO_SERVICE" != "1" ]; then
+    stop_conflicting_services
+  fi
 
   # Iniciar servicios
   if [ "$ARG_NO_SERVICE" != "1" ]; then

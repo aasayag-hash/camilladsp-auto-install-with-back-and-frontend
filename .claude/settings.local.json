@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(C:/Users/lenovo/AppData/Local/Programs/Python/Python311/python.exe -c ':*)",
+      "Read(//temp/readonly/**)",
+      "Read(//c/temp/readonly/**)",
+      "Read(//c/Users/lenovo/.ssh/**)",
+      "Bash(ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N \"\" -q)",
+      "Bash(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 user@192.168.1.163 \"echo 'SSH sin password OK && whoami'\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ls -la /home/user/camilladsp/\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ls -la /home/user/camilladsp/gui/ && echo '---' && ls -la /home/user/camilladsp/scripts/\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /home/user/camilladsp/scripts/start_all.sh\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /home/user/camilladsp/logs/gui.log\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ss -tlnp | grep 5005 && echo '---' && ps aux | grep -E 'camilla|gui' | grep -v grep\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"systemctl list-units --user | grep -i camilla; systemctl list-units | grep -i camilla; ls /etc/systemd/system/ | grep camilla; cat ~/.config/systemd/user/*.service 2>/dev/null || echo '[sin servicios usuario]'\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /etc/systemd/system/camilladsp-backend.service && echo '===' && cat /etc/systemd/system/camilladsp-engine.service\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh\")",
+      "Bash(scp -o StrictHostKeyChecking=no \"C:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.sh\" user@192.168.1.163:/home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh)",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"bash /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh 2>&1\")"
+    ]
+  }
+}

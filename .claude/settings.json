@@ -4,7 +4,28 @@
       "WebFetch(domain:api.github.com)",
       "Bash(python3 \"c:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.py\" --help)",
       "Bash(python \"c:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.py\" --help)",
-      "Bash(python \"c:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.py\" --check)"
+      "Bash(python \"c:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.py\" --check)",
+      "Bash(sshpass -p user ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 user@192.168.1.163 \"echo 'Conexión exitosa'; whoami; hostname; uname -a\")",
+      "Bash(sshpass -p user ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o PreferredAuthentications=password -o PubkeyAuthentication=no user@192.168.1.163 \"echo 'Conexión exitosa'; whoami; hostname\")",
+      "Bash(ping -n 3 192.168.1.163)",
+      "Bash(nmap -p 22 192.168.1.163)",
+      "Bash(nc -z -w5 192.168.1.163 22)",
+      "Bash(ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=10 user@192.168.1.163)",
+      "Bash(sshpass --version)",
+      "Bash(sshpass -p=user -k ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o PreferredAuthentications=password user@192.168.1.163 \"echo 'Conexión exitosa'; whoami; hostname; uname -a\")",
+      "Bash(sshpass -v -p=user ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 user@192.168.1.163 \"echo ok\")",
+      "Bash(SSHPASS=user sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o NumberOfPasswordPrompts=1 user@192.168.1.163 \"echo ok\")",
+      "Bash(sshpass -p=user -P=\"password\" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 user@192.168.1.163 \"echo ok\")",
+      "Bash(ssh -v -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o PasswordAuthentication=yes -o BatchMode=no user@192.168.1.163)",
+      "Bash(python3 -c \"import paramiko; print\\('paramiko disponible'\\)\")",
+      "Bash(python -c \"import paramiko; print\\('paramiko disponible'\\)\")",
+      "Bash(pip install:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(where python3:*)",
+      "Bash(where py:*)",
+      "Bash(where python:*)",
+      "Bash(C:/Python314/python.exe -c ':*)",
+      "Bash(C:/Users/lenovo/AppData/Local/Programs/Python/Python311/python.exe -c \"import paramiko; print\\('ok'\\)\")"
     ]
   }
 }
