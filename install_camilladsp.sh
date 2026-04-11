@@ -456,7 +456,9 @@ install_engine() {
   }
 
   log_info "Consultando GitHub para la última versión del engine..."
-  github_api_get "$CAMILLADSP_REPO" || return 1
+  echo "[DEBUG] Antes de github_api_get"
+  github_api_get "$CAMILLADSP_REPO" || { echo "[DEBUG] github_api_get falló"; return 1; }
+  echo "[DEBUG] Después de github_api_get"
 
   local tag version
   tag=$(json_get "$GH_JSON" "tag_name")
@@ -619,7 +621,9 @@ install_gui() {
   log_info "Python encontrado: ${python_exec} ($($python_exec --version 2>&1))"
 
   log_info "Consultando GitHub para la última versión de la GUI..."
-  github_api_get "$CAMILLAGUI_REPO" || return 1
+  echo "[DEBUG] Antes de github_api_get GUI"
+  github_api_get "$CAMILLAGUI_REPO" || { echo "[DEBUG] github_api_get GUI falló"; return 1; }
+  echo "[DEBUG] Después de github_api_get GUI"
 
   local tag version
   tag=$(json_get "$GH_JSON" "tag_name")
