@@ -1517,13 +1517,31 @@ main() {
   ENGINE_OK=0
   GUI_OK=0
   
+  echo "[DEBUG] DO_ENGINE=$DO_ENGINE DO_GUI=$DO_GUI"
+  
   if [ "$DO_ENGINE" = "1" ]; then
-    install_engine && ENGINE_OK=1
+    echo "[DEBUG] Intentando instalar engine..."
+    install_engine
+    if [ $? -eq 0 ]; then
+      ENGINE_OK=1
+      echo "[DEBUG] Engine instalado OK"
+    else
+      echo "[DEBUG] Engine falló"
+    fi
   fi
   
   if [ "$DO_GUI" = "1" ]; then
-    install_gui && GUI_OK=1
+    echo "[DEBUG] Intentando instalar GUI..."
+    install_gui
+    if [ $? -eq 0 ]; then
+      GUI_OK=1
+      echo "[DEBUG] GUI instalada OK"
+    else
+      echo "[DEBUG] GUI falló"
+    fi
   fi
+
+  echo "[DEBUG] ENGINE_OK=$ENGINE_OK GUI_OK=$GUI_OK"
 
   if [ "$ENGINE_OK" = "0" ] && [ "$GUI_OK" = "0" ]; then
     log_error "La instalación falló."
