@@ -203,18 +203,27 @@ github_api_get() {
   # Obtiene JSON de la API de GitHub y lo guarda en $GH_JSON
   local repo="$1"
   local url="https://api.github.com/repos/${repo}/releases/latest"
+  
+  echo "[DEBUG]DOWNLOADER=$DOWNLOADER"
+  
+  if [ -z "$DOWNLOADER" ]; then
+    echo "[DEBUG] No hay curl ni wget"
+    return 1
+  fi
+  
   if [ "$DOWNLOADER" = "curl" ]; then
     GH_JSON=$(curl -s \
       -H "User-Agent: CamillaDSP-Installer/$SCRIPT_VERSION" \
       -H "Accept: application/vnd.github.v3+json" \
-      "$url") || { log_error "Error al consultar GitHub API."; return 1; }
+      "$url") || { echo "[DEBUG] curl falló"; return 1; }
   else
     GH_JSON=$(wget -q -O- \
       --header="User-Agent: CamillaDSP-Installer/$SCRIPT_VERSION" \
       --header="Accept: application/vnd.github.v3+json" \
-      "$url") || { log_error "Error al consultar GitHub API."; return 1; }
+      "$url") || { echo "[DEBUG] wget falló"; return 1; }
   fi
-  [ -z "$GH_JSON" ] && { log_error "Respuesta vacía de GitHub API."; return 1; }
+  [ -z "$GH_JSON" ] && { echo "[DEBUG] GH_JSON vacío"; return 1; }
+  echo "[DEBUG] GH_JSON recibido: $(echo "$GH_JSON" | head -c 50)"
 }
 
 # Parser JSON — usa jq si está disponible, Python como fallback
