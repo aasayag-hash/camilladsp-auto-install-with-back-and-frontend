@@ -76,6 +76,17 @@ log_error() { echo -e "  ${RED}✖${RESET}  $*" >&2; }
 log_step()  { echo -e "\n${CYAN}${BOLD}▶  $*${RESET}"; }
 hr()        { echo -e "  ${CYAN}──────────────────────────────────────────────────────${RESET}"; }
 
+get_local_ip() {
+  local ip=""
+  if command -v hostname &>/dev/null; then
+    ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  fi
+  if [ -z "$ip" ] && command -v ip &>/dev/null; then
+    ip=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K[0-9.]+' | head -1)
+  fi
+  echo "$ip"
+}
+
 header() {
   echo -e ""
   echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════════════╗"
@@ -204,26 +215,18 @@ github_api_get() {
   local repo="$1"
   local url="https://api.github.com/repos/${repo}/releases/latest"
   
-  echo "[DEBUG]DOWNLOADER=$DOWNLOADER"
-  
-  if [ -z "$DOWNLOADER" ]; then
-    echo "[DEBUG] No hay curl ni wget"
-    return 1
-  fi
-  
   if [ "$DOWNLOADER" = "curl" ]; then
     GH_JSON=$(curl -s \
       -H "User-Agent: CamillaDSP-Installer/$SCRIPT_VERSION" \
       -H "Accept: application/vnd.github.v3+json" \
-      "$url") || { echo "[DEBUG] curl falló"; return 1; }
+      "$url") || { log_error "Error al consultar GitHub API."; return 1; }
   else
     GH_JSON=$(wget -q -O- \
       --header="User-Agent: CamillaDSP-Installer/$SCRIPT_VERSION" \
       --header="Accept: application/vnd.github.v3+json" \
-      "$url") || { echo "[DEBUG] wget falló"; return 1; }
+      "$url") || { log_error "Error al consultar GitHub API."; return 1; }
   fi
-  [ -z "$GH_JSON" ] && { echo "[DEBUG] GH_JSON vacío"; return 1; }
-  echo "[DEBUG] GH_JSON recibido: $(echo "$GH_JSON" | head -c 50)"
+  [ -z "$GH_JSON" ] && { log_error "Respuesta vacía de GitHub API."; return 1; }
 }
 
 # Parser JSON — usa jq si está disponible, Python como fallback
@@ -293,9 +296,6 @@ find_engine_asset() {
 
   local ext
   [ "$OS_NAME" = "windows" ] && ext=".zip" || ext=".tar.gz"
-
-  echo "[DEBUG] Buscando: camilladsp-${os_key}-${ARCH}${ext}"
-  echo "[DEBUG] assets_list: $assets_list"
 
   # Preferir el binario "plain" sin sufijo de audio backend
   # Patrón: camilladsp-{os}-{arch}.ext
@@ -456,8 +456,7 @@ install_engine() {
   }
 
   log_info "Consultando GitHub para la última versión del engine..."
-  github_api_get "$CAMILLADSP_REPO" || { echo "[DEBUG] github_api_get falló"; return 1; }
-  echo "[DEBUG] GH_JSON tiene datos: $(echo "$GH_JSON" | head -c 100)"
+  github_api_get "$CAMILLADSP_REPO" || return 1
 
   local tag version
   tag=$(json_get "$GH_JSON" "tag_name")
@@ -466,7 +465,6 @@ install_engine() {
 
   local assets_list
   assets_list=$(json_array_urls "$GH_JSON")
-  echo "[DEBUG] assets_list: $assets_list"
 
   FOUND_ASSET=""
   find_engine_asset "$assets_list" || {
@@ -1508,8 +1506,12 @@ main() {
     bash "${INSTALL_BASE}/scripts/start_all.sh"
     log_info "Esperando que los servicios inicien..."
     sleep 4
+    local local_ip
+    local_ip=$(get_local_ip)
     if is_port_open "$GUI_HTTP_PORT"; then
-      log_ok "GUI disponible  →  http://localhost:${GUI_HTTP_PORT}"
+      echo -e "  ${GREEN}✔${RESET}  GUI disponible"
+      echo -e "  ${CYAN}  →  http://localhost:${GUI_HTTP_PORT}${RESET}"
+      [ -n "$local_ip" ] && echo -e "  ${CYAN}  →  http://${local_ip}:${GUI_HTTP_PORT}${RESET}"
     else
       log_warn "La GUI aún no responde. Puede tardar unos segundos más."
       log_info "Intenta abrir: http://localhost:${GUI_HTTP_PORT}"
@@ -1523,8 +1525,16 @@ main() {
   echo ""
   hr
   echo -e "\n  ${GREEN}${BOLD}✔  Instalación completada${RESET}\n"
+  
+  local local_ip
+  local_ip=$(get_local_ip)
+  
   echo -e "  ${GREEN}Todo listo. Abre en tu navegador:${RESET}"
-  echo -e "\n  ${CYAN}  →  http://localhost:${GUI_HTTP_PORT}${RESET}\n"
+  echo -e "\n  ${CYAN}  →  http://localhost:${GUI_HTTP_PORT}${RESET}"
+  if [ -n "$local_ip" ]; then
+    echo -e "  ${CYAN}  →  http://${local_ip}:${GUI_HTTP_PORT}${RESET}"
+  fi
+  echo ""
   echo -e "  Directorio: ${BOLD}${INSTALL_BASE}${RESET}"
   echo -e "  Docs:       ${BOLD}$(pwd)/README_INSTALACION.md${RESET}"
   echo -e "  Detener:    ${INSTALL_BASE}/scripts/stop_all.sh"
