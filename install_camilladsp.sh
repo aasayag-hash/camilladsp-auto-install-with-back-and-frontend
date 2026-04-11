@@ -15,9 +15,6 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.0.0"
 
-# ── Variables globales ───────────────────────────────────────────
-FOUND_ASSET=""
-
 # ── Repositorios GitHub ───────────────────────────────────────
 CAMILLADSP_REPO="HEnquist/camilladsp"
 CAMILLAGUI_REPO="HEnquist/camillagui-backend"
@@ -288,6 +285,9 @@ find_engine_asset() {
   local ext
   [ "$OS_NAME" = "windows" ] && ext=".zip" || ext=".tar.gz"
 
+  echo "[DEBUG] Buscando: camilladsp-${os_key}-${ARCH}${ext}"
+  echo "[DEBUG] assets_list: $assets_list"
+
   # Preferir el binario "plain" sin sufijo de audio backend
   # Patrón: camilladsp-{os}-{arch}.ext
   while IFS= read -r line; do
@@ -459,10 +459,6 @@ install_engine() {
 
   FOUND_ASSET=""
   find_engine_asset "$assets_list" || {
-    log_error "No se encontró paquete para ${OS_NAME}/${ARCH}."
-    log_error "Descarga manual: https://github.com/HEnquist/camilladsp/releases"
-    return 1
-  }
     log_error "No se encontró paquete para ${OS_NAME}/${ARCH}."
     log_error "Descarga manual: https://github.com/HEnquist/camilladsp/releases"
     return 1
