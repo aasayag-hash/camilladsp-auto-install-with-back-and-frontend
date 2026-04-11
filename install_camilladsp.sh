@@ -353,14 +353,14 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: 'null'
+    device: default
     format: null
     type: Alsa
   capture_samplerate: 48000
   chunksize: 1024
   playback:
     channels: 2
-    device: 'null'
+    device: default
     format: null
     type: Alsa
   samplerate: 48000
@@ -368,6 +368,8 @@ filters: {}
 pipeline: []
 EOF
   log_ok "Configuración creada"
+
+  mkdir -p "${INSTALL_BASE}/coeffs"
 }
 
 create_gui_config() {
@@ -377,9 +379,20 @@ create_gui_config() {
 ---
 camilla_host: "localhost"
 camilla_port: ${ENGINE_WS_PORT}
+bind_address: "0.0.0.0"
 port: ${GUI_HTTP_PORT}
+ssl_certificate: null
+ssl_private_key: null
+gui_config_file: null
 config_dir: "${INSTALL_BASE}/config"
 coeff_dir: "${INSTALL_BASE}/coeffs"
+default_config: "${INSTALL_BASE}/config/camilladsp.yml"
+statefile_path: "${INSTALL_BASE}/statefile.yml"
+log_file: "${INSTALL_BASE}/logs/camilladsp.log"
+on_set_active_config: null
+on_get_active_config: null
+supported_capture_types: null
+supported_playback_types: null
 EOF
   log_ok "Config GUI creada"
 }
