@@ -1409,10 +1409,15 @@ main() {
   # ── Detectar instalaciones previas ───────────────────────
   DO_ENGINE=1
   DO_GUI=1
+  ENGINE_INSTALLED=0
+  GUI_INSTALLED=0
 
   if detect_engine_version; then
+    ENGINE_INSTALLED=1
     log_warn "Engine ya instalado: ${BOLD}v${INSTALLED_ENGINE_VER}${RESET}  (${INSTALLED_ENGINE_PATH})"
-    if [ "$ARG_UPDATE" = "0" ]; then
+    if [ "$ARG_UPDATE" = "1" ]; then
+      log_info "Modo --update: el engine se actualizará."
+    else
       ask_choice "¿Qué hacer con el engine?" \
         "a:Actualizar a la última versión" \
         "m:Mantener versión actual"        \
@@ -1421,9 +1426,29 @@ main() {
         m) DO_ENGINE=0; log_info "Engine: se mantiene la versión actual." ;;
         d) rm -rf "${INSTALL_BASE}/engine"; log_ok "Engine desinstalado."; DO_ENGINE=0 ;;
       esac
-    else
-      log_info "Modo --update: el engine se actualizará."
     fi
+  fi
+
+  if detect_gui_version; then
+    GUI_INSTALLED=1
+    log_warn "GUI ya instalada: ${BOLD}v${INSTALLED_GUI_VER}${RESET}  (${INSTALLED_GUI_PATH})"
+    if [ "$ARG_UPDATE" = "1" ]; then
+      log_info "Modo --update: la GUI se actualizará."
+    else
+      ask_choice "¿Qué hacer con la GUI?" \
+        "a:Actualizar a la última versión" \
+        "m:Mantener versión actual"        \
+        "d:Desinstalar solo la GUI"
+      case "$REPLY_CHOICE" in
+        m) DO_GUI=0; log_info "GUI: se mantiene la versión actual." ;;
+        d) rm -rf "${INSTALL_BASE}/gui"; log_ok "GUI desinstalada."; DO_GUI=0 ;;
+      esac
+    fi
+  fi
+
+  if [ "$ARG_UPDATE" = "1" ] && [ "$ENGINE_INSTALLED" = "0" ] && [ "$GUI_INSTALLED" = "0" ]; then
+    log_info "No se detectó instalación previa. Se realizará una instalación nueva."
+  fi
   fi
 
   if detect_gui_version; then
