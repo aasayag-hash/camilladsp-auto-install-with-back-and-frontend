@@ -486,6 +486,9 @@ EOF
 
 # Main
 main() {
+  # Capturar directorio del script antes de cualquier cambio de directorio
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
   header
   detect_system
   get_install_base
@@ -564,6 +567,13 @@ main() {
     echo -e "    ${CYAN}→ http://${host_ip}:5005${RESET}"
   fi
   echo ""
+
+  # Eliminar el directorio clonado del instalador
+  if [ -n "$SCRIPT_DIR" ] && [ "$SCRIPT_DIR" != "/" ] && [ "$SCRIPT_DIR" != "$HOME" ] && [ "$SCRIPT_DIR" != "$INSTALL_BASE" ]; then
+    log_step "Limpiando instalador..."
+    rm -rf "$SCRIPT_DIR"
+    log_ok "Directorio del instalador eliminado: $SCRIPT_DIR"
+  fi
 }
 
 main "$@"

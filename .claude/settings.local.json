@@ -17,7 +17,11 @@
       "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh\")",
       "Bash(scp -o StrictHostKeyChecking=no \"C:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.sh\" user@192.168.1.163:/home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh)",
       "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"bash /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh 2>&1\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"bash /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh --update 2>&1\")"
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"bash /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh --update 2>&1\")",
+      "Bash(scp -o StrictHostKeyChecking=no \"C:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.sh\" user@192.168.1.163:/home/user/install_camilladsp.sh)",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ls /home/user/camilladsp-EQ-comp-GUI/ 2>/dev/null && echo 'carpeta existe' || echo 'carpeta no existe'\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cp /home/user/install_camilladsp.sh /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh && bash /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh --update 2>&1\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ls /home/user/camilladsp-EQ-comp-GUI 2>/dev/null && echo 'EXISTE' || echo 'ELIMINADA correctamente'\")"
     ]
   }
 }
