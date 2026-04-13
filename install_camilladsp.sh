@@ -135,8 +135,15 @@ json_array_urls() {
   local json="$1"
   if command -v jq &>/dev/null; then
     echo "$json" | jq -r '.assets[] | "\(.name)|\(.browser_download_url)"'
+  elif command -v python3 &>/dev/null; then
+    echo "$json" | python3 -c "import sys,json; [print(a['name']+'|'+a['browser_download_url']) for a in json.load(sys.stdin).get('assets',[])]"
+  elif command -v python &>/dev/null; then
+    echo "$json" | python -c "import sys,json; [print(a['name']+'|'+a['browser_download_url']) for a in json.load(sys.stdin).get('assets',[])]"
   else
-    echo "$json" | grep -oP '"name":\s*"\K[^"]+' | paste - <(echo "$json" | grep -oP '"browser_download_url":\s*"\K[^"]+') -d '|'
+    echo "$json" | grep -oP '"browser_download_url":\s*"\K[^"]*' | while read -r url; do
+      name=$(basename "$url" | sed 's/?.*$//')
+      echo "${name}|${url}"
+    done
   fi
 }
 
