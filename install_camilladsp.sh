@@ -447,14 +447,14 @@ devices:
   adjust_period: null
   capture:
     channels: 2
-    device: default
+    device: "null"
     format: null
     type: Alsa
   capture_samplerate: 48000
   chunksize: 1024
   playback:
     channels: 2
-    device: default
+    device: "null"
     format: null
     type: Alsa
   samplerate: 48000

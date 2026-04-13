@@ -1,32 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(C:/Users/lenovo/AppData/Local/Programs/Python/Python311/python.exe -c ':*)",
-      "Read(//temp/readonly/**)",
-      "Read(//c/temp/readonly/**)",
-      "Read(//c/Users/lenovo/.ssh/**)",
-      "Bash(ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N \"\" -q)",
-      "Bash(ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 user@192.168.1.163 \"echo 'SSH sin password OK && whoami'\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ls -la /home/user/camilladsp/\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ls -la /home/user/camilladsp/gui/ && echo '---' && ls -la /home/user/camilladsp/scripts/\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /home/user/camilladsp/scripts/start_all.sh\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /home/user/camilladsp/logs/gui.log\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ss -tlnp | grep 5005 && echo '---' && ps aux | grep -E 'camilla|gui' | grep -v grep\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"systemctl list-units --user | grep -i camilla; systemctl list-units | grep -i camilla; ls /etc/systemd/system/ | grep camilla; cat ~/.config/systemd/user/*.service 2>/dev/null || echo '[sin servicios usuario]'\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /etc/systemd/system/camilladsp-backend.service && echo '===' && cat /etc/systemd/system/camilladsp-engine.service\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cat /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh\")",
-      "Bash(scp -o StrictHostKeyChecking=no \"C:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.sh\" user@192.168.1.163:/home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh)",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"bash /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh 2>&1\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"bash /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh --update 2>&1\")",
-      "Bash(scp -o StrictHostKeyChecking=no \"C:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.sh\" user@192.168.1.163:/home/user/install_camilladsp.sh)",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ls /home/user/camilladsp-EQ-comp-GUI/ 2>/dev/null && echo 'carpeta existe' || echo 'carpeta no existe'\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"cp /home/user/install_camilladsp.sh /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh && bash /home/user/camilladsp-EQ-comp-GUI/install_camilladsp.sh --update 2>&1\")",
-      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"ls /home/user/camilladsp-EQ-comp-GUI 2>/dev/null && echo 'EXISTE' || echo 'ELIMINADA correctamente'\")",
-      "Bash(ping -n 3 192.168.1.127)",
-      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 ':*)",
-      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/camilladsp-auto-install-with-back-and-frontend/install_camilladsp.sh 2>&1\")",
       "Bash(scp -o StrictHostKeyChecking=no \"C:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.sh\" root@192.168.1.127:/root/install_camilladsp.sh)",
-      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/install_camilladsp.sh 2>&1\")"
-    ]
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/install_camilladsp.sh 2>&1\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"cat /root/camilladsp/logs/engine.log\")",
+      "Bash(ssh -o StrictHostKeyChecking=no user@192.168.1.163 \"bash /home/user/camilladsp/scripts/status.sh && echo '---' && ss -tlnp | grep -E '5005|1234'\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/camilladsp/scripts/status.sh && echo '---' && ss -tlnp | grep -E '5005|1234'\")",
+      "Bash(C:/Users/lenovo/AppData/Local/Programs/Python/Python311/python.exe -c ':*)",
+      "Bash(ping -n 3 192.168.1.163)",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/camilladsp/scripts/stop_all.sh && sleep 1 && bash /root/camilladsp/scripts/start_all.sh\")"
+    ],
+    "defaultMode": "dontAsk"
   }
 }
