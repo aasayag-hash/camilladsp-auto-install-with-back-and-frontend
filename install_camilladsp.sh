@@ -407,7 +407,7 @@ start_svc() {
 }
 
 echo "Iniciando CamillaDSP..."
-start_svc engine \$ENGINE \$CONFIG -p 1234
+start_svc engine \$ENGINE \$CONFIG -p 1234 -a 0.0.0.0
 sleep 2
 start_svc gui \$GUI --config ${INSTALL_BASE}/gui/config/camillagui.yml
 echo ""

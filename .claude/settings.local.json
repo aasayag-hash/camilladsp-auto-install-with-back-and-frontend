@@ -8,7 +8,13 @@
       "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/camilladsp/scripts/status.sh && echo '---' && ss -tlnp | grep -E '5005|1234'\")",
       "Bash(C:/Users/lenovo/AppData/Local/Programs/Python/Python311/python.exe -c ':*)",
       "Bash(ping -n 3 192.168.1.163)",
-      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/camilladsp/scripts/stop_all.sh && sleep 1 && bash /root/camilladsp/scripts/start_all.sh\")"
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/camilladsp/scripts/stop_all.sh && sleep 1 && bash /root/camilladsp/scripts/start_all.sh\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 ':*)",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"ss -tlnp | grep 1234\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"cat /root/camilladsp/config/camilladsp.yml\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"cat /root/camilladsp/scripts/start_all.sh\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"/root/camilladsp/engine/camilladsp --help 2>&1 | head -40\")",
+      "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"kill \\\\$\\(cat /root/camilladsp/pids/engine.pid 2>/dev/null\\) 2>/dev/null; sleep 1; setsid /root/camilladsp/engine/camilladsp /root/camilladsp/config/camilladsp.yml -p 1234 -a 0.0.0.0 >> /root/camilladsp/logs/engine.log 2>&1 & echo \\\\$! > /root/camilladsp/pids/engine.pid; sleep 2; ss -tlnp | grep 1234\")"
     ],
     "defaultMode": "dontAsk"
   }
