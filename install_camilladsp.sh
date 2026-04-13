@@ -361,66 +361,67 @@ create_scripts() {
   local pids_dir="${INSTALL_BASE}/pids"
   mkdir -p "$scripts_dir" "$logs_dir" "$pids_dir"
 
-  cat > "${scripts_dir}/start_all.sh" << 'SCRIPT'
+  cat > "${scripts_dir}/start_all.sh" << SCRIPT
 #!/bin/bash
-PIDS=/home/user/camilladsp/pids
-LOGS=/home/user/camilladsp/logs
-ENGINE=/home/user/camilladsp/engine/camilladsp
-CONFIG=/home/user/camilladsp/config/camilladsp.yml
-GUI=/home/user/camilladsp/gui/camillagui_backend
+PIDS=${INSTALL_BASE}/pids
+LOGS=${INSTALL_BASE}/logs
+ENGINE=${INSTALL_BASE}/engine/camilladsp
+CONFIG=${INSTALL_BASE}/config/camilladsp.yml
+GUI=${INSTALL_BASE}/gui/camillagui_backend
 
 start_svc() {
-  local name=$1; shift
-  local pid_file=$PIDS/$name.pid
-  
-  if [ -f $pid_file ]; then
-    local old_pid=$(cat $pid_file 2>/dev/null)
-    if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
-      kill "$old_pid" 2>/dev/null
+  local name=\$1; shift
+  local pid_file=\$PIDS/\$name.pid
+
+  if [ -f \$pid_file ]; then
+    local old_pid=\$(cat \$pid_file 2>/dev/null)
+    if [ -n "\$old_pid" ] && kill -0 "\$old_pid" 2>/dev/null; then
+      kill "\$old_pid" 2>/dev/null
       sleep 1
     fi
-    if kill -0 "$old_pid" 2>/dev/null; then
-      kill -9 "$old_pid" 2>/dev/null
+    if kill -0 "\$old_pid" 2>/dev/null; then
+      kill -9 "\$old_pid" 2>/dev/null
     fi
-    rm -f $pid_file
+    rm -f \$pid_file
   fi
-  
-  > "$LOGS/$name.log"
-  setsid "$@" >> "$LOGS/$name.log" 2>&1 &
-  local new_pid=$!
-  echo $new_pid > $pid_file
+
+  mkdir -p "\$LOGS" "\$PIDS"
+  > "\$LOGS/\$name.log"
+  setsid "\$@" >> "\$LOGS/\$name.log" 2>&1 &
+  local new_pid=\$!
+  echo \$new_pid > \$pid_file
   sleep 2
-  
-  if kill -0 "$new_pid" 2>/dev/null; then
-    echo "  [OK] $name iniciado (PID $new_pid)"
+
+  if kill -0 "\$new_pid" 2>/dev/null; then
+    echo "  [OK] \$name iniciado (PID \$new_pid)"
   else
-    echo "  [ERROR] $name no pudo iniciar"
+    echo "  [ERROR] \$name no pudo iniciar"
   fi
 }
 
 echo "Iniciando CamillaDSP..."
-start_svc engine $ENGINE $CONFIG -p 1234
+start_svc engine \$ENGINE \$CONFIG -p 1234
 sleep 2
-start_svc gui $GUI --config /home/user/camilladsp/gui/config/camillagui.yml
+start_svc gui \$GUI --config ${INSTALL_BASE}/gui/config/camillagui.yml
 echo ""
 echo "  Abre: http://localhost:5005"
 SCRIPT
 
-  cat > "${scripts_dir}/stop_all.sh" << 'SCRIPT'
+  cat > "${scripts_dir}/stop_all.sh" << SCRIPT
 #!/bin/bash
-PIDS=/home/user/camilladsp/pids
+PIDS=${INSTALL_BASE}/pids
 for svc in gui engine; do
-  [ -f $PIDS/$svc.pid ] && kill $(cat $PIDS/$svc.pid) 2>/dev/null
+  [ -f \$PIDS/\$svc.pid ] && kill \$(cat \$PIDS/\$svc.pid) 2>/dev/null
 done
 echo "Detenido"
 SCRIPT
 
-  cat > "${scripts_dir}/status.sh" << 'SCRIPT'
+  cat > "${scripts_dir}/status.sh" << SCRIPT
 #!/bin/bash
-PIDS=/home/user/camilladsp/pids
+PIDS=${INSTALL_BASE}/pids
 echo "Estado:"
 for svc in engine gui; do
-  [ -f $PIDS/$svc.pid ] && kill -0 $(cat $PIDS/$svc.pid) 2>/dev/null && echo "  [ON] $svc" || echo "  [OFF] $svc"
+  [ -f \$PIDS/\$svc.pid ] && kill -0 \$(cat \$PIDS/\$svc.pid) 2>/dev/null && echo "  [ON] \$svc" || echo "  [OFF] \$svc"
 done
 SCRIPT
 
