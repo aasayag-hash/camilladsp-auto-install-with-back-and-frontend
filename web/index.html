@@ -43,9 +43,15 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 #vu-top{display:flex;align-items:center;gap:8px;padding:4px 8px;flex-shrink:0;border-bottom:1px solid #222}
 .view-btn{height:24px;padding:0 12px;border:1px solid #444;border-radius:3px;background:#222;color:#ccc;cursor:pointer;font-weight:bold;font-size:11px}
 .view-btn.active{background:#007bff;color:#fff;border-color:#0ff}
-#vu-scroll{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-end;padding:8px;gap:4px;background:#050505}
-#vu-scroll::-webkit-scrollbar{height:8px}.#vu-scroll::-webkit-scrollbar-thumb{background:#444}
-#comp-area{flex-shrink:0;max-height:160px;overflow-y:auto;padding:0 4px 4px}
+#vu-meters-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-end;padding:4px 8px;gap:2px;background:#050505;flex-shrink:0;height:190px}
+#vu-meters-row::-webkit-scrollbar{height:6px}#vu-meters-row::-webkit-scrollbar-thumb{background:#444}
+#vu-faders-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-start;padding:4px 8px;gap:6px;background:#080808;border-top:1px solid #222;flex-shrink:0;height:150px}
+#vu-faders-row::-webkit-scrollbar{height:6px}#vu-faders-row::-webkit-scrollbar-thumb{background:#444}
+#comp-area{flex:1;min-height:50px;overflow-y:auto;padding:0 4px 4px}
+.fader-area{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
+.fader-name{font-size:9px;color:#aaa;text-align:center;white-space:nowrap;overflow:hidden;max-width:70px}
+.fader-ctrl-row{display:flex;gap:2px}
+.fader-dly-row{display:flex;align-items:center;gap:2px}
 
 /* Compressor table */
 .comp-table{width:100%;border-collapse:collapse;font-size:11px}
@@ -136,7 +142,8 @@ table.ftable tr:hover td{background:#1a1a1a}
       <div style="flex:1"></div>
       <span style="font-size:10px;color:#0f0" id="master-db-lbl">VOL: 0.0 dB</span>
     </div>
-    <div id="vu-scroll"></div>
+    <div id="vu-meters-row"></div>
+    <div id="vu-faders-row"></div>
     <div id="comp-area">
       <table class="comp-table" id="comp-table">
         <thead><tr><th>ID</th><th>Attack(s)</th><th>Release(s)</th><th>Threshold(dB)</th><th>Ratio</th><th>Makeup(dB)</th><th>ClipLim</th><th>Auto</th><th></th></tr></thead>
@@ -351,7 +358,7 @@ async function init(){
   buildEQTable(); buildCrossTable(); buildCompTable();
   // Start level polling
   if(levelTimer) clearInterval(levelTimer);
-  levelTimer = setInterval(fetchLevels, 100);
+  levelTimer = setInterval(fetchLevels, 50);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -487,44 +494,82 @@ const faderWidgets={}; // {chIdx: {canvas,ctx,db,dragging}}
 const masterFader={canvas:null,ctx:null,db:0,dragging:false};
 
 function buildVU(){
-  const scroll=document.getElementById('vu-scroll');
-  scroll.innerHTML='';
-  // Master fader
-  const ms=makeFaderStrip('MASTER',-1,0,'master');
-  scroll.appendChild(ms.el);
-  // Separator
-  const sep=document.createElement('div'); sep.className='vu-sep'; sep.id='vu-sep-main'; scroll.appendChild(sep);
-  // Inputs
+  const vuRow=document.getElementById('vu-meters-row');
+  const faderRow=document.getElementById('vu-faders-row');
+  vuRow.innerHTML=''; faderRow.innerHTML='';
+
+  // ── VU METERS ROW: entradas | separador | salidas ──
   inLabels.forEach((n,i)=>{
-    const strip=makeVUStrip(n,i,false);
-    strip.el.id=`vu-in-${i}`; scroll.appendChild(strip.el);
-    vuWidgets[`in_${i}`]=strip;
+    const w=makeInVU(n,i);
+    w.el.id=`vu-in-${i}`; vuRow.appendChild(w.el); vuWidgets[`in_${i}`]=w;
   });
-  // Separator in/out
   if(inLabels.length&&outLabels.length){
-    const sep2=document.createElement('div'); sep2.className='vu-sep'; sep2.id='vu-sep-io'; scroll.appendChild(sep2);
+    const sep=document.createElement('div');
+    sep.id='vu-sep-io';
+    sep.style.cssText='width:2px;background:#444;margin:0 3px;height:160px;align-self:center;flex-shrink:0';
+    vuRow.appendChild(sep);
   }
-  // Outputs
   outLabels.forEach((n,i)=>{
-    const strip=makeOutStrip(n,i);
-    strip.el.id=`vu-out-${i}`; scroll.appendChild(strip.el);
-    vuWidgets[`out_${i}`]=strip;
+    const w=makeOutVU(n,i);
+    w.el.id=`vu-out-${i}`; vuRow.appendChild(w.el); vuWidgets[`out_${i}`]=w;
   });
+
+  // ── FADERS ROW: master | separador | canales salida ──
+  const ms=makeFaderStrip('MASTER',-1,levels.volume||0,'master');
+  faderRow.appendChild(ms.el);
+  if(outLabels.length){
+    const sep=document.createElement('div');
+    sep.style.cssText='width:1px;background:#333;margin:0 4px;align-self:stretch;flex-shrink:0';
+    faderRow.appendChild(sep);
+  }
+  outLabels.forEach((n,i)=>{
+    const vuW=vuWidgets[`out_${i}`];
+    const fa=makeOutFaderArea(n,i,vuW);
+    fa.id=`fader-out-${i}`; faderRow.appendChild(fa);
+  });
+
   filterVU();
   buildCompTable();
 }
 
-function makeVUStrip(name,chIdx,isOut){
+// Tira VU solo entrada
+function makeInVU(name,chIdx){
   const el=document.createElement('div'); el.className='strip';
-  const cv=document.createElement('canvas'); cv.width=52; cv.height=200;
+  const cv=document.createElement('canvas'); cv.width=54; cv.height=180;
   const ctx=cv.getContext('2d');
-  const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut,compTh:null,compRatio:1,compMakeup:0,grLevel:0,el};
+  const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:false,compTh:null,compRatio:1,compMakeup:0,grLevel:0,el};
   el.appendChild(cv);
-  // Name label
   const lbl=document.createElement('div'); lbl.className='sname'; lbl.textContent=name; el.appendChild(lbl);
   drawVU(w); return w;
 }
-function makeOutStrip(name,chIdx){
+// Tira VU solo salida (sin fader ni controles)
+function makeOutVU(name,chIdx){
+  let compTh=null,compRatio=1,compMakeup=0;
+  for(const [pid,pd] of Object.entries(config.processors||{})){
+    if(pd.type==='Compressor'&&pd.parameters?.process_channels?.[0]===chIdx){
+      compTh=pd.parameters.threshold; compRatio=pd.parameters.factor||1; compMakeup=pd.parameters.makeup_gain||0; break;
+    }
+  }
+  const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+  const m=mixName&&config.mixers?.[mixName];
+  const mapping=m?.mapping?.find(mp=>mp.dest===chIdx);
+  const initMute=(mapping?.mute)||false;
+
+  const el=document.createElement('div'); el.className='strip';
+  const cv=document.createElement('canvas'); cv.width=54; cv.height=180;
+  const ctx=cv.getContext('2d');
+  const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:true,compTh,compRatio,compMakeup,grLevel:0,isMuted:initMute,el};
+  cv.addEventListener('dblclick',e=>{
+    const bh=cv.height-22; const y=e.offsetY;
+    if(y<=bh){ const db=Math.max(-80,Math.min(0,-80*(y/bh))); createCompressor(name,chIdx,db,w); }
+  });
+  cv.addEventListener('contextmenu',e=>{e.preventDefault(); deleteCompressorByChannel(chIdx);});
+  el.appendChild(cv);
+  const lbl=document.createElement('div'); lbl.className='sname'; lbl.style.color='#0f0'; lbl.textContent=name; el.appendChild(lbl);
+  drawVU(w); return w;
+}
+// Area de fader + controles para canal de salida
+function makeOutFaderArea(name,chIdx,vuW){
   const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
   const m=mixName&&config.mixers?.[mixName];
   const mapping=m?.mapping?.find(mp=>mp.dest===chIdx);
@@ -532,44 +577,26 @@ function makeOutStrip(name,chIdx){
   const initInv=(mapping?.sources?.[0]?.inverted)||false;
   const initMute=(mapping?.mute)||false;
 
-  // Get compressor info
-  let compTh=null,compRatio=1,compMakeup=0;
-  for(const [pid,pd] of Object.entries(config.processors||{})){
-    if(pd.type==='Compressor'&&pd.parameters?.process_channels?.[0]===chIdx){
-      compTh=pd.parameters.threshold; compRatio=pd.parameters.factor||1; compMakeup=pd.parameters.makeup_gain||0; break;
-    }
-  }
+  const area=document.createElement('div'); area.className='fader-area';
+  const nameDiv=document.createElement('div'); nameDiv.className='fader-name'; nameDiv.textContent=name.substring(0,8); area.appendChild(nameDiv);
 
-  const el=document.createElement('div'); el.className='strip';
-  const cv=document.createElement('canvas'); cv.width=52; cv.height=200;
-  const ctx=cv.getContext('2d');
-  const vuW={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:true,compTh,compRatio,compMakeup,grLevel:0,isMuted:initMute,el};
-  // Double click on canvas = create compressor at threshold
-  cv.addEventListener('dblclick',e=>{
-    const bh=cv.height-45; const y=e.offsetY;
-    if(y<=bh){ const db=Math.max(-80,Math.min(0,-80*(y/bh))); createCompressor(name,chIdx,db,vuW); }
-  });
-  cv.addEventListener('contextmenu',e=>{e.preventDefault(); deleteCompressorByChannel(chIdx);});
-  el.appendChild(cv);
+  const fs=makeFaderStrip(name,chIdx,initDb,'out');
+  area.appendChild(fs.el);
 
-  // Mute button
+  // Mute + polarity
+  const ctrlRow=document.createElement('div'); ctrlRow.className='fader-ctrl-row';
   const muteBtn=document.createElement('button');
-  muteBtn.className='mute-btn'+(initMute?' muted':''); muteBtn.textContent=initMute?'MUTED':'active';
+  muteBtn.className='mute-btn'+(initMute?' muted':''); muteBtn.textContent=initMute?'MUTE':'ACTV';
   muteBtn.onclick=()=>{ vuW.isMuted=!vuW.isMuted; applyMute(chIdx,vuW.isMuted,muteBtn); };
-  el.appendChild(muteBtn); vuW.muteBtn=muteBtn;
-
-  // Fader
-  const faderEl=makeFaderStrip(name,chIdx,initDb,'out');
-  el.appendChild(faderEl.el);
-
-  // Polarity
+  ctrlRow.appendChild(muteBtn); vuW.muteBtn=muteBtn;
   const polBtn=document.createElement('button');
   polBtn.className='pol-btn'+(initInv?' inv':''); polBtn.textContent='+/-';
   polBtn.onclick=()=>{ polBtn.classList.toggle('inv'); togglePolarity(chIdx,polBtn.classList.contains('inv')); };
-  el.appendChild(polBtn);
+  ctrlRow.appendChild(polBtn); area.appendChild(ctrlRow);
 
   // Delay
-  const dlyLbl=document.createElement('div'); dlyLbl.className='dly-lbl'; dlyLbl.textContent='DLY(ms)'; el.appendChild(dlyLbl);
+  const dlyRow=document.createElement('div'); dlyRow.className='fader-dly-row';
+  const dlyLbl=document.createElement('div'); dlyLbl.className='dly-lbl'; dlyLbl.textContent='ms';
   const dlyFname=`Delay_${cleanName(name)}`;
   let initDelay=0;
   const mixerIdx=(config.pipeline||[]).findIndex(s=>s.type==='Mixer');
@@ -584,56 +611,95 @@ function makeOutStrip(name,chIdx){
   const dlyInp=document.createElement('input'); dlyInp.className='dly-inp'; dlyInp.type='text'; dlyInp.value=initDelay.toFixed(1);
   dlyInp.addEventListener('change',()=>changeDelay(chIdx,dlyFname,dlyInp.value));
   dlyInp.addEventListener('contextmenu',e=>{e.preventDefault();dlyInp.value='0.0';changeDelay(chIdx,dlyFname,'0.0');});
-  el.appendChild(dlyInp);
-
-  drawVU(vuW); return vuW;
+  dlyRow.appendChild(dlyLbl); dlyRow.appendChild(dlyInp); area.appendChild(dlyRow);
+  return area;
 }
 
 function makeFaderStrip(name,chIdx,initDb,mode){
-  const cv=document.createElement('canvas'); cv.width=46; cv.height=120;
+  // Canvas: pista centrada, escala dB a la derecha
+  const cv=document.createElement('canvas'); cv.width=68; cv.height=110;
   const ctx=cv.getContext('2d');
-  const w={canvas:cv,ctx,db:initDb,dragging:false,name,chIdx,mode};
-  const wrap=document.createElement('div');
+  const w={canvas:cv,ctx,db:Math.max(-60,Math.min(10,initDb)),dragging:false,name,chIdx,mode};
+  const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center';
 
   if(mode==='master'){
-    masterFader.canvas=cv; masterFader.ctx=ctx; masterFader.db=initDb;
+    masterFader.canvas=cv; masterFader.ctx=ctx; masterFader.db=w.db;
   } else {
     faderWidgets[chIdx]=w;
   }
+  // Rango: -60 a +10 dB
   function dbToY(db,h){
-    db=Math.max(-30,Math.min(10,db));
+    db=Math.max(-60,Math.min(10,db));
+    // Parte superior 20% = 0 a +10 dB, resto = -60 a 0 dB
     if(db>=0) return (10-db)/10*(0.2*h);
-    return 0.2*h+(-db/30)*(0.8*h);
+    return 0.2*h+(Math.abs(db)/60)*(0.8*h);
   }
   function yToDb(y,h){
+    y=Math.max(0,Math.min(h,y));
     if(y<=0.2*h) return 10-(y/(0.2*h))*10;
-    return -((y-0.2*h)/(0.8*h))*30;
+    return -((y-0.2*h)/(0.8*h))*60;
   }
   function draw(){
-    const {width:W,height:H}=cv; ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
-    const tx=W/2-2;
-    ctx.fillStyle='#141414'; ctx.fillRect(tx,0,4,H);
-    ctx.strokeStyle='#444'; ctx.lineWidth=1;
-    for(const db of [10,0,-10,-20,-30]){
-      const y=dbToY(db,H);
-      ctx.strokeStyle=db===0?'#f00':'#444'; ctx.beginPath(); ctx.moveTo(tx-5,y); ctx.lineTo(tx+9,y); ctx.stroke();
+    const W=cv.width, H=cv.height;
+    ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
+    const tx=14; // X del centro de la pista
+    const tw=6;  // ancho pista
+    // Pista
+    ctx.fillStyle='#1a1a1a'; ctx.fillRect(tx-tw/2,2,tw,H-14);
+    // Referencias dB con ticks y labels a la derecha
+    const refs=mode==='master'?[10,6,3,0,-6,-12,-20,-40,-60]:[10,0,-10,-20,-40,-60];
+    for(const db of refs){
+      if(db<-60||db>10) continue;
+      const y=dbToY(db,H-14)+0; // offset top
+      const isZero=db===0;
+      ctx.strokeStyle=isZero?'#f66':'#333';
+      ctx.lineWidth=isZero?1.5:1;
+      ctx.beginPath(); ctx.moveTo(tx+tw/2,y); ctx.lineTo(tx+tw/2+6,y); ctx.stroke();
+      ctx.fillStyle=isZero?'#f88':'#666';
+      ctx.font=isZero?'bold 7px Arial':'6px Arial'; ctx.textAlign='left';
+      const lbl=db>0?'+'+db:String(db);
+      ctx.fillText(lbl, tx+tw/2+8, y+2.5);
     }
-    const fy=dbToY(w.db,H);
-    ctx.fillStyle=w.dragging?'#0096ff':'#888'; ctx.beginPath(); ctx.roundRect(tx-10,fy-5,24,10,3); ctx.fill();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(tx-8,fy); ctx.lineTo(tx+8,fy); ctx.stroke();
-    ctx.fillStyle='#0ff'; ctx.font='8px Arial'; ctx.textAlign='center'; ctx.fillText(w.db.toFixed(1),W/2,H-2);
+    // Knob
+    const fy=dbToY(w.db,H-14);
+    const knobColor=w.dragging?(mode==='master'?'#ff9900':'#0096ff'):(mode==='master'?'#cc7700':'#666');
+    ctx.fillStyle=knobColor;
+    ctx.beginPath(); ctx.roundRect(tx-tw/2-5,fy-5,tw+10,10,3); ctx.fill();
+    ctx.strokeStyle='#ddd'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(tx-tw/2-3,fy); ctx.lineTo(tx+tw/2+3,fy); ctx.stroke();
+    // Valor dB abajo - grande y visible cuando arrastrando
+    if(w.dragging){
+      const valStr=(w.db>=0?'+':'')+w.db.toFixed(1)+' dB';
+      ctx.font='bold 9px Arial'; ctx.textAlign='left';
+      const tw2=ctx.measureText(valStr).width;
+      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,H-13,tw2+4,12);
+      ctx.fillStyle='#ff0'; ctx.fillText(valStr,2,H-3);
+    } else {
+      ctx.fillStyle='#0ff'; ctx.font='7px Arial'; ctx.textAlign='left';
+      ctx.fillText((w.db>=0?'+':'')+w.db.toFixed(1)+' dB',0,H-3);
+    }
   }
   w.draw=draw; draw();
 
-  let dragY=0;
+  // Drag con cálculo correcto usando getBoundingClientRect
   cv.addEventListener('mousedown',e=>{
     if(e.button===2){w.db=0;draw();sendGain(w);return;}
-    w.dragging=true; dragY=e.offsetY; draw();
-    function onMove(e2){ w.db=Math.max(-30,Math.min(10,yToDb(dragY+(e2.clientY-(e.clientY-dragY+e.clientY-e.offsetY)),cv.height))); draw(); }
+    e.preventDefault();
+    w.dragging=true;
+    const startClientY=e.clientY;
+    const startDb=w.db;
+    draw();
+    function onMove(e2){
+      const rect=cv.getBoundingClientRect();
+      const scaleY=(cv.height-14)/rect.height; // compensar CSS vs canvas coords
+      const startY=dbToY(startDb,cv.height-14);
+      const dy=(e2.clientY-startClientY)*scaleY;
+      w.db=Math.max(-60,Math.min(10,yToDb(startY+dy,cv.height-14)));
+      draw();
+    }
     function onUp(){ w.dragging=false; draw(); sendGain(w); document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); }
     document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
   });
-  cv.addEventListener('mousemove',e=>{if(w.dragging){w.db=Math.max(-30,Math.min(10,yToDb(e.offsetY,cv.height)));draw();}});
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   wrap.appendChild(cv);
   return {el:wrap,w};
@@ -642,14 +708,15 @@ function makeFaderStrip(name,chIdx,initDb,mode){
 function drawVU(w){
   const cv=w.canvas; const {width:W,height:H}=cv; const ctx=w.ctx;
   ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
-  const fh=45, bh=H-fh, bx=18, bw=20;
+  const fh=22, bh=H-fh, bx=22, bw=18;
   ctx.fillStyle='#222'; ctx.fillRect(bx,0,bw,bh);
-  // Scale labels
-  ctx.fillStyle='#888'; ctx.font='7px Arial';
+  // Scale labels LEFT side of bar
+  ctx.font='7px Arial'; ctx.textAlign='right';
   for(const db of [0,-6,-12,-24,-40,-60,-80]){
     const y=bh-((db+80)/80*bh);
-    ctx.fillStyle='#555'; ctx.fillRect(bx+bw,~~y,5,1);
-    ctx.fillStyle='#888'; ctx.textAlign='left'; ctx.fillText(String(db),bx+bw+7,y+3);
+    ctx.fillStyle='#555'; ctx.fillRect(bx-4,~~y,4,1);
+    ctx.fillStyle=(db===0)?'#0f0':(db>=-6)?'#ff0':'#888';
+    ctx.fillText(String(db),bx-6,y+3);
   }
   // Level bar
   const lh=Math.max(0,(Math.max(-80,w.level)+80)/80*bh);
@@ -657,12 +724,12 @@ function drawVU(w){
   grad.addColorStop(0,'#00aa00'); grad.addColorStop(0.7,'#aaaa00'); grad.addColorStop(0.9,'#aa0000');
   ctx.fillStyle=grad; ctx.fillRect(bx,bh-lh,bw,lh);
 
-  // GR bar (compressor)
+  // GR bar (compressor) RIGHT side of bar
   if(w.isOut&&w.compTh!==null){
     const gr=w.grLevel||0;
     if(gr>0.1){
       const grH=Math.min(bh,(gr/30)*bh);
-      ctx.fillStyle='rgba(255,130,0,0.85)'; ctx.fillRect(bx-4,0,3,grH);
+      ctx.fillStyle='rgba(255,130,0,0.85)'; ctx.fillRect(bx+bw+2,0,3,grH);
     }
     // Threshold line
     if(w.compTh!==null&&w.compTh!==0){
@@ -675,17 +742,17 @@ function drawVU(w){
   // Peak hold
   const py=bh-((Math.max(-80,w.peak)+80)/80*bh);
   ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(bx-2,py); ctx.lineTo(bx+bw+2,py); ctx.stroke();
-  ctx.fillStyle='#ff0'; ctx.font='bold 7px Arial'; ctx.textAlign='center'; ctx.fillText(w.peak.toFixed(1),bx+bw/2,Math.max(0,py-3));
+  ctx.fillStyle='#ff0'; ctx.font='bold 7px Arial'; ctx.textAlign='center'; ctx.fillText(w.peak.toFixed(1),bx+bw/2,Math.max(8,py-3));
 
-  // Name
-  const nameY=bh+5;
+  // Name area
+  const nameY=bh+4;
   if(w.isOut){
     ctx.fillStyle=w.isMuted?'#f00':'#0f0'; ctx.font='bold 8px Arial';
-    ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+8);
-    ctx.fillStyle=w.isMuted?'#f55':'#aaa'; ctx.font='7px Arial';
-    ctx.fillText(w.isMuted?'[MUTE]':'(active)',W/2,nameY+18);
+    ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+7);
+    ctx.fillStyle=w.isMuted?'#f55':'#666'; ctx.font='6px Arial';
+    ctx.fillText(w.isMuted?'MUTE':'live',W/2,nameY+16);
   } else {
-    ctx.fillStyle='#fff'; ctx.font='bold 8px Arial'; ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+12);
+    ctx.fillStyle='#ccc'; ctx.font='bold 8px Arial'; ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+7);
   }
 }
 
@@ -737,8 +804,11 @@ function setView(v){
 }
 function filterVU(){
   inLabels.forEach((_,i)=>{ const el=document.getElementById(`vu-in-${i}`); if(el) el.style.display=(vuView==='out')?'none':'flex'; });
-  outLabels.forEach((_,i)=>{ const el=document.getElementById(`vu-out-${i}`); if(el) el.style.display=(vuView==='in')?'none':'flex'; });
-  const sep=document.getElementById('vu-sep-io'); if(sep) sep.style.display=(vuView==='all')?'block':'none';
+  outLabels.forEach((_,i)=>{
+    const el=document.getElementById(`vu-out-${i}`); if(el) el.style.display=(vuView==='in')?'none':'flex';
+    const fe=document.getElementById(`fader-out-${i}`); if(fe) fe.style.display=(vuView==='in')?'none':'flex';
+  });
+  const sep=document.getElementById('vu-sep-io'); if(sep) sep.style.display=(vuView==='all')?'flex':'none';
 }
 
 async function sendGain(w){
