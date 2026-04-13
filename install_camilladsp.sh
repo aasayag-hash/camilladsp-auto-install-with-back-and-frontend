@@ -4,15 +4,17 @@
 #  Engine  +  GUI Backend  +  Frontend
 # ==============================================================
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 
 # Repositorios GitHub
 CAMILLADSP_REPO="HEnquist/camilladsp"
 CAMILLAGUI_REPO="HEnquist/camillagui-backend"
+WEB_REPO_RAW="https://raw.githubusercontent.com/aasayag-hash/camilladsp-auto-install-with-back-and-frontend/main/web"
 
 # Puertos por defecto
 ENGINE_WS_PORT=1234
 GUI_HTTP_PORT=5005
+WEB_GUI_PORT=5000
 
 # Argumentos
 ARG_UPDATE=0
@@ -360,6 +362,54 @@ stop_conflicting_services() {
   fi
 }
 
+# Frontend Web
+install_web_frontend() {
+  log_step "Instalando Frontend Web (puerto ${WEB_GUI_PORT})..."
+  local web_dir="${INSTALL_BASE}/web"
+  mkdir -p "$web_dir"
+
+  # Instalar dependencias Python
+  log_info "Instalando paquetes Python: flask, websocket-client, pyyaml..."
+  local pip_cmd=""
+  if command -v pip3 &>/dev/null; then pip_cmd="pip3";
+  elif command -v pip &>/dev/null; then pip_cmd="pip"; fi
+
+  if [ -n "$pip_cmd" ]; then
+    $pip_cmd install flask websocket-client pyyaml \
+      --break-system-packages --quiet 2>/dev/null || \
+    $pip_cmd install flask websocket-client pyyaml --quiet 2>/dev/null || true
+  else
+    log_warn "pip no encontrado — instala flask websocket-client pyyaml manualmente"
+  fi
+
+  # Descargar server.py e index.html desde el repositorio
+  local dl_ok=1
+  log_info "Descargando servidor web y frontend..."
+
+  if command -v curl &>/dev/null; then
+    curl -fsSL "${WEB_REPO_RAW}/server.py"  -o "${web_dir}/server.py"  2>/dev/null && \
+    curl -fsSL "${WEB_REPO_RAW}/index.html" -o "${web_dir}/index.html" 2>/dev/null || dl_ok=0
+  elif command -v wget &>/dev/null; then
+    wget -q "${WEB_REPO_RAW}/server.py"  -O "${web_dir}/server.py"  2>/dev/null && \
+    wget -q "${WEB_REPO_RAW}/index.html" -O "${web_dir}/index.html" 2>/dev/null || dl_ok=0
+  else
+    log_warn "curl/wget no disponible — no se pudo descargar el frontend web"
+    dl_ok=0
+  fi
+
+  if [ "$dl_ok" = "0" ] || [ ! -f "${web_dir}/server.py" ] || [ ! -f "${web_dir}/index.html" ]; then
+    log_warn "Frontend Web no instalado (requiere conexión a internet)"
+    return 1
+  fi
+
+  # Reemplazar ruta de instalación en server.py
+  sed -i "s|INSTALL_BASE = \"/root/camilladsp\"|INSTALL_BASE = \"${INSTALL_BASE}\"|" "${web_dir}/server.py" 2>/dev/null || true
+  sed -i "s|WEB_PORT     = 5000|WEB_PORT     = ${WEB_GUI_PORT}|" "${web_dir}/server.py" 2>/dev/null || true
+
+  log_ok "Frontend Web instalado en ${web_dir}"
+  return 0
+}
+
 # Scripts de control
 create_scripts() {
   log_step "Creando scripts"
@@ -407,17 +457,20 @@ start_svc() {
 }
 
 echo "Iniciando CamillaDSP..."
-start_svc engine \$ENGINE \$CONFIG -p 1234 -a 0.0.0.0
+start_svc engine \$ENGINE -p ${ENGINE_WS_PORT} -a 0.0.0.0 -w
 sleep 2
 start_svc gui \$GUI --config ${INSTALL_BASE}/gui/config/camillagui.yml
+sleep 1
+start_svc web python3 ${INSTALL_BASE}/web/server.py
 echo ""
-echo "  Abre: http://localhost:5005"
+echo "  GUI CamillaGUI: http://localhost:${GUI_HTTP_PORT}"
+echo "  Web Console:    http://localhost:${WEB_GUI_PORT}"
 SCRIPT
 
   cat > "${scripts_dir}/stop_all.sh" << SCRIPT
 #!/bin/bash
 PIDS=${INSTALL_BASE}/pids
-for svc in gui engine; do
+for svc in web gui engine; do
   [ -f \$PIDS/\$svc.pid ] && kill \$(cat \$PIDS/\$svc.pid) 2>/dev/null
 done
 echo "Detenido"
@@ -427,7 +480,7 @@ SCRIPT
 #!/bin/bash
 PIDS=${INSTALL_BASE}/pids
 echo "Estado:"
-for svc in engine gui; do
+for svc in engine gui web; do
   [ -f \$PIDS/\$svc.pid ] && kill -0 \$(cat \$PIDS/\$svc.pid) 2>/dev/null && echo "  [ON] \$svc" || echo "  [OFF] \$svc"
 done
 SCRIPT
@@ -526,6 +579,9 @@ main() {
     log_error "La instalación falló"
     exit 1
   fi
+
+  # Instalar Frontend Web
+  install_web_frontend || true
 
   # Crear config y scripts
   if [ "$ARG_UPDATE" != "1" ]; then

@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CamillaDSP Web Console</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+#topbar{display:flex;align-items:center;gap:6px;padding:4px 8px;background:#111;border-bottom:1px solid #333;flex-shrink:0}
+#topbar h1{font-size:14px;color:#0ff;font-weight:bold;margin-right:8px}
+.top-btn{height:24px;padding:0 10px;border:1px solid #555;border-radius:3px;background:#333;color:#fff;cursor:pointer;font-size:11px;font-weight:bold}
+.top-btn:hover{background:#007bff}
+.top-btn.danger{background:#400;border-color:#600}.top-btn.danger:hover{background:#d00}
+.top-btn.web{background:#17a2b8;border-color:#117a8b}.top-btn.web:hover{background:#138496}
+.top-btn.green{background:#28a745;border-color:#1e7e34}
+#status-dot{width:10px;height:10px;border-radius:50%;background:#f00;flex-shrink:0}
+#status-dot.ok{background:#0f0}
+#status-txt{font-size:11px;color:#888}
+
+/* Tabs */
+#tabs{display:flex;border-bottom:1px solid #333;flex-shrink:0;background:#111}
+.tab{padding:8px 20px;cursor:pointer;font-weight:bold;color:#aaa;border-bottom:2px solid transparent;font-size:12px}
+.tab.active{color:#fff;border-bottom-color:#0ff;background:#007bff}
+.tab:hover:not(.active){color:#fff;background:#1a1a1a}
+
+/* Channel selector */
+#ch-panel{display:none;flex-shrink:0;background:#050505;border-bottom:1px solid #222;padding:2px 4px}
+#ch-panel.show{display:block}
+.ch-row{display:flex;gap:3px;overflow-x:auto;padding:1px 0}
+.ch-row::-webkit-scrollbar{height:4px}.ch-row::-webkit-scrollbar-thumb{background:#444}
+.ch-btn{height:20px;padding:0 8px;border:1px solid #444;border-radius:2px;background:#2a2a2a;color:#999;cursor:pointer;font-size:11px;font-weight:bold;white-space:nowrap;flex-shrink:0}
+.ch-btn.active{background:#00aaaa;color:#000;border-color:#fff}
+.ch-btn.out.active{background:var(--col);color:#000;border-color:#fff}
+.ch-btn.all{background:#2a2a2a}.ch-btn.all.active{background:#007bff;color:#fff;border-color:#0ff}
+
+/* Tab contents */
+#content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.tab-page{display:none;flex:1;overflow:hidden;flex-direction:column}
+.tab-page.active{display:flex}
+
+/* VU tab */
+#vu-top{display:flex;align-items:center;gap:8px;padding:4px 8px;flex-shrink:0;border-bottom:1px solid #222}
+.view-btn{height:24px;padding:0 12px;border:1px solid #444;border-radius:3px;background:#222;color:#ccc;cursor:pointer;font-weight:bold;font-size:11px}
+.view-btn.active{background:#007bff;color:#fff;border-color:#0ff}
+#vu-scroll{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-end;padding:8px;gap:4px;background:#050505}
+#vu-scroll::-webkit-scrollbar{height:8px}.#vu-scroll::-webkit-scrollbar-thumb{background:#444}
+#comp-area{flex-shrink:0;max-height:160px;overflow-y:auto;padding:0 4px 4px}
+
+/* Compressor table */
+.comp-table{width:100%;border-collapse:collapse;font-size:11px}
+.comp-table th{background:#1a1a1a;color:#0ff;padding:4px 6px;border:1px solid #333;text-align:center}
+.comp-table td{padding:3px 5px;border:1px solid #222;text-align:center;background:#111}
+.comp-table input{background:#000;color:#0ff;border:1px solid #333;padding:2px 4px;width:70px;text-align:center;border-radius:2px}
+.del-btn{background:#400;color:#f55;border:1px solid #600;border-radius:3px;cursor:pointer;padding:2px 6px;font-weight:bold}
+.del-btn:hover{background:#800}
+.auto-btn{background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:2px 8px;font-weight:bold}
+.auto-btn:hover{background:#0056b3}
+
+/* EQ / Cross tab */
+.eq-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column}
+canvas.graph{width:100%;flex:1;min-height:180px;display:block;cursor:crosshair}
+.filter-table-wrap{flex-shrink:0;max-height:160px;overflow-y:auto}
+table.ftable{width:100%;border-collapse:collapse;font-size:11px}
+table.ftable th{background:#1a1a1a;color:#0ff;padding:4px 6px;border:1px solid #333;position:sticky;top:0;z-index:1}
+table.ftable td{padding:3px 5px;border:1px solid #222;background:#111}
+table.ftable td input{background:#000;color:#0ff;border:1px solid #333;padding:2px 4px;width:80px;border-radius:2px;text-align:center}
+table.ftable select{background:#222;color:#fff;border:1px solid #444;padding:2px;border-radius:2px;font-size:11px}
+table.ftable tr:hover td{background:#1a1a1a}
+
+/* Mixer */
+#mixer-scroll{flex:1;overflow:auto}
+#mixer-canvas{display:block;cursor:pointer}
+
+/* Fader */
+.strip{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
+.strip canvas{display:block}
+.strip .sname{font-size:9px;color:#aaa;text-align:center;max-width:50px;overflow:hidden;white-space:nowrap}
+.strip .db-val{font-size:9px;color:#0ff;font-weight:bold}
+.strip .mute-btn{height:18px;width:44px;font-size:9px;font-weight:bold;border:1px solid #555;border-radius:2px;cursor:pointer;background:#222;color:#ccc}
+.strip .mute-btn.muted{background:#d32f2f;color:#fff;border-color:#f00}
+.strip .pol-btn{height:18px;width:30px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:2px;cursor:pointer;background:#222;color:#ccc}
+.strip .pol-btn.inv{background:#d32f2f;color:#fff}
+.strip .dly-inp{width:44px;height:18px;background:#111;color:#0ff;border:1px solid #444;border-radius:2px;text-align:center;font-size:9px}
+.strip .dly-lbl{font-size:8px;color:#666}
+.vu-sep{width:1px;background:#333;align-self:stretch;margin:0 4px;flex-shrink:0}
+#mute-all-btn{height:24px;padding:0 10px;border:none;border-radius:3px;background:#666;color:#fff;font-weight:bold;font-size:11px;cursor:pointer}
+#mute-all-btn.muted{background:#d32f2f}
+
+/* Modal / dialogs */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;pointer-events:none;opacity:0;transition:opacity .3s;z-index:9999}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div id="status-dot"></div>
+  <h1>CAMILLADSP CONSOLE</h1>
+  <span id="status-txt">Conectando...</span>
+  <div style="flex:1"></div>
+  <button class="top-btn web" onclick="window.open('http://'+location.hostname+':5005','_blank')">WEB 5005</button>
+  <button class="top-btn" onclick="importConfig()">Imp Cfg</button>
+  <button class="top-btn" onclick="exportConfig()">Exp Cfg</button>
+  <button class="top-btn" onclick="importEQ()">Imp EQ</button>
+  <button class="top-btn" onclick="exportEQ()">Exp EQ</button>
+  <button class="top-btn danger" onclick="resetConfig()">Reset</button>
+</div>
+
+<!-- TABS -->
+<div id="tabs">
+  <div class="tab active" onclick="switchTab(0)">VÚMETROS</div>
+  <div class="tab" onclick="switchTab(1)">EQ &amp; FILTROS</div>
+  <div class="tab" onclick="switchTab(2)">CROSSOVERS</div>
+  <div class="tab" onclick="switchTab(3)">MIXER</div>
+</div>
+
+<!-- CHANNEL SELECTOR (shown on EQ/CROSS tabs) -->
+<div id="ch-panel">
+  <div class="ch-row" id="ch-in-row"></div>
+  <div class="ch-row" id="ch-out-row"></div>
+</div>
+
+<!-- CONTENT -->
+<div id="content">
+
+  <!-- VU TAB -->
+  <div class="tab-page active" id="page-0">
+    <div id="vu-top">
+      <span style="color:#888;font-weight:bold;font-size:11px">VISTA:</span>
+      <button class="view-btn active" onclick="setView('all')">TODO</button>
+      <button class="view-btn" onclick="setView('in')">ENTRADAS</button>
+      <button class="view-btn" onclick="setView('out')">SALIDAS</button>
+      <button id="mute-all-btn" onclick="toggleMuteAll()">MUTE ALL</button>
+      <div style="flex:1"></div>
+      <span style="font-size:10px;color:#0f0" id="master-db-lbl">VOL: 0.0 dB</span>
+    </div>
+    <div id="vu-scroll"></div>
+    <div id="comp-area">
+      <table class="comp-table" id="comp-table">
+        <thead><tr><th>ID</th><th>Attack(s)</th><th>Release(s)</th><th>Threshold(dB)</th><th>Ratio</th><th>Makeup(dB)</th><th>ClipLim</th><th>Auto</th><th></th></tr></thead>
+        <tbody id="comp-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EQ TAB -->
+  <div class="tab-page" id="page-1">
+    <div class="eq-wrap">
+      <canvas class="graph" id="eq-canvas"></canvas>
+      <div class="filter-table-wrap">
+        <table class="ftable"><thead><tr><th>ID</th><th>Tipo</th><th>Freq(Hz)</th><th>Gain(dB)</th><th>Q</th><th>Canal</th><th></th></tr></thead>
+        <tbody id="eq-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- CROSS TAB -->
+  <div class="tab-page" id="page-2">
+    <div class="eq-wrap">
+      <canvas class="graph" id="cross-canvas"></canvas>
+      <div class="filter-table-wrap">
+        <table class="ftable"><thead><tr><th>ID</th><th>Tipo</th><th>Freq(Hz)</th><th>Orden</th><th>Canal</th><th></th></tr></thead>
+        <tbody id="cross-tbody"></tbody></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- MIXER TAB -->
+  <div class="tab-page" id="page-3">
+    <div id="mixer-scroll"><canvas id="mixer-canvas"></canvas></div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+<input type="file" id="file-input" style="display:none" accept=".yml,.yaml,.json,.txt">
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════
+let config = {};
+let filtrosBiquad = {};    // {fid: {data, domain, channels}}
+let filtrosCross  = {};
+let inLabels  = [];
+let outLabels = [];
+let visibleIn  = new Set();
+let visibleOut = new Set();
+let sampleRate = 48000;
+let currentTab = 0;
+let vuView = 'all';
+let levels = {capture:[], playback:[], volume:0};
+let allMuted = false;
+let levelTimer = null;
+let autoSamplers = {}; // {pid: {ch, ticks, history}}
+
+const COLORS = ["#00ff96","#0096ff","#ff6464","#ffc800","#c800ff","#00ffff","#ffa500","#fff",
+                "#ff00ff","#00ff00","#ffff00","#ff0000","#0000ff","#008080","#800000","#808000",
+                "#800080","#008000","#ff7f50","#7cfc00","#6495ed","#00ced1","#ff1493","#b0e0e6",
+                "#dda0dd","#fa8072","#ffb6c1","#2e8b57","#da70d6","#f0e68c","#87cefa","#98fb98"];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════════════════════════════
+async function apiGet(path){ const r=await fetch(path); return r.json(); }
+async function apiPost(path,body){ const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); return r.json(); }
+
+async function fetchConfig(){
+  const r = await apiGet('/api/config');
+  if(r.ok && r.config){ config = r.config; return true; }
+  return false;
+}
+async function setFullConfig(cfg){
+  config = cfg;
+  await apiPost('/api/config',{config:cfg});
+}
+async function patchCfg(patch){
+  await apiPost('/api/patch',{patch});
+  // sync local config
+  const r = await apiGet('/api/config');
+  if(r.ok && r.config) config = r.config;
+}
+async function fetchLevels(){
+  const r = await apiGet('/api/levels');
+  if(r.ok){ levels = r; updateVU(); }
+}
+async function setVolume(db){
+  await apiPost('/api/volume',{volume:db});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MATH
+// ═══════════════════════════════════════════════════════════════════════════
+function biquadMag(params, freq){
+  const {type:t, freq:f0=1000, gain:g=0, q=1} = params;
+  const sr = sampleRate;
+  if(f0<=0||q<=0) return 0;
+  const w0=2*Math.PI*f0/sr, cw=Math.cos(w0), sw=Math.sin(w0), al=sw/(2*q);
+  const A=Math.pow(10,g/40), sqA=Math.sqrt(A);
+  let b0,b1,b2,a0,a1,a2;
+  if(t==='Peaking'){b0=1+al*A;b1=-2*cw;b2=1-al*A;a0=1+al/A;a1=-2*cw;a2=1-al/A;}
+  else if(t==='Lowpass'){b0=(1-cw)/2;b1=1-cw;b2=(1-cw)/2;a0=1+al;a1=-2*cw;a2=1-al;}
+  else if(t==='Highpass'){b0=(1+cw)/2;b1=-(1+cw);b2=(1+cw)/2;a0=1+al;a1=-2*cw;a2=1-al;}
+  else if(t==='Highshelf'){b0=A*((A+1)+(A-1)*cw+2*sqA*al);b1=-2*A*((A-1)+(A+1)*cw);b2=A*((A+1)+(A-1)*cw-2*sqA*al);a0=(A+1)-(A-1)*cw+2*sqA*al;a1=2*((A-1)-(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sqA*al;}
+  else if(t==='Lowshelf'){b0=A*((A+1)-(A-1)*cw+2*sqA*al);b1=2*A*((A-1)-(A+1)*cw);b2=A*((A+1)-(A-1)*cw-2*sqA*al);a0=(A+1)+(A-1)*cw+2*sqA*al;a1=-2*((A-1)+(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sqA*al;}
+  else return 0;
+  const w=2*Math.PI*freq/sr;
+  const z1r=Math.cos(-w),z1i=Math.sin(-w),z2r=Math.cos(-2*w),z2i=Math.sin(-2*w);
+  const nr=b0+b1*z1r+b2*z2r,ni=b1*z1i+b2*z2i;
+  const dr=a0+a1*z1r+a2*z2r,di=a1*z1i+a2*z2i;
+  const mn=Math.hypot(nr,ni),md=Math.hypot(dr,di);
+  if(md===0||mn===0) return -100;
+  return 20*Math.log10(mn/md);
+}
+
+function crossMag(params, freq){
+  const {type:t, freq:f0=1000, order:ord=2} = params;
+  if(f0<=0) return 0;
+  const ratio=freq/f0;
+  let mq;
+  try{
+    if(t==='ButterworthLowpass') mq=1/(1+Math.pow(ratio,2*ord));
+    else if(t==='ButterworthHighpass') mq=Math.pow(ratio,2*ord)/(1+Math.pow(ratio,2*ord));
+    else if(t==='LinkwitzRileyLowpass'){const n=ord/2;mq=Math.pow(1/(1+Math.pow(ratio,2*n)),2);}
+    else if(t==='LinkwitzRileyHighpass'){const n=ord/2;mq=Math.pow(Math.pow(ratio,2*n)/(1+Math.pow(ratio,2*n)),2);}
+    else return 0;
+  }catch(e){mq=0;}
+  if(mq<=1e-10) return -100;
+  return 10*Math.log10(mq);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+function cleanName(n){ return String(n).replace(/[^a-zA-Z0-9]/g,''); }
+
+function parseFilters(){
+  filtrosBiquad = {}; filtrosCross = {};
+  const bqTypes = ['Peaking','Highshelf','Lowshelf','Highpass','Lowpass'];
+  const crTypes = ['ButterworthHighpass','ButterworthLowpass','LinkwitzRileyHighpass','LinkwitzRileyLowpass'];
+  const pipeline = config.pipeline||[];
+  const mixerIdx = pipeline.findIndex(s=>s.type==='Mixer');
+  const allF = config.filters||{};
+  for(const [fid,d] of Object.entries(allF)){
+    if(!d) continue;
+    const t = d.type;
+    if(t==='Biquad'||t==='BiquadCombo'){
+      let domain='out', chs=[];
+      for(let i=0;i<pipeline.length;i++){
+        const s=pipeline[i];
+        if(s.type==='Filter'&&(s.names||[]).includes(fid)){
+          domain=(mixerIdx>=0&&i<mixerIdx)?'in':'out';
+          chs=s.channels?[...s.channels]:(s.channel!=null?[s.channel]:[]);
+          break;
+        }
+      }
+      if(!chs.length) continue;
+      const pt = d.parameters?.type||'';
+      if(t==='Biquad'&&bqTypes.includes(pt)) filtrosBiquad[fid]={data:d,domain,channels:chs};
+      else if(t==='BiquadCombo'&&crTypes.includes(pt)) filtrosCross[fid]={data:d,domain,channels:chs};
+    }
+  }
+}
+
+function getLabels(target){
+  let n=0, lbls=[];
+  if(target==='playback'){
+    const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+    if(mixName&&config.mixers?.[mixName]){
+      const m=config.mixers[mixName];
+      n=m.channels?.out||0; lbls=m.labels||[];
+    }
+  }
+  if(!n){ const d=config.devices?.[target]||{}; n=d.channels||2; lbls=d.labels||[]; }
+  const pref=target==='capture'?'IN':'OUT';
+  return Array.from({length:n},(_,i)=>(lbls[i]||`${pref} ${i}`));
+}
+
+function ensureMixer(){
+  const pipeline = config.pipeline||[];
+  const mixName=(pipeline.find(s=>s.type==='Mixer'))?.name||'Mixer';
+  if(!config.mixers) config.mixers={};
+  if(!config.mixers[mixName]){
+    const inCh=config.devices?.capture?.channels||2;
+    const outCh=config.devices?.playback?.channels||2;
+    config.mixers[mixName]={channels:{in:inCh,out:outCh},description:null,labels:null,mapping:[]};
+  }
+  if(!pipeline.find(s=>s.type==='Mixer')){
+    config.pipeline=[{type:'Mixer',name:mixName,description:null},...pipeline];
+  }
+}
+
+async function init(){
+  document.getElementById('status-txt').textContent='Conectando...';
+  const ok = await fetchConfig();
+  if(!ok){ document.getElementById('status-txt').textContent='Error de conexión'; return; }
+  document.getElementById('status-dot').className='ok';
+  document.getElementById('status-txt').textContent='Conectado';
+  sampleRate = config.devices?.samplerate||48000;
+  inLabels  = getLabels('capture');
+  outLabels = getLabels('playback');
+  visibleIn  = new Set(inLabels.map((_,i)=>i));
+  visibleOut = new Set(outLabels.map((_,i)=>i));
+  ensureMixer();
+  parseFilters();
+  buildChannelPanel();
+  buildVU();
+  renderEQGraph(); renderCrossGraph(); renderMixer();
+  buildEQTable(); buildCrossTable(); buildCompTable();
+  // Start level polling
+  if(levelTimer) clearInterval(levelTimer);
+  levelTimer = setInterval(fetchLevels, 100);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════════════════
+function switchTab(i){
+  currentTab=i;
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.tab-page').forEach((p,j)=>p.classList.toggle('active',i===j));
+  const chPanel=document.getElementById('ch-panel');
+  chPanel.classList.toggle('show',i===1||i===2);
+  const inRow=document.getElementById('ch-in-row');
+  if(inRow) inRow.style.display=(i===1)?'flex':'none';
+  if(i===1) renderEQGraph();
+  if(i===2) renderCrossGraph();
+  if(i===3) renderMixer();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CHANNEL PANEL
+// ═══════════════════════════════════════════════════════════════════════════
+function buildChannelPanel(){
+  // IN row
+  const inRow=document.getElementById('ch-in-row');
+  inRow.innerHTML='';
+  const allIn=document.createElement('button');
+  allIn.className='ch-btn all active'; allIn.textContent='ALL IN'; allIn.id='btn-all-in';
+  allIn.onclick=()=>toggleAllIn(!allIn.classList.contains('active'));
+  inRow.appendChild(allIn);
+  inLabels.forEach((n,i)=>{
+    const b=document.createElement('button');
+    b.className='ch-btn active'; b.textContent=`🔊 ${n}`; b.id=`btn-in-${i}`;
+    b.onclick=()=>toggleInCh(i,!b.classList.contains('active'));
+    b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,false);};
+    inRow.appendChild(b);
+  });
+  // OUT row
+  const outRow=document.getElementById('ch-out-row');
+  outRow.innerHTML='';
+  const allOut=document.createElement('button');
+  allOut.className='ch-btn all active'; allOut.textContent='ALL OUT'; allOut.id='btn-all-out';
+  allOut.onclick=()=>toggleAllOut(!allOut.classList.contains('active'));
+  outRow.appendChild(allOut);
+  outLabels.forEach((n,i)=>{
+    const b=document.createElement('button');
+    const col=COLORS[i%COLORS.length];
+    b.className='ch-btn out active'; b.style.setProperty('--col',col); b.textContent=`🔊 ${n}`; b.id=`btn-out-${i}`;
+    b.onclick=()=>toggleOutCh(i,!b.classList.contains('active'));
+    b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,true);};
+    outRow.appendChild(b);
+  });
+}
+function toggleAllIn(on){
+  if(on){visibleIn=new Set(inLabels.map((_,i)=>i));}else{visibleIn=new Set();}
+  document.getElementById('btn-all-in').classList.toggle('active',on);
+  inLabels.forEach((_,i)=>document.getElementById(`btn-in-${i}`)?.classList.toggle('active',on));
+  renderEQGraph();
+}
+function toggleAllOut(on){
+  if(on){visibleOut=new Set(outLabels.map((_,i)=>i));}else{visibleOut=new Set();}
+  document.getElementById('btn-all-out').classList.toggle('active',on);
+  outLabels.forEach((_,i)=>document.getElementById(`btn-out-${i}`)?.classList.toggle('active',on));
+  renderEQGraph(); renderCrossGraph();
+}
+function toggleInCh(i,on){
+  if(on) visibleIn.add(i); else visibleIn.delete(i);
+  document.getElementById(`btn-in-${i}`)?.classList.toggle('active',on);
+  document.getElementById('btn-all-in').classList.toggle('active',visibleIn.size===inLabels.length);
+  renderEQGraph();
+}
+function toggleOutCh(i,on){
+  if(on) visibleOut.add(i); else visibleOut.delete(i);
+  document.getElementById(`btn-out-${i}`)?.classList.toggle('active',on);
+  document.getElementById('btn-all-out').classList.toggle('active',visibleOut.size===outLabels.length);
+  renderEQGraph(); renderCrossGraph();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BYPASS TOGGLE
+// ═══════════════════════════════════════════════════════════════════════════
+async function toggleBypass(ch, isOut){
+  const pipeline=config.pipeline||[];
+  const mixerIdx=pipeline.findIndex(s=>s.type==='Mixer');
+  let curState=false;
+  for(let i=0;i<pipeline.length;i++){
+    const s=pipeline[i];
+    if(s.type!=='Filter') continue;
+    const dom=(mixerIdx>=0&&i<mixerIdx)?'in':'out';
+    if((dom==='out')!==isOut) continue;
+    const chs=s.channels?[...s.channels]:(s.channel!=null?[s.channel]:[]);
+    if(!chs.includes(ch)) continue;
+    const desc=s.description||'';
+    if(desc.startsWith('EQ-')||(s.names||[]).some(n=>n.startsWith('EQ_'))){curState=!!s.bypassed;break;}
+  }
+  const newState=!curState;
+  for(let i=0;i<pipeline.length;i++){
+    const s=pipeline[i];
+    if(s.type!=='Filter') continue;
+    const dom=(mixerIdx>=0&&i<mixerIdx)?'in':'out';
+    if((dom==='out')!==isOut) continue;
+    const chs=s.channels?[...s.channels]:(s.channel!=null?[s.channel]:[]);
+    if(!chs.includes(ch)) continue;
+    const desc=s.description||'';
+    if(desc.startsWith('EQ-')||(s.names||[]).some(n=>n.startsWith('EQ_'))){s.bypassed=newState;}
+  }
+  await patchCfg({pipeline});
+  updateBypassIcons();
+  renderEQGraph();
+}
+function updateBypassIcons(){
+  const pipeline=config.pipeline||[];
+  const mixerIdx=pipeline.findIndex(s=>s.type==='Mixer');
+  const inBp={}, outBp={};
+  for(let i=0;i<pipeline.length;i++){
+    const s=pipeline[i];
+    if(s.type!=='Filter'||!s.bypassed) continue;
+    const dom=(mixerIdx>=0&&i<mixerIdx)?'in':'out';
+    const desc=s.description||'';
+    const isEQ=desc.startsWith('EQ-')||(s.names||[]).some(n=>n.startsWith('EQ_'));
+    if(!isEQ) continue;
+    const chs=s.channels?[...s.channels]:(s.channel!=null?[s.channel]:[]);
+    chs.forEach(c=>{ if(dom==='in') inBp[c]=true; else outBp[c]=true; });
+  }
+  inLabels.forEach((n,i)=>{const b=document.getElementById(`btn-in-${i}`);if(b)b.textContent=(inBp[i]?'🔴':'🔊')+' '+n;});
+  outLabels.forEach((n,i)=>{const b=document.getElementById(`btn-out-${i}`);if(b)b.textContent=(outBp[i]?'🔴':'🔊')+' '+n;});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VU METERS
+// ═══════════════════════════════════════════════════════════════════════════
+const vuWidgets={}; // {id: {canvas,ctx,level,peak,peakT,isMuted,isOut,chIdx,compTh,compRatio,compMakeup,grLevel}}
+const faderWidgets={}; // {chIdx: {canvas,ctx,db,dragging}}
+const masterFader={canvas:null,ctx:null,db:0,dragging:false};
+
+function buildVU(){
+  const scroll=document.getElementById('vu-scroll');
+  scroll.innerHTML='';
+  // Master fader
+  const ms=makeFaderStrip('MASTER',-1,0,'master');
+  scroll.appendChild(ms.el);
+  // Separator
+  const sep=document.createElement('div'); sep.className='vu-sep'; sep.id='vu-sep-main'; scroll.appendChild(sep);
+  // Inputs
+  inLabels.forEach((n,i)=>{
+    const strip=makeVUStrip(n,i,false);
+    strip.el.id=`vu-in-${i}`; scroll.appendChild(strip.el);
+    vuWidgets[`in_${i}`]=strip;
+  });
+  // Separator in/out
+  if(inLabels.length&&outLabels.length){
+    const sep2=document.createElement('div'); sep2.className='vu-sep'; sep2.id='vu-sep-io'; scroll.appendChild(sep2);
+  }
+  // Outputs
+  outLabels.forEach((n,i)=>{
+    const strip=makeOutStrip(n,i);
+    strip.el.id=`vu-out-${i}`; scroll.appendChild(strip.el);
+    vuWidgets[`out_${i}`]=strip;
+  });
+  filterVU();
+  buildCompTable();
+}
+
+function makeVUStrip(name,chIdx,isOut){
+  const el=document.createElement('div'); el.className='strip';
+  const cv=document.createElement('canvas'); cv.width=52; cv.height=200;
+  const ctx=cv.getContext('2d');
+  const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut,compTh:null,compRatio:1,compMakeup:0,grLevel:0,el};
+  el.appendChild(cv);
+  // Name label
+  const lbl=document.createElement('div'); lbl.className='sname'; lbl.textContent=name; el.appendChild(lbl);
+  drawVU(w); return w;
+}
+function makeOutStrip(name,chIdx){
+  const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+  const m=mixName&&config.mixers?.[mixName];
+  const mapping=m?.mapping?.find(mp=>mp.dest===chIdx);
+  const initDb=(mapping?.sources?.[0]?.gain)||0;
+  const initInv=(mapping?.sources?.[0]?.inverted)||false;
+  const initMute=(mapping?.mute)||false;
+
+  // Get compressor info
+  let compTh=null,compRatio=1,compMakeup=0;
+  for(const [pid,pd] of Object.entries(config.processors||{})){
+    if(pd.type==='Compressor'&&pd.parameters?.process_channels?.[0]===chIdx){
+      compTh=pd.parameters.threshold; compRatio=pd.parameters.factor||1; compMakeup=pd.parameters.makeup_gain||0; break;
+    }
+  }
+
+  const el=document.createElement('div'); el.className='strip';
+  const cv=document.createElement('canvas'); cv.width=52; cv.height=200;
+  const ctx=cv.getContext('2d');
+  const vuW={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:true,compTh,compRatio,compMakeup,grLevel:0,isMuted:initMute,el};
+  // Double click on canvas = create compressor at threshold
+  cv.addEventListener('dblclick',e=>{
+    const bh=cv.height-45; const y=e.offsetY;
+    if(y<=bh){ const db=Math.max(-80,Math.min(0,-80*(y/bh))); createCompressor(name,chIdx,db,vuW); }
+  });
+  cv.addEventListener('contextmenu',e=>{e.preventDefault(); deleteCompressorByChannel(chIdx);});
+  el.appendChild(cv);
+
+  // Mute button
+  const muteBtn=document.createElement('button');
+  muteBtn.className='mute-btn'+(initMute?' muted':''); muteBtn.textContent=initMute?'MUTED':'active';
+  muteBtn.onclick=()=>{ vuW.isMuted=!vuW.isMuted; applyMute(chIdx,vuW.isMuted,muteBtn); };
+  el.appendChild(muteBtn); vuW.muteBtn=muteBtn;
+
+  // Fader
+  const faderEl=makeFaderStrip(name,chIdx,initDb,'out');
+  el.appendChild(faderEl.el);
+
+  // Polarity
+  const polBtn=document.createElement('button');
+  polBtn.className='pol-btn'+(initInv?' inv':''); polBtn.textContent='+/-';
+  polBtn.onclick=()=>{ polBtn.classList.toggle('inv'); togglePolarity(chIdx,polBtn.classList.contains('inv')); };
+  el.appendChild(polBtn);
+
+  // Delay
+  const dlyLbl=document.createElement('div'); dlyLbl.className='dly-lbl'; dlyLbl.textContent='DLY(ms)'; el.appendChild(dlyLbl);
+  const dlyFname=`Delay_${cleanName(name)}`;
+  let initDelay=0;
+  const mixerIdx=(config.pipeline||[]).findIndex(s=>s.type==='Mixer');
+  for(const s of (config.pipeline||[]).slice(mixerIdx+1)){
+    if(s.type==='Filter'&&(s.channels||[]).includes(chIdx)){
+      for(const fn of (s.names||[])){
+        const fc=config.filters?.[fn];
+        if(fc?.type==='Delay'&&fn===dlyFname){initDelay=fc.parameters?.delay||0;break;}
+      }
+    }
+  }
+  const dlyInp=document.createElement('input'); dlyInp.className='dly-inp'; dlyInp.type='text'; dlyInp.value=initDelay.toFixed(1);
+  dlyInp.addEventListener('change',()=>changeDelay(chIdx,dlyFname,dlyInp.value));
+  dlyInp.addEventListener('contextmenu',e=>{e.preventDefault();dlyInp.value='0.0';changeDelay(chIdx,dlyFname,'0.0');});
+  el.appendChild(dlyInp);
+
+  drawVU(vuW); return vuW;
+}
+
+function makeFaderStrip(name,chIdx,initDb,mode){
+  const cv=document.createElement('canvas'); cv.width=46; cv.height=120;
+  const ctx=cv.getContext('2d');
+  const w={canvas:cv,ctx,db:initDb,dragging:false,name,chIdx,mode};
+  const wrap=document.createElement('div');
+
+  if(mode==='master'){
+    masterFader.canvas=cv; masterFader.ctx=ctx; masterFader.db=initDb;
+  } else {
+    faderWidgets[chIdx]=w;
+  }
+  function dbToY(db,h){
+    db=Math.max(-30,Math.min(10,db));
+    if(db>=0) return (10-db)/10*(0.2*h);
+    return 0.2*h+(-db/30)*(0.8*h);
+  }
+  function yToDb(y,h){
+    if(y<=0.2*h) return 10-(y/(0.2*h))*10;
+    return -((y-0.2*h)/(0.8*h))*30;
+  }
+  function draw(){
+    const {width:W,height:H}=cv; ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
+    const tx=W/2-2;
+    ctx.fillStyle='#141414'; ctx.fillRect(tx,0,4,H);
+    ctx.strokeStyle='#444'; ctx.lineWidth=1;
+    for(const db of [10,0,-10,-20,-30]){
+      const y=dbToY(db,H);
+      ctx.strokeStyle=db===0?'#f00':'#444'; ctx.beginPath(); ctx.moveTo(tx-5,y); ctx.lineTo(tx+9,y); ctx.stroke();
+    }
+    const fy=dbToY(w.db,H);
+    ctx.fillStyle=w.dragging?'#0096ff':'#888'; ctx.beginPath(); ctx.roundRect(tx-10,fy-5,24,10,3); ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(tx-8,fy); ctx.lineTo(tx+8,fy); ctx.stroke();
+    ctx.fillStyle='#0ff'; ctx.font='8px Arial'; ctx.textAlign='center'; ctx.fillText(w.db.toFixed(1),W/2,H-2);
+  }
+  w.draw=draw; draw();
+
+  let dragY=0;
+  cv.addEventListener('mousedown',e=>{
+    if(e.button===2){w.db=0;draw();sendGain(w);return;}
+    w.dragging=true; dragY=e.offsetY; draw();
+    function onMove(e2){ w.db=Math.max(-30,Math.min(10,yToDb(dragY+(e2.clientY-(e.clientY-dragY+e.clientY-e.offsetY)),cv.height))); draw(); }
+    function onUp(){ w.dragging=false; draw(); sendGain(w); document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); }
+    document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
+  });
+  cv.addEventListener('mousemove',e=>{if(w.dragging){w.db=Math.max(-30,Math.min(10,yToDb(e.offsetY,cv.height)));draw();}});
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
+  wrap.appendChild(cv);
+  return {el:wrap,w};
+}
+
+function drawVU(w){
+  const cv=w.canvas; const {width:W,height:H}=cv; const ctx=w.ctx;
+  ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
+  const fh=45, bh=H-fh, bx=18, bw=20;
+  ctx.fillStyle='#222'; ctx.fillRect(bx,0,bw,bh);
+  // Scale labels
+  ctx.fillStyle='#888'; ctx.font='7px Arial';
+  for(const db of [0,-6,-12,-24,-40,-60,-80]){
+    const y=bh-((db+80)/80*bh);
+    ctx.fillStyle='#555'; ctx.fillRect(bx+bw,~~y,5,1);
+    ctx.fillStyle='#888'; ctx.textAlign='left'; ctx.fillText(String(db),bx+bw+7,y+3);
+  }
+  // Level bar
+  const lh=Math.max(0,(Math.max(-80,w.level)+80)/80*bh);
+  const grad=ctx.createLinearGradient(0,bh,0,0);
+  grad.addColorStop(0,'#00aa00'); grad.addColorStop(0.7,'#aaaa00'); grad.addColorStop(0.9,'#aa0000');
+  ctx.fillStyle=grad; ctx.fillRect(bx,bh-lh,bw,lh);
+
+  // GR bar (compressor)
+  if(w.isOut&&w.compTh!==null){
+    const gr=w.grLevel||0;
+    if(gr>0.1){
+      const grH=Math.min(bh,(gr/30)*bh);
+      ctx.fillStyle='rgba(255,130,0,0.85)'; ctx.fillRect(bx-4,0,3,grH);
+    }
+    // Threshold line
+    if(w.compTh!==null&&w.compTh!==0){
+      const thy=bh-((w.compTh+80)/80*bh);
+      ctx.fillStyle='rgba(255,0,0,0.3)'; ctx.fillRect(bx,0,bw,thy);
+      ctx.strokeStyle='#f00'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(bx,thy); ctx.lineTo(bx+bw,thy); ctx.stroke();
+    }
+  }
+
+  // Peak hold
+  const py=bh-((Math.max(-80,w.peak)+80)/80*bh);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(bx-2,py); ctx.lineTo(bx+bw+2,py); ctx.stroke();
+  ctx.fillStyle='#ff0'; ctx.font='bold 7px Arial'; ctx.textAlign='center'; ctx.fillText(w.peak.toFixed(1),bx+bw/2,Math.max(0,py-3));
+
+  // Name
+  const nameY=bh+5;
+  if(w.isOut){
+    ctx.fillStyle=w.isMuted?'#f00':'#0f0'; ctx.font='bold 8px Arial';
+    ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+8);
+    ctx.fillStyle=w.isMuted?'#f55':'#aaa'; ctx.font='7px Arial';
+    ctx.fillText(w.isMuted?'[MUTE]':'(active)',W/2,nameY+18);
+  } else {
+    ctx.fillStyle='#fff'; ctx.font='bold 8px Arial'; ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+12);
+  }
+}
+
+function updateVU(){
+  const cap=levels.capture||[], play=levels.playback||[];
+  inLabels.forEach((_,i)=>{
+    const w=vuWidgets[`in_${i}`]; if(!w) return;
+    const lv=cap[i]??-80; w.level=lv;
+    if(lv>w.peak){w.peak=lv;w.peakT=40;} else if(w.peakT>0){w.peakT--;} else w.peak=Math.max(-80,w.peak-0.5);
+    drawVU(w);
+  });
+  outLabels.forEach((_,i)=>{
+    const w=vuWidgets[`out_${i}`]; if(!w) return;
+    const lv=play[i]??-80; w.level=lv;
+    if(lv>w.peak){w.peak=lv;w.peakT=40;} else if(w.peakT>0){w.peakT--;} else w.peak=Math.max(-80,w.peak-0.5);
+    // GR calc
+    if(w.compTh!==null&&w.compRatio>1){
+      const Lout=w.level-w.compMakeup, t=w.compTh;
+      let targetGR=0;
+      if(Lout>t){ const Eout=Lout-t; const E=Eout*w.compRatio; targetGR=E*(1-1/w.compRatio); }
+      const atk=0.4, rel=0.05;
+      if(targetGR>w.grLevel) w.grLevel+=( targetGR-w.grLevel)*atk;
+      else w.grLevel+=(targetGR-w.grLevel)*rel;
+      if(w.grLevel<0.1&&targetGR===0) w.grLevel=0;
+    }
+    drawVU(w);
+    // Auto sampler
+    for(const [pid,data] of Object.entries(autoSamplers)){
+      if(data.ch===i){ data.history.push(lv); data.ticks--; }
+    }
+  });
+  // Master volume display
+  const vl=levels.volume??0;
+  document.getElementById('master-db-lbl').textContent=`VOL: ${vl.toFixed(1)} dB`;
+  masterFader.db=vl; if(masterFader.draw) masterFader.draw();
+  // Auto sampler countdown
+  const toFinish=[];
+  for(const [pid,data] of Object.entries(autoSamplers)){
+    if(data.ticks<=0) toFinish.push(pid);
+  }
+  toFinish.forEach(pid=>finishAutoComp(pid));
+}
+
+function setView(v){
+  vuView=v;
+  document.querySelectorAll('.view-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.view-btn[onclick="setView('${v}')"]`)?.classList.add('active');
+  filterVU();
+}
+function filterVU(){
+  inLabels.forEach((_,i)=>{ const el=document.getElementById(`vu-in-${i}`); if(el) el.style.display=(vuView==='out')?'none':'flex'; });
+  outLabels.forEach((_,i)=>{ const el=document.getElementById(`vu-out-${i}`); if(el) el.style.display=(vuView==='in')?'none':'flex'; });
+  const sep=document.getElementById('vu-sep-io'); if(sep) sep.style.display=(vuView==='all')?'block':'none';
+}
+
+async function sendGain(w){
+  if(w.mode==='master'){ await setVolume(w.db); return; }
+  const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+  if(!mixName||!config.mixers?.[mixName]) return;
+  const m=config.mixers[mixName];
+  for(const mp of m.mapping||[]){
+    if(mp.dest===w.chIdx){ for(const src of mp.sources||[]) src.gain=parseFloat(w.db.toFixed(1)); }
+  }
+  await patchCfg({mixers:{[mixName]:m}});
+}
+
+async function applyMute(chIdx,muted,btn){
+  btn.classList.toggle('muted',muted); btn.textContent=muted?'MUTED':'active';
+  const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+  if(!mixName||!config.mixers?.[mixName]) return;
+  const m=config.mixers[mixName];
+  let mp=m.mapping?.find(x=>x.dest===chIdx);
+  if(!mp){mp={dest:chIdx,mute:false,sources:[]};(m.mapping=m.mapping||[]).push(mp);}
+  mp.mute=muted;
+  await patchCfg({mixers:{[mixName]:m}});
+  checkMuteAll();
+}
+
+async function toggleMuteAll(){
+  allMuted=!allMuted;
+  const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+  if(!mixName||!config.mixers?.[mixName]) return;
+  const m=config.mixers[mixName];
+  outLabels.forEach((_,i)=>{
+    let mp=(m.mapping||[]).find(x=>x.dest===i);
+    if(!mp){mp={dest:i,mute:false,sources:[]};(m.mapping=m.mapping||[]).push(mp);}
+    mp.mute=allMuted;
+    const w=vuWidgets[`out_${i}`];
+    if(w){w.isMuted=allMuted;if(w.muteBtn){w.muteBtn.classList.toggle('muted',allMuted);w.muteBtn.textContent=allMuted?'MUTED':'active';}}
+  });
+  await patchCfg({mixers:{[mixName]:m}});
+  checkMuteAll();
+}
+function checkMuteAll(){
+  const btn=document.getElementById('mute-all-btn');
+  allMuted=outLabels.every((_,i)=>vuWidgets[`out_${i}`]?.isMuted);
+  btn.classList.toggle('muted',allMuted);
+}
+async function togglePolarity(chIdx,inv){
+  const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+  if(!mixName||!config.mixers?.[mixName]) return;
+  const m=config.mixers[mixName];
+  for(const mp of m.mapping||[]){if(mp.dest===chIdx){for(const s of mp.sources||[]) s.inverted=inv;}}
+  await patchCfg({mixers:{[mixName]:m}});
+}
+async function changeDelay(chIdx,fname,val){
+  const v=Math.max(0,parseFloat(val.replace(',','.'))||0);
+  const filters=config.filters||{}; const pipeline=config.pipeline||[];
+  if(v===0){
+    if(filters[fname]) delete filters[fname];
+    config.pipeline=pipeline.filter(s=>!(s.type==='Filter'&&(s.names||[]).includes(fname)));
+    config.pipeline=config.pipeline.map(s=>{
+      if(s.type==='Filter'&&(s.names||[]).includes(fname)){s.names=s.names.filter(n=>n!==fname);return s.names.length?s:null;}return s;
+    }).filter(Boolean);
+    await patchCfg({filters:{[fname]:null},pipeline:config.pipeline});
+    return;
+  }
+  filters[fname]={type:'Delay',description:null,parameters:{delay:v,unit:'ms',subsample:false}};
+  config.filters=filters;
+  addFilterToPipeline(fname,'out',chIdx);
+  await patchCfg({filters:{[fname]:filters[fname]},pipeline:config.pipeline});
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PIPELINE HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
+function addFilterToPipeline(fid,domain,ch){
+  const pipeline=config.pipeline||[]; const mixerIdx=pipeline.findIndex(s=>s.type==='Mixer');
+  let group='MISC';
+  if(fid.startsWith('EQ_')) group='EQ';
+  else if(fid.startsWith('Cross_')) group='CROSS';
+  else if(fid.startsWith('Delay_')) group='DELAY';
+  const chName=domain==='in'?(inLabels[ch]||`CH${ch}`):(outLabels[ch]||`CH${ch}`);
+  const expDesc=`${group}-${chName}`;
+  let insertIdx=pipeline.length;
+  if(domain==='in'){ if(mixerIdx>=0) insertIdx=mixerIdx; }
+  const searchStart=domain==='in'?0:(mixerIdx>=0?mixerIdx+1:0);
+  const searchEnd=domain==='in'?(mixerIdx>=0?mixerIdx:pipeline.length):pipeline.length;
+  for(let i=searchStart;i<searchEnd;i++){
+    const s=pipeline[i];
+    if(s.type==='Filter'){
+      const sChs=s.channels?[...s.channels]:(s.channel!=null?[s.channel]:[]);
+      if(JSON.stringify(sChs)===[ch].toString()&&(s.description||'')===''+expDesc){
+        if(!(s.names||[]).includes(fid)) (s.names=s.names||[]).push(fid);
+        config.pipeline=pipeline; return;
+      }
+    }
+  }
+  pipeline.splice(insertIdx,0,{type:'Filter',channels:[ch],names:[fid],description:expDesc,bypassed:false});
+  config.pipeline=pipeline;
+}
+function removeFilterFromPipeline(fid){
+  config.pipeline=(config.pipeline||[]).map(s=>{
+    if(s.type==='Filter'&&(s.names||[]).includes(fid)){
+      s.names=s.names.filter(n=>n!==fid);
+      return s.names.length?s:null;
+    }
+    return s;
+  }).filter(Boolean);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EQ GRAPH
+// ═══════════════════════════════════════════════════════════════════════════
+const eqState={drag:null,hover:null,highlight:null,dragGroup:[]};
+const eqCanvas=()=>document.getElementById('eq-canvas');
+
+function fToX(f,W){ return W*(Math.log10(Math.max(20,Math.min(20000,f)))-Math.log10(20))/(Math.log10(20000)-Math.log10(20)); }
+function xToF(x,W){ return Math.pow(10,Math.log10(20)+(x/W)*(Math.log10(20000)-Math.log10(20))); }
+function eqDbToY(db,H){ return H*(12-Math.max(-12,Math.min(12,db)))/24; }
+function eqYToDb(y,H){ return 12-(y/H)*24; }
+
+function renderEQGraph(){
+  const cv=eqCanvas(); if(!cv) return;
+  const W=cv.width=cv.clientWidth, H=cv.height=cv.clientHeight;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  // Grid
+  for(let dec=10;dec<=10000;dec*=10){
+    for(let i=1;i<10;i++){
+      const f=dec*i; if(f<20||f>20000) continue;
+      const x=fToX(f,W); const a=i===1?130:35;
+      ctx.strokeStyle=`rgba(255,255,255,${a/255})`; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+      if(i===1||i===2||i===5){ctx.fillStyle='#aaa';ctx.font='8px Arial';ctx.fillText(f<1000?f:''+f/1000+'k',x+2,H-4);}
+    }
+  }
+  for(let db=-12;db<=12;db++){
+    const y=eqDbToY(db,H); const a=db===0?180:db%3===0?70:25;
+    ctx.strokeStyle=`rgba(255,255,255,${a/255})`; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    if(db%3===0){ctx.fillStyle='#aaa';ctx.font='8px Arial';ctx.fillText(`${db}dB`,4,y-2);}
+  }
+
+  // Bypassed fids
+  const bypassedFids=new Set();
+  (config.pipeline||[]).forEach(s=>{if(s.type==='Filter'&&s.bypassed)(s.names||[]).forEach(n=>bypassedFids.add(n));});
+
+  // Group by channel for summed curves
+  const byCh={};
+  for(const [fid,info] of Object.entries(filtrosBiquad)){
+    const dom=info.domain;
+    for(const ch of info.channels){
+      if(dom==='in'&&!visibleIn.has(ch)) continue;
+      if(dom==='out'&&!visibleOut.has(ch)) continue;
+      const key=`${dom}_${ch}`; (byCh[key]=byCh[key]||[]).push([fid,info.data.parameters]);
+    }
+  }
+  for(const [key,pList] of Object.entries(byCh)){
+    const [dom,ch]=key.split('_'); const chI=parseInt(ch);
+    let col=COLORS[chI%COLORS.length]; if(dom==='in') col=darken(col);
+    const path=new Path2D();
+    for(let i=0;i<=W;i++){
+      const f=xToF(i,W);
+      const tot=pList.reduce((s,[fid,p])=>s+(bypassedFids.has(fid)?0:biquadMag(p,f)),0);
+      const y=eqDbToY(tot,H);
+      i===0?path.moveTo(i,y):path.lineTo(i,y);
+    }
+    ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.stroke(path);
+  }
+
+  // Draw points
+  let idx=0;
+  for(const [fid,info] of Object.entries(filtrosBiquad)){
+    idx++;
+    const dom=info.domain;
+    const visChs=info.channels.filter(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
+    if(!visChs.length) continue;
+    const p=info.data.parameters;
+    const x=fToX(p.freq,W), y=eqDbToY(p.gain||0,H);
+    const isByp=bypassedFids.has(fid), isSel=fid===eqState.drag||fid===eqState.hover||fid===eqState.highlight;
+    const col=COLORS[visChs[0]%COLORS.length];
+    ctx.fillStyle=isByp?'#666':(isSel?'#fff':col);
+    ctx.beginPath(); ctx.arc(x,y,5,0,2*Math.PI); ctx.fill();
+    ctx.fillStyle=isByp?'#666':col; ctx.font='bold 7px Arial'; ctx.textAlign='center';
+    const chName=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
+    ctx.fillText(`${idx}|${dom.toUpperCase()}:${chName}`,x,y-8);
+    if(isSel){
+      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+      const bx=Math.max(0,Math.min(W-155,x-75)),by=Math.max(0,y-45);
+      ctx.beginPath(); ctx.roundRect(bx,by,150,35,5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 7px Arial'; ctx.textAlign='center';
+      ctx.fillText(`F:${p.freq.toFixed(0)}Hz G:${(p.gain||0).toFixed(1)}dB Q:${(p.q||1).toFixed(2)}`,bx+75,by+13);
+      ctx.fillStyle='#bbb'; ctx.font='7px Arial'; ctx.fillText(p.type||'',bx+75,by+26);
+    }
+  }
+}
+
+function setupEQInteraction(){
+  const cv=eqCanvas(); if(!cv) return;
+  cv.addEventListener('dblclick',e=>{
+    if(!visibleIn.size&&!visibleOut.size){toast('Selecciona al menos un canal');return;}
+    createEQFilters(xToF(e.offsetX,cv.clientWidth),eqYToDb(e.offsetY,cv.clientHeight));
+  });
+  cv.addEventListener('mousedown',e=>{
+    const cands=findEQNear(e.offsetX,e.offsetY,cv);
+    if(!cands.length) return;
+    if(e.button===2){ deleteEQ(cands[0]); return; }
+    if(e.button===0){
+      const [primary]=cands; eqState.drag=primary; highlightEQRow(primary);
+      const pp=filtrosBiquad[primary]?.data?.parameters||{};
+      eqState.dragGroup=Object.keys(filtrosBiquad).filter(fid=>{
+        const info=filtrosBiquad[fid]; const dom=info.domain;
+        const vis=info.channels.some(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
+        if(!vis) return false;
+        const p2=info.data.parameters;
+        return Math.abs((p2.freq||0)-(pp.freq||0))<1&&Math.abs((p2.gain||0)-(pp.gain||0))<0.1&&Math.abs((p2.q||1)-(pp.q||1))<0.01;
+      });
+    }
+  });
+  cv.addEventListener('mousemove',e=>{
+    if(eqState.drag&&(e.buttons&1)){
+      const nf=xToF(e.offsetX,cv.clientWidth), ng=eqYToDb(e.offsetY,cv.clientHeight);
+      eqState.dragGroup.forEach(fid=>{
+        if(!filtrosBiquad[fid]) return;
+        const p=filtrosBiquad[fid].data.parameters; p.freq=nf; if('gain' in p) p.gain=ng;
+      });
+      renderEQGraph(); buildEQTable();
+    } else {
+      const old=eqState.hover; eqState.hover=findEQNear(e.offsetX,e.offsetY,cv)[0]||null;
+      if(old!==eqState.hover) renderEQGraph();
+    }
+  });
+  cv.addEventListener('mouseup',async e=>{
+    if(e.button===0&&eqState.drag){
+      const patch={};
+      eqState.dragGroup.forEach(fid=>{
+        if(!filtrosBiquad[fid]) return;
+        const p=filtrosBiquad[fid].data.parameters;
+        patch[fid]={parameters:{freq:p.freq,gain:p.gain||0}};
+      });
+      await patchCfg({filters:patch}); eqState.drag=null;
+    }
+  });
+  cv.addEventListener('wheel',async e=>{
+    e.preventDefault();
+    let target=eqState.drag||eqState.hover||eqState.highlight||findEQNear(e.offsetX,e.offsetY,cv)[0];
+    if(!target||!filtrosBiquad[target]) return;
+    const pp=filtrosBiquad[target].data.parameters;
+    const step=e.deltaY<0?0.1:-0.1;
+    const nq=Math.max(0.1,Math.min(20,(pp.q||1)+step));
+    const group=Object.keys(filtrosBiquad).filter(fid=>{
+      const p2=filtrosBiquad[fid]?.data?.parameters||{};
+      return Math.abs((p2.freq||0)-(pp.freq||0))<1&&Math.abs((p2.gain||0)-(pp.gain||0))<0.1;
+    });
+    const patch={};
+    group.forEach(fid=>{ if(filtrosBiquad[fid]) filtrosBiquad[fid].data.parameters.q=nq; patch[fid]={parameters:{q:nq}}; });
+    await patchCfg({filters:patch}); buildEQTable(); renderEQGraph();
+  },{passive:false});
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
+}
+function findEQNear(ox,oy,cv){
+  const W=cv.clientWidth,H=cv.clientHeight,res=[];
+  for(const [fid,info] of Object.entries(filtrosBiquad)){
+    const dom=info.domain;
+    const vis=info.channels.some(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
+    if(!vis) continue;
+    const p=info.data.parameters;
+    const x=fToX(p.freq,W),y=eqDbToY(p.gain||0,H);
+    if(Math.hypot(ox-x,oy-y)<15) res.push(fid);
+  }
+  return res;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EQ CRUD
+// ═══════════════════════════════════════════════════════════════════════════
+function makeEQId(domain,ch){ return `EQ_${domain.toUpperCase()}_${cleanName(domain==='in'?inLabels[ch]:outLabels[ch])}_${Date.now()}_${ch}`; }
+async function createEQFilters(f,g){
+  const pf={};
+  [...visibleIn].forEach(ch=>{ const fid=makeEQId('in',ch); const d={type:'Biquad',description:null,parameters:{type:'Peaking',freq:f,gain:g,q:1}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'in',channels:[ch]}; addFilterToPipeline(fid,'in',ch); pf[fid]=d; });
+  [...visibleOut].forEach(ch=>{ const fid=makeEQId('out',ch); const d={type:'Biquad',description:null,parameters:{type:'Peaking',freq:f,gain:g,q:1}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'out',channels:[ch]}; addFilterToPipeline(fid,'out',ch); pf[fid]=d; });
+  await patchCfg({filters:pf,pipeline:config.pipeline}); buildEQTable(); renderEQGraph();
+}
+async function deleteEQ(fid){
+  if(!filtrosBiquad[fid]) return;
+  delete filtrosBiquad[fid]; delete (config.filters||{})[fid]; removeFilterFromPipeline(fid);
+  eqState.drag=eqState.hover=eqState.highlight=null;
+  await patchCfg({filters:{[fid]:null},pipeline:config.pipeline}); buildEQTable(); renderEQGraph();
+}
+
+function buildEQTable(){
+  const tbody=document.getElementById('eq-tbody'); if(!tbody) return;
+  tbody.innerHTML='';
+  const tipos=['Peaking','Highshelf','Lowshelf','Highpass','Lowpass'];
+  const chs=[...inLabels.map((n,i)=>`in ${i}: ${n}`),...outLabels.map((n,i)=>`out ${i}: ${n}`)];
+  for(const [fid,info] of Object.entries(filtrosBiquad)){
+    const p=info.data.parameters; const dom=info.domain; const ch=info.channels[0];
+    const chName=dom==='in'?(inLabels[ch]||`IN${ch}`):(outLabels[ch]||`OUT${ch}`);
+    const tr=document.createElement('tr'); tr.id=`eq-row-${fid}`;
+    tr.innerHTML=`<td style="font-size:10px;max-width:100px;overflow:hidden">${fid.substring(0,20)}</td>
+    <td><select onchange="changeEQType('${fid}',this.value)">${tipos.map(t=>`<option${p.type===t?' selected':''}>${t}</option>`).join('')}</select></td>
+    <td><input type="number" value="${p.freq.toFixed(0)}" onchange="updateEQParam('${fid}','freq',+this.value)"></td>
+    <td><input type="number" step="0.1" value="${(p.gain||0).toFixed(1)}" onchange="updateEQParam('${fid}','gain',+this.value)"></td>
+    <td><input type="number" step="0.01" value="${(p.q||1).toFixed(2)}" onchange="updateEQParam('${fid}','q',+this.value)"></td>
+    <td><select onchange="changeEQCh('${fid}',this.value)">${chs.map(c=>`<option${(`${dom} ${ch}: ${chName}`)===c?' selected':''}>${c}</option>`).join('')}</select></td>
+    <td><button class="del-btn" onclick="deleteEQ('${fid}')">X</button></td>`;
+    tbody.appendChild(tr);
+  }
+}
+async function changeEQType(fid,t){
+  if(!filtrosBiquad[fid]) return;
+  filtrosBiquad[fid].data.parameters.type=t; (config.filters||{})[fid].parameters.type=t;
+  await patchCfg({filters:{[fid]:{parameters:{type:t}}}}); renderEQGraph();
+}
+async function updateEQParam(fid,param,val){
+  if(!filtrosBiquad[fid]) return;
+  filtrosBiquad[fid].data.parameters[param]=val; (config.filters||{})[fid].parameters[param]=val;
+  await patchCfg({filters:{[fid]:{parameters:{[param]:val}}}}); renderEQGraph();
+}
+async function changeEQCh(fid,txt){
+  if(!filtrosBiquad[fid]) return;
+  const parts=txt.split(' '); const ndom=parts[0]; const nch=parseInt(parts[1]);
+  const old=filtrosBiquad[fid]; const oldDom=old.domain; const oldCh=old.channels[0];
+  if(oldDom===ndom&&oldCh===nch) return;
+  const nfid=`EQ_${ndom.toUpperCase()}_${cleanName(ndom==='in'?inLabels[nch]:outLabels[nch])}_${Date.now()}`;
+  removeFilterFromPipeline(fid); addFilterToPipeline(nfid,ndom,nch);
+  (config.filters||{})[nfid]=(config.filters||{})[fid]; delete (config.filters||{})[fid];
+  filtrosBiquad[nfid]={...filtrosBiquad[fid],domain:ndom,channels:[nch]};
+  delete filtrosBiquad[fid];
+  await patchCfg({filters:{[fid]:null,[nfid]:filtrosBiquad[nfid].data},pipeline:config.pipeline});
+  buildEQTable(); renderEQGraph();
+}
+function highlightEQRow(fid){
+  eqState.highlight=fid;
+  document.querySelectorAll('#eq-tbody tr').forEach(r=>r.style.background='');
+  const row=document.getElementById(`eq-row-${fid}`); if(row) row.style.background='#1a2a4a';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CROSSOVER GRAPH
+// ═══════════════════════════════════════════════════════════════════════════
+const crossState={drag:null,hover:null,highlight:null,dragGroup:[]};
+const crCanvas=()=>document.getElementById('cross-canvas');
+function crDbToY(db,H){ return H*(12-Math.max(-24,Math.min(12,db)))/36; }
+function crYToDb(y,H){ return 12-(y/H)*36; }
+
+function renderCrossGraph(){
+  const cv=crCanvas(); if(!cv) return;
+  const W=cv.width=cv.clientWidth, H=cv.height=cv.clientHeight;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
+  for(let dec=10;dec<=10000;dec*=10){
+    for(let i=1;i<10;i++){
+      const f=dec*i; if(f<20||f>20000) continue;
+      const x=fToX(f,W); const a=i===1?130:35;
+      ctx.strokeStyle=`rgba(255,255,255,${a/255})`; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+      if(i===1||i===2||i===5){ctx.fillStyle='#aaa';ctx.font='8px Arial';ctx.fillText(f<1000?f:''+f/1000+'k',x+2,H-4);}
+    }
+  }
+  for(let db=-24;db<=12;db+=3){
+    const y=crDbToY(db,H); const a=db===0?180:70;
+    ctx.strokeStyle=`rgba(255,255,255,${a/255})`; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+    if(db%6===0){ctx.fillStyle='#aaa';ctx.font='8px Arial';ctx.fillText(`${db}dB`,4,y-2);}
+  }
+  const bypassedFids=new Set();
+  (config.pipeline||[]).forEach(s=>{if(s.type==='Filter'&&s.bypassed)(s.names||[]).forEach(n=>bypassedFids.add(n));});
+  const byCh={};
+  for(const [fid,info] of Object.entries(filtrosCross)){
+    for(const ch of info.channels){
+      if(!visibleOut.has(ch)) continue;
+      const key=`out_${ch}`; (byCh[key]=byCh[key]||[]).push([fid,info.data.parameters]);
+    }
+  }
+  for(const [key,pList] of Object.entries(byCh)){
+    const ch=parseInt(key.split('_')[1]); const col=COLORS[ch%COLORS.length];
+    const path=new Path2D();
+    for(let i=0;i<=W;i++){
+      const f=xToF(i,W);
+      const tot=pList.reduce((s,[fid,p])=>s+(bypassedFids.has(fid)?0:crossMag(p,f)),0);
+      const y=crDbToY(tot,H);
+      i===0?path.moveTo(i,y):path.lineTo(i,y);
+    }
+    ctx.strokeStyle=col; ctx.lineWidth=2.5; ctx.stroke(path);
+  }
+  let idx=0;
+  for(const [fid,info] of Object.entries(filtrosCross)){
+    idx++;
+    const visChs=info.channels.filter(c=>visibleOut.has(c)); if(!visChs.length) continue;
+    const p=info.data.parameters; const f=parseFloat(p.freq||1000);
+    const x=fToX(f,W), y=crDbToY(crossMag(p,f),H);
+    const isSel=fid===crossState.drag||fid===crossState.hover||fid===crossState.highlight;
+    const col=COLORS[visChs[0]%COLORS.length];
+    ctx.fillStyle=isSel?'#fff':col; ctx.beginPath(); ctx.arc(x,y,5,0,2*Math.PI); ctx.fill();
+    ctx.fillStyle=col; ctx.font='bold 7px Arial'; ctx.textAlign='center';
+    ctx.fillText(`${idx}|${outLabels[visChs[0]]||visChs[0]}`,x,y-8);
+    if(isSel){
+      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+      const bx=Math.max(0,Math.min(W-155,x-75)),by=Math.max(0,y-45);
+      ctx.beginPath(); ctx.roundRect(bx,by,150,35,5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 7px Arial'; ctx.textAlign='center';
+      ctx.fillText(`F:${f.toFixed(0)}Hz Ord:${p.order||2}`,bx+75,by+13);
+      ctx.fillStyle='#bbb'; ctx.font='7px Arial'; ctx.fillText(p.type||'',bx+75,by+26);
+    }
+  }
+}
+
+function setupCrossInteraction(){
+  const cv=crCanvas(); if(!cv) return;
+  cv.addEventListener('dblclick',e=>{
+    if(!visibleOut.size){toast('Selecciona al menos un canal OUT');return;}
+    createCrossFilters(xToF(e.offsetX,cv.clientWidth));
+  });
+  cv.addEventListener('mousedown',e=>{
+    const cands=findCrossNear(e.offsetX,e.offsetY,cv); if(!cands.length) return;
+    if(e.button===2){deleteCross(cands[0]);return;}
+    if(e.button===0){
+      crossState.drag=cands[0]; highlightCrossRow(cands[0]);
+      const pp=filtrosCross[cands[0]]?.data?.parameters||{};
+      crossState.dragGroup=Object.keys(filtrosCross).filter(fid=>{
+        if(!filtrosCross[fid]) return false;
+        const p2=filtrosCross[fid].data.parameters;
+        return Math.abs((p2.freq||0)-(pp.freq||0))<1&&p2.type===pp.type&&p2.order===pp.order;
+      });
+    }
+  });
+  cv.addEventListener('mousemove',e=>{
+    if(crossState.drag&&(e.buttons&1)){
+      const nf=xToF(e.offsetX,cv.clientWidth);
+      crossState.dragGroup.forEach(fid=>{ if(filtrosCross[fid]) filtrosCross[fid].data.parameters.freq=nf; });
+      renderCrossGraph(); buildCrossTable();
+    } else {
+      const old=crossState.hover; crossState.hover=findCrossNear(e.offsetX,e.offsetY,cv)[0]||null;
+      if(old!==crossState.hover) renderCrossGraph();
+    }
+  });
+  cv.addEventListener('mouseup',async e=>{
+    if(e.button===0&&crossState.drag){
+      const patch={};
+      crossState.dragGroup.forEach(fid=>{ if(filtrosCross[fid]) patch[fid]={parameters:{freq:filtrosCross[fid].data.parameters.freq}}; });
+      await patchCfg({filters:patch}); crossState.drag=null;
+    }
+  });
+  cv.addEventListener('wheel',async e=>{
+    e.preventDefault();
+    let target=crossState.drag||crossState.hover||crossState.highlight||findCrossNear(e.offsetX,e.offsetY,cv)[0];
+    if(!target||!filtrosCross[target]) return;
+    const pp=filtrosCross[target].data.parameters;
+    const nOrd=Math.max(1,Math.min(4,(pp.order||2)+(e.deltaY<0?1:-1)));
+    const group=Object.keys(filtrosCross).filter(fid=>{
+      const p2=filtrosCross[fid]?.data?.parameters||{};
+      return Math.abs((p2.freq||0)-(pp.freq||0))<1&&p2.type===pp.type&&p2.order===pp.order;
+    });
+    const patch={};
+    group.forEach(fid=>{ if(filtrosCross[fid]) filtrosCross[fid].data.parameters.order=nOrd; patch[fid]={parameters:{order:nOrd}}; });
+    await patchCfg({filters:patch}); buildCrossTable(); renderCrossGraph();
+  },{passive:false});
+  cv.addEventListener('contextmenu',e=>e.preventDefault());
+}
+function findCrossNear(ox,oy,cv){
+  const W=cv.clientWidth,H=cv.clientHeight,res=[];
+  for(const [fid,info] of Object.entries(filtrosCross)){
+    const vis=info.channels.some(c=>visibleOut.has(c)); if(!vis) continue;
+    const p=info.data.parameters; const f=parseFloat(p.freq||1000);
+    const x=fToX(f,W),y=crDbToY(crossMag(p,f),H);
+    if(Math.hypot(ox-x,oy-y)<15) res.push(fid);
+  }
+  return res;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CROSSOVER CRUD
+// ═══════════════════════════════════════════════════════════════════════════
+function makeCrossId(ch){ return `Cross_OUT_${cleanName(outLabels[ch]||ch)}_${Date.now()}_${ch}`; }
+async function createCrossFilters(f){
+  const pf={};
+  [...visibleOut].forEach(ch=>{
+    const existing=(Object.values(filtrosCross).filter(i=>i.channels.includes(ch)&&i.domain==='out')||[]).map(i=>i.data.parameters.type||'');
+    let type='LinkwitzRileyHighpass';
+    if(existing.some(t=>t.includes('Highpass'))) type='LinkwitzRileyLowpass';
+    const fid=makeCrossId(ch);
+    const d={type:'BiquadCombo',description:null,parameters:{type,freq:f,order:2}};
+    (config.filters=config.filters||{})[fid]=d;
+    filtrosCross[fid]={data:d,domain:'out',channels:[ch]};
+    addFilterToPipeline(fid,'out',ch); pf[fid]=d;
+  });
+  await patchCfg({filters:pf,pipeline:config.pipeline}); buildCrossTable(); renderCrossGraph();
+}
+async function deleteCross(fid){
+  if(!filtrosCross[fid]) return;
+  delete filtrosCross[fid]; delete (config.filters||{})[fid]; removeFilterFromPipeline(fid);
+  crossState.drag=crossState.hover=crossState.highlight=null;
+  await patchCfg({filters:{[fid]:null},pipeline:config.pipeline}); buildCrossTable(); renderCrossGraph();
+}
+function buildCrossTable(){
+  const tbody=document.getElementById('cross-tbody'); if(!tbody) return;
+  tbody.innerHTML='';
+  const tipos=['ButterworthHighpass','ButterworthLowpass','LinkwitzRileyHighpass','LinkwitzRileyLowpass'];
+  const ordOpts=['1 (6dB/oct)','2 (12dB/oct)','3 (18dB/oct)','4 (24dB/oct)'];
+  const outChs=outLabels.map((n,i)=>`out ${i}: ${n}`);
+  for(const [fid,info] of Object.entries(filtrosCross)){
+    const p=info.data.parameters; const ch=info.channels[0];
+    const chName=outLabels[ch]||`OUT${ch}`;
+    const tr=document.createElement('tr'); tr.id=`cr-row-${fid}`;
+    tr.innerHTML=`<td style="font-size:10px">${fid.substring(0,20)}</td>
+    <td><select onchange="changeCrossType('${fid}',this.value)">${tipos.map(t=>`<option${p.type===t?' selected':''}>${t}</option>`).join('')}</select></td>
+    <td><input type="number" value="${parseFloat(p.freq||1000).toFixed(0)}" onchange="updateCrossParam('${fid}','freq',+this.value)"></td>
+    <td><select onchange="changeCrossOrder('${fid}',this.selectedIndex+1)">${ordOpts.map((o,i)=>`<option${(p.order||2)===(i+1)?' selected':''}>${o}</option>`).join('')}</select></td>
+    <td><select onchange="changeCrossCh('${fid}',this.value)">${outChs.map(c=>`<option${(`out ${ch}: ${chName}`)===c?' selected':''}>${c}</option>`).join('')}</select></td>
+    <td><button class="del-btn" onclick="deleteCross('${fid}')">X</button></td>`;
+    tbody.appendChild(tr);
+  }
+}
+async function changeCrossType(fid,t){ if(!filtrosCross[fid]) return; filtrosCross[fid].data.parameters.type=t; (config.filters||{})[fid].parameters.type=t; await patchCfg({filters:{[fid]:{parameters:{type:t}}}}); renderCrossGraph(); }
+async function updateCrossParam(fid,param,val){ if(!filtrosCross[fid]) return; filtrosCross[fid].data.parameters[param]=val; (config.filters||{})[fid].parameters[param]=val; await patchCfg({filters:{[fid]:{parameters:{[param]:val}}}}); renderCrossGraph(); }
+async function changeCrossOrder(fid,ord){ if(!filtrosCross[fid]) return; filtrosCross[fid].data.parameters.order=ord; (config.filters||{})[fid].parameters.order=ord; await patchCfg({filters:{[fid]:{parameters:{order:ord}}}}); renderCrossGraph(); }
+async function changeCrossCh(fid,txt){ if(!filtrosCross[fid]) return; const parts=txt.split(' '); const nch=parseInt(parts[1]); const old=filtrosCross[fid]; if(old.channels[0]===nch) return; const nfid=makeCrossId(nch); removeFilterFromPipeline(fid); addFilterToPipeline(nfid,'out',nch); (config.filters||{})[nfid]=(config.filters||{})[fid]; delete (config.filters||{})[fid]; filtrosCross[nfid]={...filtrosCross[fid],channels:[nch]}; delete filtrosCross[fid]; await patchCfg({filters:{[fid]:null,[nfid]:filtrosCross[nfid].data},pipeline:config.pipeline}); buildCrossTable(); renderCrossGraph(); }
+function highlightCrossRow(fid){ crossState.highlight=fid; document.querySelectorAll('#cross-tbody tr').forEach(r=>r.style.background=''); const row=document.getElementById(`cr-row-${fid}`); if(row) row.style.background='#1a2a4a'; }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MIXER MATRIX
+// ═══════════════════════════════════════════════════════════════════════════
+function renderMixer(){
+  const cv=document.getElementById('mixer-canvas'); if(!cv) return;
+  const CW=44, CH=36, LM=160, TM=120;
+  const W=LM+inLabels.length*CW+60, H=TM+outLabels.length*CH+60;
+  cv.width=W; cv.height=H; cv.style.width=W+'px'; cv.style.height=H+'px';
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
+
+  const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+  const m=mixName&&config.mixers?.[mixName];
+  const active={}; // {(dest,src): gain}
+  for(const mp of (m?.mapping||[])){
+    for(const src of (mp.sources||[])) active[`${mp.dest}_${src.channel}`]=src.gain||0;
+  }
+
+  ctx.fillStyle='#fff'; ctx.font='bold 10px Arial'; ctx.textAlign='center';
+  ctx.fillText('Input',LM+inLabels.length*CW/2,18);
+  ctx.save(); ctx.translate(20,TM+outLabels.length*CH/2); ctx.rotate(-Math.PI/2); ctx.fillText('Output',0,0); ctx.restore();
+
+  ctx.font='9px Arial'; ctx.fillStyle='#aaa';
+  inLabels.forEach((n,i)=>{
+    const x=LM+i*CW+CW/2;
+    ctx.save(); ctx.translate(x,TM-28); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillText(n,0,0); ctx.restore();
+    ctx.textAlign='center'; ctx.fillStyle='#666'; ctx.fillText(i,x,TM-8);
+  });
+  outLabels.forEach((n,i)=>{
+    const y=TM+i*CH+CH/2;
+    ctx.textAlign='right'; ctx.fillStyle='#aaa'; ctx.fillText(n,LM-35,y+4);
+    ctx.fillStyle='#666'; ctx.textAlign='center'; ctx.fillText(i,LM-12,y+4);
+  });
+
+  // Cells
+  outLabels.forEach((_,row)=>{
+    inLabels.forEach((_,col)=>{
+      const x=LM+col*CW, y=TM+row*CH;
+      const key=`${row}_${col}`;
+      if(active.hasOwnProperty(key)){
+        ctx.fillStyle='#50ff50'; ctx.fillRect(x,y,CW,CH);
+        ctx.fillStyle='#000'; ctx.font='bold 10px Arial'; ctx.textAlign='center';
+        ctx.fillText(active[key].toFixed(0),x+CW/2,y+CH/2+4);
+      } else {
+        ctx.fillStyle='#191919'; ctx.fillRect(x,y,CW,CH);
+        ctx.fillStyle='#555'; ctx.font='12px Arial'; ctx.textAlign='center';
+        ctx.fillText('+',x+CW/2,y+CH/2+4);
+      }
+    });
+  });
+  // Grid lines
+  ctx.strokeStyle='#333'; ctx.lineWidth=1;
+  for(let r=0;r<=outLabels.length;r++){const y=TM+r*CH;ctx.beginPath();ctx.moveTo(LM-35,y);ctx.lineTo(LM+inLabels.length*CW,y);ctx.stroke();}
+  for(let c=0;c<=inLabels.length;c++){const x=LM+c*CW;ctx.beginPath();ctx.moveTo(x,TM-20);ctx.lineTo(x,TM+outLabels.length*CH);ctx.stroke();}
+}
+
+function setupMixerInteraction(){
+  const cv=document.getElementById('mixer-canvas'); if(!cv) return;
+  const CW=44,CH=36,LM=160,TM=120;
+  cv.addEventListener('click',async e=>{
+    const col=Math.floor((e.offsetX-LM)/CW), row=Math.floor((e.offsetY-TM)/CH);
+    if(col<0||col>=inLabels.length||row<0||row>=outLabels.length) return;
+    const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name; if(!mixName) return;
+    const m=config.mixers?.[mixName]; if(!m) return;
+    m.mapping=m.mapping||[];
+    let mp=m.mapping.find(x=>x.dest===row);
+    if(!mp){mp={dest:row,mute:false,sources:[]};m.mapping.push(mp);}
+    const exists=mp.sources.some(s=>s.channel===col);
+    if(!exists) mp.sources.push({channel:col,gain:0,inverted:false,mute:false,scale:'dB'});
+    await patchCfg({mixers:{[mixName]:m}}); renderMixer();
+  });
+  cv.addEventListener('contextmenu',async e=>{
+    e.preventDefault();
+    const col=Math.floor((e.offsetX-LM)/CW), row=Math.floor((e.offsetY-TM)/CH);
+    if(col<0||col>=inLabels.length||row<0||row>=outLabels.length) return;
+    const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name; if(!mixName) return;
+    const m=config.mixers?.[mixName]; if(!m) return;
+    const mp=m.mapping?.find(x=>x.dest===row); if(!mp) return;
+    mp.sources=mp.sources.filter(s=>s.channel!==col);
+    await patchCfg({mixers:{[mixName]:m}}); renderMixer();
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPRESSORS
+// ═══════════════════════════════════════════════════════════════════════════
+async function createCompressor(name,chIdx,threshold,vuW){
+  const totalOut=config.devices?.playback?.channels||outLabels.length;
+  let cname=`Comp_${cleanName(name)}`;
+  let atk=0.2,rel=1.0,factor=5.0,makeup=0.0;
+  const existing=Object.entries(config.processors||{}).find(([,pd])=>pd.type==='Compressor'&&pd.parameters?.process_channels?.[0]===chIdx);
+  if(existing){cname=existing[0];const op=existing[1].parameters;atk=op.attack;rel=op.release;factor=op.factor;makeup=op.makeup_gain;}
+  const cd={type:'Compressor',description:null,parameters:{channels:totalOut,monitor_channels:[chIdx],process_channels:[chIdx],attack:atk,release:rel,threshold:parseFloat(threshold.toFixed(1)),factor,makeup_gain:makeup,soft_clip:false,clip_limit:null}};
+  (config.processors=config.processors||{})[cname]=cd;
+  const patch={processors:{[cname]:cd}};
+  const pipeline=config.pipeline||[];
+  if(!pipeline.find(s=>s.type==='Processor'&&s.name===cname)){pipeline.push({type:'Processor',name:cname,description:null});patch.pipeline=pipeline;config.pipeline=pipeline;}
+  await patchCfg(patch);
+  vuW.compTh=threshold; vuW.compRatio=factor; vuW.compMakeup=makeup;
+  buildCompTable(); buildVU(); toast(`Compresor ${cname} actualizado`);
+}
+async function deleteCompressorByChannel(chIdx){
+  const entry=Object.entries(config.processors||{}).find(([,pd])=>pd.type==='Compressor'&&pd.parameters?.process_channels?.[0]===chIdx);
+  if(!entry) return; await deleteCompressorById(entry[0]);
+}
+async function deleteCompressorById(pid){
+  if(!config.processors?.[pid]) return;
+  delete config.processors[pid];
+  config.pipeline=(config.pipeline||[]).filter(s=>!(s.type==='Processor'&&s.name===pid));
+  const w=vuWidgets[`out_${Object.values(config.processors||{}).length}`]; // recalc
+  await patchCfg({processors:{[pid]:null},pipeline:config.pipeline});
+  buildVU(); buildCompTable();
+}
+function buildCompTable(){
+  const tbody=document.getElementById('comp-tbody'); if(!tbody) return;
+  tbody.innerHTML='';
+  for(const [pid,pd] of Object.entries(config.processors||{})){
+    if(pd.type!=='Compressor') continue;
+    const p=pd.parameters;
+    const tr=document.createElement('tr');
+    const autoRunning=autoSamplers[pid];
+    tr.innerHTML=`<td style="font-size:10px">${pid}</td>
+    <td><input type="number" step="0.001" value="${p.attack}" onchange="updateComp('${pid}','attack',+this.value)"></td>
+    <td><input type="number" step="0.001" value="${p.release}" onchange="updateComp('${pid}','release',+this.value)"></td>
+    <td><input type="number" step="0.1" value="${p.threshold}" onchange="updateComp('${pid}','threshold',+this.value)"></td>
+    <td><input type="number" step="1" value="${p.factor}" onchange="updateComp('${pid}','factor',+this.value)"></td>
+    <td><input type="number" step="0.1" value="${p.makeup_gain}" onchange="updateComp('${pid}','makeup_gain',+this.value)"></td>
+    <td><input type="number" step="0.1" value="${p.clip_limit??0}" onchange="updateComp('${pid}','clip_limit',+this.value)"></td>
+    <td><button class="auto-btn" id="auto-btn-${pid}" onclick="startAutoComp('${pid}',this)">${autoRunning?autoRunning.ticks+'t':'AUTO'}</button></td>
+    <td><button class="del-btn" onclick="deleteCompressorById('${pid}')">X</button></td>`;
+    tbody.appendChild(tr);
+  }
+}
+async function updateComp(pid,param,val){
+  if(!config.processors?.[pid]) return;
+  config.processors[pid].parameters[param]=(param==='clip_limit'&&val===0)?null:val;
+  const chIdx=config.processors[pid].parameters.process_channels?.[0];
+  const w=vuWidgets[`out_${chIdx}`];
+  if(w){if(param==='threshold')w.compTh=val;if(param==='factor')w.compRatio=val;if(param==='makeup_gain')w.compMakeup=val;}
+  await patchCfg({processors:{[pid]:{type:'Compressor',description:null,parameters:config.processors[pid].parameters}}});
+}
+function startAutoComp(pid,btn){
+  const chIdx=config.processors?.[pid]?.parameters?.process_channels?.[0];
+  if(chIdx==null) return;
+  autoSamplers[pid]={ch:chIdx,ticks:100,history:[]};
+  btn.textContent='5s'; btn.disabled=true; btn.style.background='#aa8800';
+}
+function finishAutoComp(pid){
+  const data=autoSamplers[pid]; delete autoSamplers[pid];
+  const btn=document.getElementById(`auto-btn-${pid}`);
+  if(btn){btn.textContent='AUTO';btn.disabled=false;btn.style.background='#007bff';}
+  const hist=(data.history||[]).filter(x=>x>-80);
+  if(!hist.length){toast('No se detectó audio');return;}
+  const sumE=hist.reduce((s,x)=>s+Math.pow(10,x/10),0);
+  const rmsDb=10*Math.log10(sumE/hist.length), peak=Math.max(...hist);
+  const cf=peak-rmsDb;
+  let atk,rel,factor;
+  const bpm=120;
+  if(cf>14){atk=0.005;factor=8;rel=15/bpm;}
+  else if(cf>10){atk=0.012;factor=4;rel=30/bpm;}
+  else if(cf>6){atk=0.025;factor=3;rel=60/bpm;}
+  else{atk=0.050;factor=2;rel=120/bpm;}
+  atk=Math.round(atk*1000)/1000; rel=Math.round(rel*1000)/1000;
+  const thr=config.processors?.[pid]?.parameters?.threshold||-20;
+  let sumComp=0;
+  hist.forEach(x=>{const cx=x>thr?thr+(x-thr)/factor:x;sumComp+=Math.pow(10,cx/10);});
+  const rmsComp=10*Math.log10(sumComp/hist.length);
+  const makeup=Math.round((rmsDb-rmsComp+0.5)*10)/10;
+  if(config.processors?.[pid]){
+    Object.assign(config.processors[pid].parameters,{attack:atk,release:rel,factor,makeup_gain:makeup});
+    patchCfg({processors:{[pid]:{type:'Compressor',description:null,parameters:config.processors[pid].parameters}}});
+    buildCompTable(); buildVU();
+    toast(`AUTO: CF=${cf.toFixed(1)}dB → Ratio=${factor}:1 Atk=${atk}s MkUp=+${makeup}dB`);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIG IMPORT/EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
+function importConfig(){
+  const fi=document.getElementById('file-input');
+  fi.accept='.yml,.yaml,.json'; fi.onchange=async()=>{
+    const f=fi.files[0]; if(!f) return;
+    const txt=await f.text();
+    // Parse YAML manually (basic) or JSON
+    let cfg;
+    try{ cfg=JSON.parse(txt); }
+    catch{
+      // Basic YAML → JSON via server (re-import)
+      const fd=new FormData(); fd.append('file',f);
+      const r=await fetch('/api/import',{method:'POST',body:fd});
+      if(!r.ok){toast('Error importando');return;}
+      cfg=(await r.json()).config;
+    }
+    await setFullConfig(cfg); await init(); toast('Configuración importada');
+  };
+  fi.click();
+}
+function exportConfig(){ window.open('/api/export','_blank'); }
+function importEQ(){
+  const fi=document.getElementById('file-input');
+  fi.accept='.txt,.yml,.yaml'; fi.onchange=async()=>{
+    const f=fi.files[0]; if(!f) return;
+    const txt=await f.text(); const lines=txt.split('\n');
+    const pf={}; let count=0;
+    for(const line of lines){
+      const l=line.trim(); if(!l||l.toLowerCase().startsWith('freq')||l.toLowerCase().startsWith('#')) continue;
+      let freq,gain,q,tipo;
+      if(l.toLowerCase().startsWith('filter')){
+        if(!l.includes('ON')) continue;
+        const parts=l.split(/\s+/);
+        try{
+          if(parts.includes('None')) continue;
+          freq=parseFloat(parts[parts.indexOf('Fc')+1]);
+          gain=parseFloat(parts[parts.indexOf('Gain')+1]);
+          q=parts.includes('Q')?parseFloat(parts[parts.indexOf('Q')+1]):1;
+          const tr=parts[3].toUpperCase();
+          if(['PK','PEQ'].includes(tr)) tipo='Peaking';
+          else if(tr.includes('LS')) tipo='Lowshelf';
+          else if(tr.includes('HS')) tipo='Highshelf';
+          else tipo='Peaking';
+        }catch{continue;}
+      } else {
+        const parts=l.split(/\t|\s+/);
+        if(parts.length<3) continue;
+        try{ freq=parseFloat(parts[0]);gain=parseFloat(parts[1]);q=parseFloat(parts[2]);tipo=(parts[3]||'Peak').replace('Peak','Peaking'); }catch{continue;}
+      }
+      if(!freq) continue;
+      [...visibleIn].forEach(ch=>{ const fid=makeEQId('in',ch); const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'in',channels:[ch]}; addFilterToPipeline(fid,'in',ch); pf[fid]=d; });
+      [...visibleOut].forEach(ch=>{ const fid=makeEQId('out',ch); const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'out',channels:[ch]}; addFilterToPipeline(fid,'out',ch); pf[fid]=d; });
+      count++;
+    }
+    if(count>0){ await patchCfg({filters:pf,pipeline:config.pipeline}); buildEQTable(); renderEQGraph(); toast(`${count} filtros importados`); }
+    else toast('No se encontraron filtros');
+  };
+  fi.click();
+}
+function exportEQ(){
+  let txt='Freq(Hz)\tGain(dB)\tQ\tTipo\n';
+  const seen=new Set();
+  for(const [,info] of Object.entries(filtrosBiquad)){
+    const dom=info.domain; const vis=info.channels.some(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c))); if(!vis) continue;
+    const p=info.data.parameters; const key=`${p.freq}_${p.gain}_${p.q}_${p.type}`;
+    if(seen.has(key)) continue; seen.add(key);
+    txt+=`${p.freq}\t${p.gain||0}\t${p.q||1}\t${p.type}\n`;
+  }
+  const a=document.createElement('a'); a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
+  a.download='eq_filters.txt'; a.click();
+}
+async function resetConfig(){
+  if(!confirm('¿Restaurar configuración por defecto?')) return;
+  const inCh=parseInt(prompt('Canales de ENTRADA:','2')||2);
+  const outCh=parseInt(prompt('Canales de SALIDA:','2')||2);
+  const def={description:'default',devices:{samplerate:48000,chunksize:1024,queuelimit:null,silence_threshold:null,silence_timeout:null,capture:{type:'Alsa',channels:inCh,device:'null',format:null,stop_on_inactive:null,link_volume_control:null,link_mute_control:null,labels:null},playback:{type:'Alsa',channels:outCh,device:'null',format:null},enable_rate_adjust:null,target_level:null,adjust_period:null,resampler:null,capture_samplerate:48000,stop_on_rate_change:null,rate_measure_interval:null,volume_ramp_time:null,volume_limit:null,multithreaded:null,worker_threads:null},filters:{},mixers:{Mixer:{channels:{in:inCh,out:outCh},description:null,labels:null,mapping:[]}},pipeline:[{type:'Mixer',name:'Mixer',description:null}],processors:{},title:'default'};
+  await setFullConfig(def); await init(); toast('Reset aplicado');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════════════════════
+function darken(hex){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgb(${Math.round(r*0.7)},${Math.round(g*0.7)},${Math.round(b*0.7)})`;
+}
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.className='show';
+  setTimeout(()=>t.className='',3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STARTUP
+// ═══════════════════════════════════════════════════════════════════════════
+window.addEventListener('load',async()=>{
+  await init();
+  setupEQInteraction();
+  setupCrossInteraction();
+  setupMixerInteraction();
+  // Resize handlers
+  window.addEventListener('resize',()=>{
+    if(currentTab===1) renderEQGraph();
+    if(currentTab===2) renderCrossGraph();
+  });
+  // Import YAML support via server
+  await fetch('/api/import-support').catch(()=>{});
+});
+</script>
+</body>
+</html>
