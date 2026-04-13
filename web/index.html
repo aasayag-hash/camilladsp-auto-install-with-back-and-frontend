@@ -45,13 +45,13 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 .view-btn.active{background:#007bff;color:#fff;border-color:#0ff}
 #vu-meters-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-end;padding:4px 8px;gap:2px;background:#050505;flex-shrink:0;height:190px}
 #vu-meters-row::-webkit-scrollbar{height:6px}#vu-meters-row::-webkit-scrollbar-thumb{background:#444}
-#vu-faders-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-start;padding:4px 8px;gap:6px;background:#080808;border-top:1px solid #222;flex-shrink:0;height:150px}
+#vu-faders-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-start;padding:4px 8px;gap:6px;background:#080808;border-top:1px solid #222;flex-shrink:0;height:182px}
 #vu-faders-row::-webkit-scrollbar{height:6px}#vu-faders-row::-webkit-scrollbar-thumb{background:#444}
 #comp-area{flex:1;min-height:50px;overflow-y:auto;padding:0 4px 4px}
 .fader-area{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
-.fader-name{font-size:9px;color:#aaa;text-align:center;white-space:nowrap;overflow:hidden;max-width:70px}
-.fader-ctrl-row{display:flex;gap:2px}
-.fader-dly-row{display:flex;align-items:center;gap:2px}
+.fader-name{font-size:10px;color:#fff;font-weight:bold;text-align:center;white-space:nowrap;overflow:hidden;max-width:70px}
+.fader-ctrl-row{display:flex;gap:3px;flex-wrap:nowrap}
+.fader-dly-row{display:flex;align-items:center;gap:3px}
 
 /* Compressor table */
 .comp-table{width:100%;border-collapse:collapse;font-size:11px}
@@ -83,12 +83,17 @@ table.ftable tr:hover td{background:#1a1a1a}
 .strip canvas{display:block}
 .strip .sname{font-size:9px;color:#aaa;text-align:center;max-width:50px;overflow:hidden;white-space:nowrap}
 .strip .db-val{font-size:9px;color:#0ff;font-weight:bold}
-.strip .mute-btn{height:18px;width:44px;font-size:9px;font-weight:bold;border:1px solid #555;border-radius:2px;cursor:pointer;background:#222;color:#ccc}
-.strip .mute-btn.muted{background:#d32f2f;color:#fff;border-color:#f00}
-.strip .pol-btn{height:18px;width:30px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:2px;cursor:pointer;background:#222;color:#ccc}
-.strip .pol-btn.inv{background:#d32f2f;color:#fff}
-.strip .dly-inp{width:44px;height:18px;background:#111;color:#0ff;border:1px solid #444;border-radius:2px;text-align:center;font-size:9px}
-.strip .dly-lbl{font-size:8px;color:#666}
+.mute-btn{height:22px;padding:0 7px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:4px;cursor:pointer;background:linear-gradient(180deg,#3a3a3a,#1a1a1a);color:#bbb;transition:background .1s,border-color .1s}
+.mute-btn:hover{border-color:#888;color:#fff;background:linear-gradient(180deg,#4a4a4a,#2a2a2a)}
+.mute-btn.muted{background:linear-gradient(180deg,#e53935,#7b0000);color:#fff;border-color:#ff5252;box-shadow:0 0 5px rgba(255,0,0,0.3)}
+.pol-btn{height:22px;width:34px;font-size:13px;font-weight:bold;border:1px solid #555;border-radius:4px;cursor:pointer;background:linear-gradient(180deg,#3a3a3a,#1a1a1a);color:#bbb;transition:background .1s}
+.pol-btn:hover{border-color:#888;color:#fff}
+.pol-btn.inv{background:linear-gradient(180deg,#7b1fa2,#4a0080);color:#fff;border-color:#ce93d8;box-shadow:0 0 5px rgba(180,0,255,0.3)}
+.dly-inp{width:44px;height:20px;background:#111;color:#0ff;border:1px solid #444;border-radius:3px;text-align:center;font-size:9px}
+.dly-lbl{font-size:9px;color:#fff;font-weight:bold}
+.fader-mute-all{height:22px;padding:0 6px;font-size:10px;font-weight:bold;border:1px solid #666;border-radius:4px;cursor:pointer;background:linear-gradient(180deg,#3a3a3a,#1a1a1a);color:#ccc;white-space:nowrap;width:100%;margin-top:2px}
+.fader-mute-all:hover{border-color:#aaa;color:#fff}
+.fader-mute-all.muted{background:linear-gradient(180deg,#e53935,#7b0000);color:#fff;border-color:#ff5252}
 .vu-sep{width:1px;background:#333;align-self:stretch;margin:0 4px;flex-shrink:0}
 #mute-all-btn{height:24px;padding:0 10px;border:none;border-radius:3px;background:#666;color:#fff;font-weight:bold;font-size:11px;cursor:pointer}
 #mute-all-btn.muted{background:#d32f2f}
@@ -514,9 +519,17 @@ function buildVU(){
     w.el.id=`vu-out-${i}`; vuRow.appendChild(w.el); vuWidgets[`out_${i}`]=w;
   });
 
-  // ── FADERS ROW: master | separador | canales salida ──
-  const ms=makeFaderStrip('MASTER',-1,levels.volume||0,'master');
-  faderRow.appendChild(ms.el);
+  // ── FADERS ROW: MAIN | separador | canales salida ──
+  const mainArea=document.createElement('div'); mainArea.className='fader-area'; mainArea.id='fader-main';
+  const mainNameDiv=document.createElement('div'); mainNameDiv.className='fader-name';
+  mainNameDiv.style.cssText='color:#ff9900;font-size:11px;font-weight:bold;text-align:center';
+  mainNameDiv.textContent='MAIN'; mainArea.appendChild(mainNameDiv);
+  const ms=makeFaderStrip('MAIN',-1,levels.volume||0,'master');
+  mainArea.appendChild(ms.el);
+  const muteAllFaderBtn=document.createElement('button'); muteAllFaderBtn.className='fader-mute-all';
+  muteAllFaderBtn.id='mute-all-btn2'; muteAllFaderBtn.textContent='MUTE ALL';
+  muteAllFaderBtn.onclick=toggleMuteAll; mainArea.appendChild(muteAllFaderBtn);
+  faderRow.appendChild(mainArea);
   if(outLabels.length){
     const sep=document.createElement('div');
     sep.style.cssText='width:1px;background:#333;margin:0 4px;align-self:stretch;flex-shrink:0';
@@ -556,7 +569,7 @@ function makeOutVU(name,chIdx){
   const initMute=(mapping?.mute)||false;
 
   const el=document.createElement('div'); el.className='strip';
-  const cv=document.createElement('canvas'); cv.width=54; cv.height=180;
+  const cv=document.createElement('canvas'); cv.width=64; cv.height=180;
   const ctx=cv.getContext('2d');
   const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:true,compTh,compRatio,compMakeup,grLevel:0,isMuted:initMute,el};
   cv.addEventListener('dblclick',e=>{
@@ -586,7 +599,7 @@ function makeOutFaderArea(name,chIdx,vuW){
   // Mute + polarity
   const ctrlRow=document.createElement('div'); ctrlRow.className='fader-ctrl-row';
   const muteBtn=document.createElement('button');
-  muteBtn.className='mute-btn'+(initMute?' muted':''); muteBtn.textContent=initMute?'MUTE':'ACTV';
+  muteBtn.className='mute-btn'+(initMute?' muted':''); muteBtn.textContent=initMute?'MUTE':'LIVE';
   muteBtn.onclick=()=>{ vuW.isMuted=!vuW.isMuted; applyMute(chIdx,vuW.isMuted,muteBtn); };
   ctrlRow.appendChild(muteBtn); vuW.muteBtn=muteBtn;
   const polBtn=document.createElement('button');
@@ -655,7 +668,7 @@ function makeFaderStrip(name,chIdx,initDb,mode){
       ctx.strokeStyle=isZero?'#f66':'#333';
       ctx.lineWidth=isZero?1.5:1;
       ctx.beginPath(); ctx.moveTo(tx+tw/2,y); ctx.lineTo(tx+tw/2+6,y); ctx.stroke();
-      ctx.fillStyle=isZero?'#f88':'#666';
+      ctx.fillStyle=isZero?'#f88':'#fff';
       ctx.font=isZero?'bold 7px Arial':'6px Arial'; ctx.textAlign='left';
       const lbl=db>0?'+'+db:String(db);
       ctx.fillText(lbl, tx+tw/2+8, y+2.5);
@@ -710,12 +723,12 @@ function drawVU(w){
   ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
   const fh=22, bh=H-fh, bx=22, bw=18;
   ctx.fillStyle='#222'; ctx.fillRect(bx,0,bw,bh);
-  // Scale labels LEFT side of bar
+  // Scale labels LEFT side of bar — all white
   ctx.font='7px Arial'; ctx.textAlign='right';
   for(const db of [0,-6,-12,-24,-40,-60,-80]){
     const y=bh-((db+80)/80*bh);
     ctx.fillStyle='#555'; ctx.fillRect(bx-4,~~y,4,1);
-    ctx.fillStyle=(db===0)?'#0f0':(db>=-6)?'#ff0':'#888';
+    ctx.fillStyle=(db===0)?'#0f0':'#fff';
     ctx.fillText(String(db),bx-6,y+3);
   }
   // Level bar
@@ -724,18 +737,29 @@ function drawVU(w){
   grad.addColorStop(0,'#00aa00'); grad.addColorStop(0.7,'#aaaa00'); grad.addColorStop(0.9,'#aa0000');
   ctx.fillStyle=grad; ctx.fillRect(bx,bh-lh,bw,lh);
 
-  // GR bar (compressor) RIGHT side of bar
+  // GR bar + scale (compressor) RIGHT side, visible only on wider canvas
   if(w.isOut&&w.compTh!==null){
     const gr=w.grLevel||0;
     if(gr>0.1){
       const grH=Math.min(bh,(gr/30)*bh);
-      ctx.fillStyle='rgba(255,130,0,0.85)'; ctx.fillRect(bx+bw+2,0,3,grH);
+      ctx.fillStyle='rgba(255,140,0,0.9)'; ctx.fillRect(bx+bw+2,0,4,grH);
     }
     // Threshold line
     if(w.compTh!==null&&w.compTh!==0){
       const thy=bh-((w.compTh+80)/80*bh);
-      ctx.fillStyle='rgba(255,0,0,0.3)'; ctx.fillRect(bx,0,bw,thy);
+      ctx.fillStyle='rgba(255,0,0,0.25)'; ctx.fillRect(bx,0,bw,thy);
       ctx.strokeStyle='#f00'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(bx,thy); ctx.lineTo(bx+bw,thy); ctx.stroke();
+    }
+    // GR scale labels (only on wider output canvas)
+    if(W>54){
+      ctx.font='bold 6px Arial'; ctx.fillStyle='#ffa040'; ctx.textAlign='center';
+      ctx.fillText('GR',bx+bw+8,bh+16);
+      ctx.font='6px Arial'; ctx.textAlign='left';
+      for(const [grDb,lbl] of [[0,'0'],[6,'6'],[12,'12'],[20,'20']]){
+        const gy=~~((grDb/30)*bh);
+        ctx.fillStyle='#553'; ctx.fillRect(bx+bw+7,gy,3,1);
+        ctx.fillStyle='#ffa040'; ctx.fillText(lbl,bx+bw+11,Math.max(5,gy+3));
+      }
     }
   }
 
@@ -823,7 +847,7 @@ async function sendGain(w){
 }
 
 async function applyMute(chIdx,muted,btn){
-  btn.classList.toggle('muted',muted); btn.textContent=muted?'MUTED':'active';
+  btn.classList.toggle('muted',muted); btn.textContent=muted?'MUTE':'LIVE';
   const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
   if(!mixName||!config.mixers?.[mixName]) return;
   const m=config.mixers[mixName];
@@ -844,15 +868,14 @@ async function toggleMuteAll(){
     if(!mp){mp={dest:i,mute:false,sources:[]};(m.mapping=m.mapping||[]).push(mp);}
     mp.mute=allMuted;
     const w=vuWidgets[`out_${i}`];
-    if(w){w.isMuted=allMuted;if(w.muteBtn){w.muteBtn.classList.toggle('muted',allMuted);w.muteBtn.textContent=allMuted?'MUTED':'active';}}
+    if(w){w.isMuted=allMuted;if(w.muteBtn){w.muteBtn.classList.toggle('muted',allMuted);w.muteBtn.textContent=allMuted?'MUTE':'LIVE';}}
   });
   await patchCfg({mixers:{[mixName]:m}});
   checkMuteAll();
 }
 function checkMuteAll(){
-  const btn=document.getElementById('mute-all-btn');
   allMuted=outLabels.every((_,i)=>vuWidgets[`out_${i}`]?.isMuted);
-  btn.classList.toggle('muted',allMuted);
+  ['mute-all-btn','mute-all-btn2'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.toggle('muted',allMuted);});
 }
 async function togglePolarity(chIdx,inv){
   const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
@@ -994,12 +1017,16 @@ function renderEQGraph(){
     const chName=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
     ctx.fillText(`${idx}|${dom.toUpperCase()}:${chName}`,x,y-8);
     if(isSel){
-      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
-      const bx=Math.max(0,Math.min(W-155,x-75)),by=Math.max(0,y-45);
-      ctx.beginPath(); ctx.roundRect(bx,by,150,35,5); ctx.fill(); ctx.stroke();
-      ctx.fillStyle='#fff'; ctx.font='bold 7px Arial'; ctx.textAlign='center';
-      ctx.fillText(`F:${p.freq.toFixed(0)}Hz G:${(p.gain||0).toFixed(1)}dB Q:${(p.q||1).toFixed(2)}`,bx+75,by+13);
-      ctx.fillStyle='#bbb'; ctx.font='7px Arial'; ctx.fillText(p.type||'',bx+75,by+26);
+      ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+      const bx=Math.max(0,Math.min(W-210,x-105)),by=Math.max(0,y-65);
+      ctx.beginPath(); ctx.roundRect(bx,by,210,60,6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
+      ctx.fillText(`${p.freq.toFixed(0)} Hz`,bx+105,by+18);
+      ctx.fillStyle='#ff0'; ctx.font='bold 11px Arial';
+      ctx.fillText(`${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`,bx+105,by+34);
+      ctx.fillStyle='#8cf'; ctx.font='bold 9px Arial'; ctx.fillText(p.type||'',bx+105,by+50);
+      const chLblEQ=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
+      ctx.fillStyle='#8f8'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(`${dom.toUpperCase()}: ${chLblEQ}`,bx+208,by+50);
     }
   }
 }
@@ -1205,12 +1232,16 @@ function renderCrossGraph(){
     ctx.fillStyle=col; ctx.font='bold 7px Arial'; ctx.textAlign='center';
     ctx.fillText(`${idx}|${outLabels[visChs[0]]||visChs[0]}`,x,y-8);
     if(isSel){
-      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
-      const bx=Math.max(0,Math.min(W-155,x-75)),by=Math.max(0,y-45);
-      ctx.beginPath(); ctx.roundRect(bx,by,150,35,5); ctx.fill(); ctx.stroke();
-      ctx.fillStyle='#fff'; ctx.font='bold 7px Arial'; ctx.textAlign='center';
-      ctx.fillText(`F:${f.toFixed(0)}Hz Ord:${p.order||2}`,bx+75,by+13);
-      ctx.fillStyle='#bbb'; ctx.font='7px Arial'; ctx.fillText(p.type||'',bx+75,by+26);
+      ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+      const bx=Math.max(0,Math.min(W-210,x-105)),by=Math.max(0,y-65);
+      ctx.beginPath(); ctx.roundRect(bx,by,210,60,6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
+      ctx.fillText(`${f.toFixed(0)} Hz`,bx+105,by+18);
+      ctx.fillStyle='#ff0'; ctx.font='bold 11px Arial';
+      ctx.fillText(`Orden: ${p.order||2}`,bx+105,by+34);
+      ctx.fillStyle='#8cf'; ctx.font='bold 9px Arial'; ctx.fillText(p.type||'',bx+105,by+50);
+      const chLblCR=outLabels[visChs[0]]||`OUT${visChs[0]}`;
+      ctx.fillStyle='#8f8'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(chLblCR,bx+208,by+50);
     }
   }
 }
@@ -1408,6 +1439,47 @@ function setupMixerInteraction(){
     mp.sources=mp.sources.filter(s=>s.channel!==col);
     await patchCfg({mixers:{[mixName]:m}}); renderMixer();
   });
+  cv.addEventListener('dblclick',async e=>{
+    const x=e.offsetX, y=e.offsetY;
+    // Click on input label area (top, above matrix)
+    if(y<TM&&x>=LM){
+      const col=Math.floor((x-LM)/CW);
+      if(col>=0&&col<inLabels.length){
+        const newName=prompt(`Nombre entrada ${col}:`,inLabels[col]);
+        if(newName!==null&&newName.trim()) await renameLabel('in',col,newName.trim());
+      }
+    }
+    // Click on output label area (left, beside matrix)
+    if(x<LM&&y>=TM){
+      const row=Math.floor((y-TM)/CH);
+      if(row>=0&&row<outLabels.length){
+        const newName=prompt(`Nombre salida ${row}:`,outLabels[row]);
+        if(newName!==null&&newName.trim()) await renameLabel('out',row,newName.trim());
+      }
+    }
+  });
+}
+
+async function renameLabel(domain,idx,newName){
+  if(domain==='in'){
+    inLabels[idx]=newName;
+    if(!config.devices) config.devices={};
+    if(!config.devices.capture) config.devices.capture={};
+    const labels=Array.from({length:inLabels.length},(_,i)=>inLabels[i]);
+    config.devices.capture.labels=labels;
+    await patchCfg({devices:{capture:{labels}}});
+  } else {
+    outLabels[idx]=newName;
+    const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+    if(mixName&&config.mixers?.[mixName]){
+      const labels=Array.from({length:outLabels.length},(_,i)=>outLabels[i]);
+      config.mixers[mixName].labels=labels;
+      await patchCfg({mixers:{[mixName]:{labels}}});
+    }
+  }
+  buildChannelPanel(); buildVU(); renderEQGraph(); renderCrossGraph(); renderMixer();
+  buildEQTable(); buildCrossTable();
+  toast(`Renombrado: ${domain.toUpperCase()} ${idx} → "${newName}"`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
