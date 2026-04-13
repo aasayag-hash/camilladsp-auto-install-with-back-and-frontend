@@ -626,9 +626,11 @@ main() {
   
   echo ""
   echo -e "  ${GREEN}Accede a:${RESET}"
-  echo -e "    ${CYAN}→ http://localhost:5005${RESET}"
+  echo -e "    ${CYAN}CamillaGUI  → http://localhost:${GUI_HTTP_PORT}${RESET}"
+  echo -e "    ${CYAN}Web Console → http://localhost:${WEB_GUI_PORT}${RESET}"
   if [ -n "$host_ip" ]; then
-    echo -e "    ${CYAN}→ http://${host_ip}:5005${RESET}"
+    echo -e "    ${CYAN}CamillaGUI  → http://${host_ip}:${GUI_HTTP_PORT}${RESET}"
+    echo -e "    ${CYAN}Web Console → http://${host_ip}:${WEB_GUI_PORT}${RESET}"
   fi
   echo ""
 
