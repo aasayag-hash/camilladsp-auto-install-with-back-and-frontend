@@ -636,6 +636,18 @@ table.ftable tr:hover td{background:#1a1a1a}
 <div id="toast"></div>
 <input type="file" id="file-input" style="display:none" accept=".yml,.yaml,.json,.txt">
 
+<!-- Prompt inline (reemplaza window.prompt para no salir de fullscreen) -->
+<div id="inline-prompt-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:#1a1a1a;border:1px solid #0ff;border-radius:8px;padding:20px 24px;min-width:280px;max-width:90vw;display:flex;flex-direction:column;gap:12px">
+    <div id="inline-prompt-msg" style="color:#fff;font-size:14px;font-weight:bold"></div>
+    <input id="inline-prompt-input" type="text" style="background:#000;color:#0ff;border:1px solid #333;border-radius:4px;padding:8px 10px;font-size:15px;width:100%;outline:none;border-color:#0ff">
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button id="inline-prompt-cancel" style="padding:8px 18px;border:1px solid #555;border-radius:4px;background:#333;color:#fff;font-size:13px;cursor:pointer">Cancelar</button>
+      <button id="inline-prompt-ok" style="padding:8px 18px;border:1px solid #0ff;border-radius:4px;background:#003;color:#0ff;font-size:13px;font-weight:bold;cursor:pointer">OK</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
 // STATE
@@ -2198,16 +2210,16 @@ function setupMixerInteraction(){
     if(y<TM&&x>=LM){
       const col=Math.floor((x-LM)/CW);
       if(col>=0&&col<inLabels.length){
-        const newName=prompt(`Nombre entrada ${col}:`,inLabels[col]);
-        if(newName!==null&&newName.trim()) await renameLabel('in',col,newName.trim());
+        const newName=await inlinePrompt(`Nombre entrada ${col}:`,inLabels[col]);
+        if(newName) await renameLabel('in',col,newName);
       }
     }
     // Click on output label area (left, beside matrix)
     if(x<LM&&y>=TM){
       const row=Math.floor((y-TM)/CH);
       if(row>=0&&row<outLabels.length){
-        const newName=prompt(`Nombre salida ${row}:`,outLabels[row]);
-        if(newName!==null&&newName.trim()) await renameLabel('out',row,newName.trim());
+        const newName=await inlinePrompt(`Nombre salida ${row}:`,outLabels[row]);
+        if(newName) await renameLabel('out',row,newName);
       }
     }
   });
@@ -2526,8 +2538,12 @@ function exportEQ(){
 }
 async function resetConfig(){
   if(!confirm('¿Restaurar configuración por defecto?')) return;
-  const inCh=parseInt(prompt('Canales de ENTRADA:','2')||2);
-  const outCh=parseInt(prompt('Canales de SALIDA:','2')||2);
+  const inStr=await inlinePrompt('Canales de ENTRADA:','2');
+  if(inStr===null) return;
+  const outStr=await inlinePrompt('Canales de SALIDA:','2');
+  if(outStr===null) return;
+  const inCh=parseInt(inStr)||2;
+  const outCh=parseInt(outStr)||2;
   const def={description:'default',devices:{samplerate:48000,chunksize:1024,queuelimit:null,silence_threshold:null,silence_timeout:null,capture:{type:'Alsa',channels:inCh,device:'null',format:null,stop_on_inactive:null,link_volume_control:null,link_mute_control:null,labels:null},playback:{type:'Alsa',channels:outCh,device:'null',format:null},enable_rate_adjust:null,target_level:null,adjust_period:null,resampler:null,capture_samplerate:48000,stop_on_rate_change:null,rate_measure_interval:null,volume_ramp_time:null,volume_limit:null,multithreaded:null,worker_threads:null},filters:{},mixers:{Mixer:{channels:{in:inCh,out:outCh},description:null,labels:null,mapping:[]}},pipeline:[{type:'Mixer',name:'Mixer',description:null}],processors:{},title:'default'};
   await setFullConfig(def); await init(); toast('Reset aplicado');
 }
@@ -2542,6 +2558,33 @@ function darken(hex){
 function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.className='show';
   setTimeout(()=>t.className='',3000);
+}
+// Reemplaza window.prompt() sin salir de pantalla completa
+function inlinePrompt(msg, defaultVal=''){
+  return new Promise(resolve=>{
+    const overlay=document.getElementById('inline-prompt-overlay');
+    const msgEl=document.getElementById('inline-prompt-msg');
+    const input=document.getElementById('inline-prompt-input');
+    const okBtn=document.getElementById('inline-prompt-ok');
+    const cancelBtn=document.getElementById('inline-prompt-cancel');
+    msgEl.textContent=msg;
+    input.value=defaultVal;
+    overlay.style.display='flex';
+    setTimeout(()=>input.focus(),50);
+    const finish=val=>{
+      overlay.style.display='none';
+      okBtn.removeEventListener('click',onOk);
+      cancelBtn.removeEventListener('click',onCancel);
+      input.removeEventListener('keydown',onKey);
+      resolve(val);
+    };
+    const onOk=()=>finish(input.value.trim()||null);
+    const onCancel=()=>finish(null);
+    const onKey=e=>{ if(e.key==='Enter') finish(input.value.trim()||null); if(e.key==='Escape') finish(null); };
+    okBtn.addEventListener('click',onOk);
+    cancelBtn.addEventListener('click',onCancel);
+    input.addEventListener('keydown',onKey);
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
