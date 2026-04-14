@@ -2883,24 +2883,32 @@ const isTouch = ()=> window.matchMedia('(pointer:coarse)').matches || navigator.
 // Un tap corto (sin longpress) deja pasar el click normalmente.
 // Returns a cleanup function.
 function addLongPress(el, onLongPress, delay=400){
-  let timer=null, fired=false, pointerId=null, startX=0, startY=0;
+  let timer=null, pointerId=null, startX=0, startY=0;
+  // _suppressClick: listener en CAPTURE phase que bloquea el próximo click
+  // tras un longpress, antes de que llegue a cualquier otro listener
+  const suppressNextClick=e=>{
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    el.removeEventListener('click', suppressNextClick, true);
+  };
 
   const onDown=e=>{
-    if(e.pointerType==='mouse') return; // solo táctil
-    if(pointerId!==null) return;        // ignorar segundo dedo
+    if(e.pointerType==='mouse') return;
+    if(pointerId!==null) return;
     pointerId=e.pointerId;
     startX=e.clientX; startY=e.clientY;
-    fired=false;
     try{ el.setPointerCapture(e.pointerId); }catch(_){}
     timer=setTimeout(()=>{
-      fired=true;
-      onLongPress(e.clientX,e.clientY);
+      timer=null;
+      // Registrar el bloqueador de click ANTES de llamar al callback
+      el.addEventListener('click', suppressNextClick, true);
+      onLongPress(e.clientX, e.clientY);
     }, delay);
   };
 
   const onMove=e=>{
     if(e.pointerId!==pointerId) return;
-    if(Math.hypot(e.clientX-startX,e.clientY-startY)>10){
+    if(Math.hypot(e.clientX-startX, e.clientY-startY)>10){
       clearTimeout(timer); timer=null;
       try{ el.releasePointerCapture(e.pointerId); }catch(_){}
       pointerId=null;
@@ -2911,19 +2919,17 @@ function addLongPress(el, onLongPress, delay=400){
     if(e.pointerId!==pointerId) return;
     clearTimeout(timer); timer=null;
     pointerId=null;
-    // Si el longpress ya disparó, bloquear el click sintético
-    if(fired){ e.preventDefault(); fired=false; }
   };
 
   const onCancel=e=>{
     if(e.pointerId!==pointerId) return;
     clearTimeout(timer); timer=null;
-    pointerId=null; fired=false;
+    pointerId=null;
   };
 
   el.addEventListener('pointerdown',   onDown);
   el.addEventListener('pointermove',   onMove);
-  el.addEventListener('pointerup',     onUp,    {passive:false});
+  el.addEventListener('pointerup',     onUp);
   el.addEventListener('pointercancel', onCancel);
 
   return ()=>{
@@ -2931,6 +2937,7 @@ function addLongPress(el, onLongPress, delay=400){
     el.removeEventListener('pointermove',   onMove);
     el.removeEventListener('pointerup',     onUp);
     el.removeEventListener('pointercancel', onCancel);
+    el.removeEventListener('click', suppressNextClick, true);
     clearTimeout(timer);
   };
 }
