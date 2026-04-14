@@ -78,9 +78,9 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 .auto-btn:hover{background:#0056b3}
 
 /* EQ / Cross tab — canvas flexible arriba, planilla fija 40% abajo */
-.eq-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.eq-wrap{flex:1;overflow:clip;display:flex;flex-direction:column;position:relative}
 canvas.graph{width:100%;flex:1;min-height:100px;display:block;cursor:crosshair}
-.filter-table-wrap{flex-shrink:0;height:40%;min-height:110px;max-height:280px;overflow-y:auto;border-top:1px solid #222}
+.filter-table-wrap{flex-shrink:0;height:40%;min-height:110px;max-height:280px;overflow-y:auto;border-top:1px solid #222;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}
 /* Barra Q-buttons HTML — oculta; los botones Q se dibujan dentro del tooltip del canvas */
 #eq-q-bar{display:none!important}
 .eq-q-btn{display:none}
