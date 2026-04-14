@@ -1294,12 +1294,12 @@ function drawVU(w){
   // Name area
   const nameY=topM+bh+4;
   if(w.isOut){
-    ctx.fillStyle=w.isMuted?'#f00':'#0f0'; ctx.font='bold 8px Arial';
-    ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+7);
-    ctx.fillStyle=w.isMuted?'#f55':'#666'; ctx.font='6px Arial';
-    ctx.fillText(w.isMuted?'MUTE':'live',W/2,nameY+16);
+    ctx.fillStyle=w.isMuted?'#f00':'#0f0'; ctx.font='bold 10px Arial';
+    ctx.textAlign='center'; ctx.fillText(w.name.substring(0,9),W/2,nameY+9);
+    ctx.fillStyle=w.isMuted?'#f55':'#666'; ctx.font='7px Arial';
+    ctx.fillText(w.isMuted?'MUTE':'live',W/2,nameY+17);
   } else {
-    ctx.fillStyle='#ccc'; ctx.font='bold 8px Arial'; ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+7);
+    ctx.fillStyle='#ccc'; ctx.font='bold 10px Arial'; ctx.textAlign='center'; ctx.fillText(w.name.substring(0,9),W/2,nameY+9);
   }
 }
 
