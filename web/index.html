@@ -150,7 +150,7 @@ table.ftable tr:hover td{background:#1a1a1a}
 .geq-ch-btn.active{background:#007bff;color:#fff;border-color:#0ff}
 #geq-range{width:70px;vertical-align:middle;accent-color:#0ff}
 #geq-body{display:flex;flex:1;overflow:hidden;margin-top:4px;min-height:0}
-#geq-scale{width:30px;flex-shrink:0;display:flex;flex-direction:column;justify-content:space-between;padding:26px 0 24px;font-size:9px;color:#fff;text-align:right;padding-right:4px}
+#geq-scale{width:30px;flex-shrink:0;position:relative;padding:20px 0 22px;font-size:9px;color:#fff;text-align:right}
 #geq-faders{display:flex;flex:1;gap:2px;overflow-x:auto;overflow-y:hidden;align-items:stretch;padding:0 2px}
 #geq-faders::-webkit-scrollbar{height:5px}#geq-faders::-webkit-scrollbar-thumb{background:#333}
 #geq-labels{width:0;overflow:visible;position:relative}
@@ -2292,11 +2292,11 @@ function geqBuildChannelBtns(){
     b.onclick=()=>{ geqSelectChannel(domain,ch); };
     wrap.appendChild(b);
   };
+  // GEQ is input-only — outputs are not assignable
   inLabels.forEach((n,i)=>make('in',i,'🎤 '+n));
-  outLabels.forEach((n,i)=>make('out',i,'🔊 '+n));
-  // Select first channel if none selected
+  // Select first input channel if none selected
   if(!geqChannel && inLabels.length>0) geqSelectChannel('in',0);
-  else if(!geqChannel && outLabels.length>0) geqSelectChannel('out',0);
+  else if(geqChannel && geqChannel.domain==='out'){ geqChannel=null; if(inLabels.length>0) geqSelectChannel('in',0); }
   else geqHighlightBtn();
 }
 
@@ -2322,6 +2322,25 @@ function geqShowTip(x, y, db){
 }
 function geqHideTip(){ const t=_geqTip(); if(t) t.style.display='none'; }
 
+// ── Logarithmic dB ↔ position mapping ──────────────────────────────────────
+// Returns fraction [0,1] where 0 = -range, 0.5 = 0 dB, 1 = +range
+// Uses symmetric log: f(db) = 0.5 + sign(db)*log(1+|db|/range*(LOG_BASE-1))/log(LOG_BASE)*0.5
+const GEQ_LOG_BASE = 20; // higher = more expansion near 0 dB
+function geqDbToFrac(db){
+  if(db===0) return 0.5;
+  const s = db>0?1:-1;
+  const abs = Math.min(Math.abs(db), geqRange);
+  return 0.5 + s * Math.log(1 + abs/geqRange*(GEQ_LOG_BASE-1)) / Math.log(GEQ_LOG_BASE) * 0.5;
+}
+// Inverse: fraction → dB
+function geqFracToDb(frac){
+  if(Math.abs(frac-0.5)<1e-6) return 0;
+  const s = frac>0.5?1:-1;
+  const f = Math.abs(frac-0.5)*2; // [0,1]
+  const abs = geqRange*(Math.pow(GEQ_LOG_BASE,f)-1)/(GEQ_LOG_BASE-1);
+  return s*abs;
+}
+
 // Build the 31-band fader strips
 function geqBuildStrips(){
   if(!geqChannel) return;
@@ -2332,15 +2351,22 @@ function geqBuildStrips(){
   const scaleEl  = document.getElementById('geq-scale');
   if(!fadersEl) return;
 
-  // dB scale labels (white)
+  // Logarithmic dB scale — ticks at ±1,±2,±3,±6,±9,±range
+  const allTicks = [0,1,2,3,6,9,12,15,18].filter(v=>v<=geqRange);
+  if(!allTicks.includes(geqRange)) allTicks.push(geqRange);
+  // Build as positioned elements inside a relative container
   scaleEl.innerHTML='';
-  [geqRange, Math.round(geqRange/2), 0, -Math.round(geqRange/2), -geqRange]
-    .forEach(v=>{
+  scaleEl.style.position='relative';
+  allTicks.forEach(v=>{
+    [-v, v].filter((x,i,a)=>a.indexOf(x)===i).sort((a,b)=>b-a).forEach(val=>{
+      const frac = geqDbToFrac(val); // 0=bottom,1=top → invert: top% = (1-frac)*100
+      const pct  = (1-frac)*100;
       const d=document.createElement('div');
-      d.textContent=(v>0?'+':'')+v;
-      d.style.color='#fff';
+      d.style.cssText=`position:absolute;right:2px;top:${pct}%;transform:translateY(-50%);font-size:9px;color:#fff;white-space:nowrap;line-height:1`;
+      d.textContent=(val>0?'+':'')+val;
       scaleEl.appendChild(d);
     });
+  });
 
   fadersEl.innerHTML='';
   gains.forEach((g,idx)=>{
@@ -2372,22 +2398,24 @@ function geqBuildStrips(){
     strip.appendChild(botLbl);
     fadersEl.appendChild(strip);
 
-    // ── Drag logic ──────────────────────────────────────────────
-    let dragStartY=0, dragStartGain=0, isDragging=false;
-
-    const fmtDb=v=> v===0?'0.0 dB':((v>0?'+':'')+v.toFixed(1)+' dB');
+    // ── Drag logic (logarithmic) ────────────────────────────────
+    let dragStartY=0, dragStartFrac=0, isDragging=false;
 
     const onMove=(clientX, clientY)=>{
       if(!isDragging) return;
-      const trackH = track.getBoundingClientRect().height || 100;
-      const dy = dragStartY - clientY;
-      const dbPerPx = (geqRange*2) / trackH;
-      let newG = dragStartGain + dy*dbPerPx;
-      newG = Math.round(Math.max(-geqRange, Math.min(geqRange, newG))*10)/10;
+      const rect = track.getBoundingClientRect();
+      const trackH = rect.height || 100;
+      // Compute absolute frac from cursor position within track
+      // frac=1 at top (max positive), frac=0 at bottom (max negative)
+      const relY = clientY - rect.top;
+      let frac = 1 - Math.max(0, Math.min(trackH, relY)) / trackH;
+      let newG = geqFracToDb(frac);
+      // Round to nearest 0.1 dB
+      newG = Math.round(newG*10)/10;
+      newG = Math.max(-geqRange, Math.min(geqRange, newG));
       gains[idx]=newG;
       topLbl.textContent=newG===0?'0':(newG>0?'+'+newG.toFixed(1):newG.toFixed(1));
       geqUpdateFill(fillPos,fillNeg,newG);
-      // Show tooltip above cursor
       geqShowTip(clientX, clientY, newG);
     };
 
@@ -2408,15 +2436,14 @@ function geqBuildStrips(){
     const tEnd=()=>onEnd();
 
     strip.addEventListener('mousedown',e=>{
-      isDragging=true; dragStartY=e.clientY; dragStartGain=gains[idx];
+      isDragging=true; dragStartY=e.clientY;
       document.addEventListener('mousemove',mMove);
       document.addEventListener('mouseup',mUp);
       geqShowTip(e.clientX, e.clientY, gains[idx]);
       e.preventDefault();
     });
     strip.addEventListener('touchstart',e=>{
-      isDragging=true;
-      dragStartY=e.touches[0].clientY; dragStartGain=gains[idx];
+      isDragging=true; dragStartY=e.touches[0].clientY;
       document.addEventListener('touchmove',tMove,{passive:false});
       document.addEventListener('touchend',tEnd);
       geqShowTip(e.touches[0].clientX, e.touches[0].clientY, gains[idx]);
@@ -2434,7 +2461,9 @@ function geqBuildStrips(){
 }
 
 function geqUpdateFill(fillPos, fillNeg, g){
-  const pct = Math.abs(g)/geqRange*50; // % of half-height
+  // Logarithmic fill: fraction from center (0 dB) to edge
+  const frac = geqDbToFrac(g); // 0=bottom, 0.5=center, 1=top
+  const pct  = Math.abs(frac - 0.5) * 100; // % of half-height
   if(g>=0){
     fillPos.style.height=pct+'%';
     fillNeg.style.height='0';
