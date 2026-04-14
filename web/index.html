@@ -1647,19 +1647,19 @@ function setupEQInteraction(){
 
   // Touch interactions
   // Single touch drag → move filter point
-  let eqTouchDragging=false, eqTouchLongFired=false, eqTouchMoved=false;
+  let eqTouchDragging=false, eqTouchLongFired=false, eqTouchMoved=false, eqTouchQBtn=false;
   cv.addEventListener('touchstart',e=>{
     if(e.touches.length!==1) return;
-    eqTouchDragging=false; eqTouchLongFired=false; eqTouchMoved=false;
+    eqTouchDragging=false; eqTouchLongFired=false; eqTouchMoved=false; eqTouchQBtn=false;
     const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
     // Primero: comprobar si el tap cae sobre un botón Q del tooltip
     if(eqQHitRects.activeFid){
       const hm=eqQHitRects.minus, hp=eqQHitRects.plus;
       if(hm && offsetX>=hm.x && offsetX<=hm.x+hm.w && offsetY>=hm.y && offsetY<=hm.y+hm.h){
-        qStep(-0.1); e.preventDefault(); return;
+        eqTouchQBtn=true; qStep(-0.1); e.preventDefault(); return;
       }
       if(hp && offsetX>=hp.x && offsetX<=hp.x+hp.w && offsetY>=hp.y && offsetY<=hp.y+hp.h){
-        qStep(+0.1); e.preventDefault(); return;
+        eqTouchQBtn=true; qStep(+0.1); e.preventDefault(); return;
       }
     }
     const cands=findEQNear(offsetX,offsetY,cv);
@@ -1688,6 +1688,8 @@ function setupEQInteraction(){
     renderEQGraph(); buildEQTable(); e.preventDefault();
   },{passive:false});
   cv.addEventListener('touchend',async e=>{
+    // Si el toque fue sobre un botón Q, el tooltip ya se actualizó en touchstart; no hacer nada más
+    if(eqTouchQBtn){ eqTouchQBtn=false; return; }
     if(eqTouchDragging&&eqState.drag){
       if(eqTouchMoved){
         // Arrastrado: guardar nueva posición
