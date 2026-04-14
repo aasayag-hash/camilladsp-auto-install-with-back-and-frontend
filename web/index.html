@@ -45,7 +45,7 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 .view-btn.active{background:#007bff;color:#fff;border-color:#0ff}
 #vu-meters-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-end;padding:4px 8px;gap:2px;background:#050505;flex-shrink:0;height:190px}
 #vu-meters-row::-webkit-scrollbar{height:6px}#vu-meters-row::-webkit-scrollbar-thumb{background:#444}
-#vu-faders-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-start;padding:4px 8px;gap:6px;background:#080808;border-top:1px solid #222;flex-shrink:0;height:182px}
+#vu-faders-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-start;padding:4px 8px;gap:3px;background:#080808;border-top:1px solid #222;flex-shrink:0;height:182px}
 #vu-faders-row::-webkit-scrollbar{height:6px}#vu-faders-row::-webkit-scrollbar-thumb{background:#444}
 #comp-area{flex:1;min-height:50px;overflow-y:auto;padding:0 4px 4px}
 .fader-area{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
@@ -256,15 +256,18 @@ function biquadMag(params, freq){
   else if(t==='Lowpass'){b0=(1-cw)/2;b1=1-cw;b2=(1-cw)/2;a0=1+al;a1=-2*cw;a2=1-al;}
   else if(t==='Highpass'){b0=(1+cw)/2;b1=-(1+cw);b2=(1+cw)/2;a0=1+al;a1=-2*cw;a2=1-al;}
   else if(t==='Highshelf'){b0=A*((A+1)+(A-1)*cw+2*sqA*al);b1=-2*A*((A-1)+(A+1)*cw);b2=A*((A+1)+(A-1)*cw-2*sqA*al);a0=(A+1)-(A-1)*cw+2*sqA*al;a1=2*((A-1)-(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sqA*al;}
-  else if(t==='Lowshelf'){b0=A*((A+1)-(A-1)*cw+2*sqA*al);b1=2*A*((A-1)-(A+1)*cw);b2=A*((A+1)-(A-1)*cw-2*sqA*al);a0=(A+1)+(A-1)*cw+2*sqA*al;a1=-2*((A-1)+(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sqA*al;}
+  else if(t==='Lowshelf'){b0=A*((A+1)-(A-1)*cw+2*sqA*al);b1=2*A*((A-1)-(A+1)*cw);b2=A*((A+1)-(A-1)*cw-2*sqA*al);a0=(A+1)+(A-1)*cw+2*sqA*al;a1=-2*((A-1)+(A+1)*cw);a2=(A+1)+(A-1)*cw-2*sqA*al;}
   else return 0;
   const w=2*Math.PI*freq/sr;
   const z1r=Math.cos(-w),z1i=Math.sin(-w),z2r=Math.cos(-2*w),z2i=Math.sin(-2*w);
   const nr=b0+b1*z1r+b2*z2r,ni=b1*z1i+b2*z2i;
   const dr=a0+a1*z1r+a2*z2r,di=a1*z1i+a2*z2i;
   const mn=Math.hypot(nr,ni),md=Math.hypot(dr,di);
-  if(md===0||mn===0) return -100;
-  return 20*Math.log10(mn/md);
+  if(md<1e-20&&mn<1e-20) return 0;
+  if(mn<1e-20) return -120;
+  if(md<1e-20) return 120;
+  const db=20*Math.log10(mn/md);
+  return isFinite(db)?db:(db>0?120:-120);
 }
 
 function crossMag(params, freq){
@@ -552,7 +555,6 @@ function makeInVU(name,chIdx){
   const ctx=cv.getContext('2d');
   const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:false,compTh:null,compRatio:1,compMakeup:0,grLevel:0,el};
   el.appendChild(cv);
-  const lbl=document.createElement('div'); lbl.className='sname'; lbl.textContent=name; el.appendChild(lbl);
   drawVU(w); return w;
 }
 // Tira VU solo salida (sin fader ni controles)
@@ -578,7 +580,6 @@ function makeOutVU(name,chIdx){
   });
   cv.addEventListener('contextmenu',e=>{e.preventDefault(); deleteCompressorByChannel(chIdx);});
   el.appendChild(cv);
-  const lbl=document.createElement('div'); lbl.className='sname'; lbl.style.color='#0f0'; lbl.textContent=name; el.appendChild(lbl);
   drawVU(w); return w;
 }
 // Area de fader + controles para canal de salida
@@ -596,18 +597,23 @@ function makeOutFaderArea(name,chIdx,vuW){
   const fs=makeFaderStrip(name,chIdx,initDb,'out');
   area.appendChild(fs.el);
 
-  // Mute + polarity
-  const ctrlRow=document.createElement('div'); ctrlRow.className='fader-ctrl-row';
+  // Mute (fila propia)
+  const muteRow=document.createElement('div'); muteRow.style.cssText='display:flex;justify-content:center;width:100%';
   const muteBtn=document.createElement('button');
   muteBtn.className='mute-btn'+(initMute?' muted':''); muteBtn.textContent=initMute?'MUTE':'LIVE';
+  muteBtn.style.width='100%';
   muteBtn.onclick=()=>{ vuW.isMuted=!vuW.isMuted; applyMute(chIdx,vuW.isMuted,muteBtn); };
-  ctrlRow.appendChild(muteBtn); vuW.muteBtn=muteBtn;
+  muteRow.appendChild(muteBtn); vuW.muteBtn=muteBtn; area.appendChild(muteRow);
+
+  // Polaridad (fila propia)
+  const polRow=document.createElement('div'); polRow.style.cssText='display:flex;justify-content:center;width:100%';
   const polBtn=document.createElement('button');
   polBtn.className='pol-btn'+(initInv?' inv':''); polBtn.textContent='+/-';
+  polBtn.style.width='100%';
   polBtn.onclick=()=>{ polBtn.classList.toggle('inv'); togglePolarity(chIdx,polBtn.classList.contains('inv')); };
-  ctrlRow.appendChild(polBtn); area.appendChild(ctrlRow);
+  polRow.appendChild(polBtn); area.appendChild(polRow);
 
-  // Delay
+  // Delay (fila propia)
   const dlyRow=document.createElement('div'); dlyRow.className='fader-dly-row';
   const dlyLbl=document.createElement('div'); dlyLbl.className='dly-lbl'; dlyLbl.textContent='ms';
   const dlyFname=`Delay_${cleanName(name)}`;
@@ -683,12 +689,12 @@ function makeFaderStrip(name,chIdx,initDb,mode){
     // Valor dB abajo - grande y visible cuando arrastrando
     if(w.dragging){
       const valStr=(w.db>=0?'+':'')+w.db.toFixed(1)+' dB';
-      ctx.font='bold 9px Arial'; ctx.textAlign='left';
+      ctx.font='bold 11px Arial'; ctx.textAlign='left';
       const tw2=ctx.measureText(valStr).width;
-      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,H-13,tw2+4,12);
+      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,H-14,tw2+4,13);
       ctx.fillStyle='#ff0'; ctx.fillText(valStr,2,H-3);
     } else {
-      ctx.fillStyle='#0ff'; ctx.font='7px Arial'; ctx.textAlign='left';
+      ctx.fillStyle='#0ff'; ctx.font='bold 9px Arial'; ctx.textAlign='left';
       ctx.fillText((w.db>=0?'+':'')+w.db.toFixed(1)+' dB',0,H-3);
     }
   }
@@ -1008,7 +1014,9 @@ function renderEQGraph(){
     const visChs=info.channels.filter(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
     if(!visChs.length) continue;
     const p=info.data.parameters;
-    const x=fToX(p.freq,W), y=eqDbToY(p.gain||0,H);
+    const noGain=(p.type==='Highpass'||p.type==='Lowpass');
+    const markerDb=noGain?biquadMag(p,p.freq):( p.gain||0);
+    const x=fToX(p.freq,W), y=eqDbToY(markerDb,H);
     const isByp=bypassedFids.has(fid), isSel=fid===eqState.drag||fid===eqState.hover||fid===eqState.highlight;
     const col=COLORS[visChs[0]%COLORS.length];
     ctx.fillStyle=isByp?'#666':(isSel?'#fff':col);
