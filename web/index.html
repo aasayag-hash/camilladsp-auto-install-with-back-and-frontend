@@ -2877,57 +2877,61 @@ async function geqResetChannel(){
 // ═══════════════════════════════════════════════════════════════════════════
 const isTouch = ()=> window.matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints>0;
 
-// Attach a longpress listener that fires a synthetic right-click callback.
-// When the longpress fires, the subsequent touchend calls preventDefault()
-// to suppress the synthetic click event the browser would generate.
+// Longpress usando Pointer Events API.
+// setPointerCapture retiene el puntero en el elemento aunque el dedo se mueva,
+// evitando que el scroll del contenedor robe el gesto y dispare pointercancel.
+// Un tap corto (sin longpress) deja pasar el click normalmente.
 // Returns a cleanup function.
 function addLongPress(el, onLongPress, delay=400){
-  let timer=null, moved=false, fired=false, startX=0, startY=0;
+  let timer=null, fired=false, pointerId=null, startX=0, startY=0;
 
-  function start(clientX, clientY){
-    moved=false; fired=false; startX=clientX; startY=clientY;
+  const onDown=e=>{
+    if(e.pointerType==='mouse') return; // solo táctil
+    if(pointerId!==null) return;        // ignorar segundo dedo
+    pointerId=e.pointerId;
+    startX=e.clientX; startY=e.clientY;
+    fired=false;
+    try{ el.setPointerCapture(e.pointerId); }catch(_){}
     timer=setTimeout(()=>{
-      if(!moved){
-        fired=true;
-        onLongPress(clientX,clientY);
-      }
+      fired=true;
+      onLongPress(e.clientX,e.clientY);
     }, delay);
-  }
-  function cancel(){ clearTimeout(timer); timer=null; }
-  function move(clientX, clientY){
-    if(Math.hypot(clientX-startX, clientY-startY)>10){ moved=true; cancel(); }
-  }
+  };
 
-  const tStart=e=>{
-    if(e.touches.length!==1) return;
-    const t=e.touches[0]; start(t.clientX,t.clientY);
-    // NO preventDefault aquí — dejar que el click normal funcione si no hay longpress
+  const onMove=e=>{
+    if(e.pointerId!==pointerId) return;
+    if(Math.hypot(e.clientX-startX,e.clientY-startY)>10){
+      clearTimeout(timer); timer=null;
+      try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+      pointerId=null;
+    }
   };
-  const tMove=e=>{
-    if(e.touches.length!==1) return;
-    const t=e.touches[0]; move(t.clientX,t.clientY);
-    // Si el timer sigue activo (no se movió demasiado), bloquear el scroll del padre
-    // para evitar que el contenedor robe el touch y dispare touchcancel
-    if(timer && !moved) e.preventDefault();
-  };
-  const tEnd=e=>{
-    cancel();
-    // Si el longpress ya se disparó, bloquear el click sintético del navegador
+
+  const onUp=e=>{
+    if(e.pointerId!==pointerId) return;
+    clearTimeout(timer); timer=null;
+    pointerId=null;
+    // Si el longpress ya disparó, bloquear el click sintético
     if(fired){ e.preventDefault(); fired=false; }
   };
-  const tCancel=()=>{ cancel(); fired=false; };
 
-  el.addEventListener('touchstart',  tStart,  {passive:true});
-  el.addEventListener('touchmove',   tMove,   {passive:false}); // non-passive para bloquear scroll
-  el.addEventListener('touchend',    tEnd,    {passive:false}); // non-passive para preventDefault
-  el.addEventListener('touchcancel', tCancel, {passive:true});
+  const onCancel=e=>{
+    if(e.pointerId!==pointerId) return;
+    clearTimeout(timer); timer=null;
+    pointerId=null; fired=false;
+  };
+
+  el.addEventListener('pointerdown',   onDown);
+  el.addEventListener('pointermove',   onMove);
+  el.addEventListener('pointerup',     onUp,    {passive:false});
+  el.addEventListener('pointercancel', onCancel);
 
   return ()=>{
-    el.removeEventListener('touchstart',  tStart);
-    el.removeEventListener('touchmove',   tMove);
-    el.removeEventListener('touchend',    tEnd);
-    el.removeEventListener('touchcancel', tCancel);
-    cancel();
+    el.removeEventListener('pointerdown',   onDown);
+    el.removeEventListener('pointermove',   onMove);
+    el.removeEventListener('pointerup',     onUp);
+    el.removeEventListener('pointercancel', onCancel);
+    clearTimeout(timer);
   };
 }
 
