@@ -210,6 +210,7 @@ table.ftable tr:hover td{background:#1a1a1a}
   <button class="top-btn" onclick="exportEQ()">Exp EQ</button>
   <button class="top-btn danger" onclick="resetConfig()">Reset</button>
   <button class="top-btn lang" id="lang-btn" onclick="toggleLang()" title="Switch language / Cambiar idioma">ES/EN</button>
+  <button class="top-btn" id="fs-btn" onclick="toggleFullscreen()" title="Pantalla completa" style="display:none;font-size:15px;padding:0 8px">⛶</button>
   <button class="top-btn" onclick="showHelp()" title="Ayuda / Help" style="background:#0a1a2a;border-color:#0af;color:#0af">?&nbsp;AYUDA</button>
 </div>
 
@@ -2948,6 +2949,23 @@ function touchOffset(el, clientX, clientY){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// FULLSCREEN
+// ═══════════════════════════════════════════════════════════════════════════
+function enterFullscreen(){
+  const el=document.documentElement;
+  const req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+  if(req) req.call(el).catch(()=>{});
+}
+function exitFullscreen(){
+  const ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen||document.msExitFullscreen;
+  if(ex) ex.call(document).catch(()=>{});
+}
+function toggleFullscreen(){
+  const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  if(inFs) exitFullscreen(); else enterFullscreen();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // STARTUP
 // ═══════════════════════════════════════════════════════════════════════════
 window.addEventListener('load',async()=>{
@@ -2964,28 +2982,25 @@ window.addEventListener('load',async()=>{
   // Import YAML support via server
   await fetch('/api/import-support').catch(()=>{});
 
-  // Pantalla completa automática en dispositivos táctiles
-  // La Fullscreen API exige un gesto del usuario: se activa en el primer touchstart
+  // Pantalla completa en dispositivos táctiles
   if(isTouch()){
-    const requestFS=()=>{
-      const el=document.documentElement;
-      const req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
-      if(req) req.call(el).catch(()=>{});
-      document.removeEventListener('touchstart',requestFS);
-    };
-    document.addEventListener('touchstart',requestFS,{once:true,passive:true});
+    const fsBtn=document.getElementById('fs-btn');
+    if(fsBtn) fsBtn.style.display='';
 
-    // Si sale de fullscreen (botón atrás del sistema), volver a solicitarlo al próximo toque
-    document.addEventListener('fullscreenchange',()=>{
-      if(!document.fullscreenElement){
-        document.addEventListener('touchstart',requestFS,{once:true,passive:true});
-      }
-    });
-    document.addEventListener('webkitfullscreenchange',()=>{
-      if(!document.webkitFullscreenElement){
-        document.addEventListener('touchstart',requestFS,{once:true,passive:true});
-      }
-    });
+    // Actualiza el icono según el estado actual
+    function updateFsIcon(){
+      const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+      if(fsBtn) fsBtn.textContent=inFs?'✕⛶':'⛶';
+    }
+    document.addEventListener('fullscreenchange', updateFsIcon);
+    document.addEventListener('webkitfullscreenchange', updateFsIcon);
+
+    // Intento automático al primer tap sobre cualquier parte de la página
+    const tryAutoFS=()=>{
+      const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+      if(!inFs) enterFullscreen();
+    };
+    document.addEventListener('touchstart', tryAutoFS, {once:true, passive:true});
   }
 });
 
