@@ -84,8 +84,8 @@ table.ftable tr:hover td{background:#1a1a1a}
 #mixer-canvas{display:block;cursor:pointer}
 #device-panel{flex-shrink:0;padding:6px 8px;background:#0a0a0a;border-top:1px solid #222}
 .device-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.device-lbl{font-size:10px;color:#0ff;font-weight:bold;white-space:nowrap}
-.device-sel{flex:1;min-width:160px;background:#111;color:#ccc;border:1px solid #444;border-radius:3px;padding:3px 5px;font-size:10px}
+.device-lbl{font-size:12px;color:#0ff;font-weight:bold;white-space:nowrap}
+.device-sel{flex:1;min-width:160px;background:#111;color:#fff;border:1px solid #444;border-radius:3px;padding:3px 5px;font-size:12px}
 .device-sel:focus{outline:none;border-color:#0ff}
 .device-apply-btn{height:24px;padding:0 10px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:3px;background:#1a1a1a;color:#0ff;cursor:pointer;white-space:nowrap}
 .device-apply-btn:hover{background:#222;border-color:#0ff}
@@ -1434,16 +1434,16 @@ function renderMixer(){
   ctx.fillText('Input',LM+inLabels.length*CW/2,18);
   ctx.save(); ctx.translate(20,TM+outLabels.length*CH/2); ctx.rotate(-Math.PI/2); ctx.fillText('Output',0,0); ctx.restore();
 
-  ctx.font='9px Arial'; ctx.fillStyle='#aaa';
+  ctx.font='bold 10px Arial'; ctx.fillStyle='#fff';
   inLabels.forEach((n,i)=>{
     const x=LM+i*CW+CW/2;
-    ctx.save(); ctx.translate(x,TM-28); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillText(n,0,0); ctx.restore();
-    ctx.textAlign='center'; ctx.fillStyle='#666'; ctx.fillText(i,x,TM-8);
+    ctx.save(); ctx.translate(x,TM-28); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.fillText(n,0,0); ctx.restore();
+    ctx.textAlign='center'; ctx.fillStyle='#888'; ctx.font='9px Arial'; ctx.fillText(i,x,TM-8); ctx.font='bold 10px Arial';
   });
   outLabels.forEach((n,i)=>{
     const y=TM+i*CH+CH/2;
-    ctx.textAlign='right'; ctx.fillStyle='#aaa'; ctx.fillText(n,LM-35,y+4);
-    ctx.fillStyle='#666'; ctx.textAlign='center'; ctx.fillText(i,LM-12,y+4);
+    ctx.textAlign='right'; ctx.fillStyle='#fff'; ctx.fillText(n,LM-35,y+4);
+    ctx.fillStyle='#888'; ctx.font='9px Arial'; ctx.textAlign='center'; ctx.fillText(i,LM-12,y+4); ctx.font='bold 10px Arial';
   });
 
   // Cells
