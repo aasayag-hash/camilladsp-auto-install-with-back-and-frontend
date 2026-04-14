@@ -303,7 +303,7 @@ table.ftable tr:hover td{background:#1a1a1a}
       <div id="help-es">
 
         <h3>¿Qué es esta aplicación?</h3>
-        <p>CamillaDSP Console es una interfaz web para controlar en tiempo real el procesador de audio digital <b>CamillaDSP</b> que corre en un dispositivo embebido (TV-box, RPi, etc.). Permite ajustar ecualización, crossovers, mezcla de canales, compresores y dispositivos de audio sin editar archivos de configuración manualmente.</p>
+        <p>CamillaDSP Console es una interfaz web para controlar en tiempo real el procesador de audio digital <b>CamillaDSP</b> que corre en un dispositivo embebido (TV-box, RPi, etc.). Permite ajustar ecualización gráfica y paramétrica, crossovers, mezcla de canales, compresores y dispositivos de audio sin editar archivos de configuración manualmente.</p>
 
         <h3>Barra superior</h3>
         <ul>
@@ -311,111 +311,138 @@ table.ftable tr:hover td{background:#1a1a1a}
           <li><b>State / Buffer / DSP load:</b> estado del motor (Running/Idle/Error), nivel de buffer de audio y carga de CPU del DSP, actualizados cada ~200 ms.</li>
           <li><b>WEB 5005:</b> abre la interfaz nativa de CamillaDSP en otra pestaña.</li>
           <li><b>Imp Cfg / Exp Cfg:</b> importa o exporta la configuración completa en formato YAML/JSON.</li>
-          <li><b>Imp EQ / Exp EQ:</b> importa filtros desde un archivo de texto (formato REW, Equalizer APO o genérico) o exporta los filtros actuales.</li>
+          <li><b>Imp EQ / Exp EQ:</b> importa filtros paramétricos desde un archivo de texto (REW, Equalizer APO o genérico) o exporta los filtros actuales.</li>
           <li><b>Reset:</b> restablece la configuración a los valores por defecto guardados en el servidor. <span style="color:#f88">¡Operación irreversible!</span></li>
+          <li><b>ES/EN:</b> cambia el idioma de la interfaz entre español e inglés. El idioma se guarda y se restaura al recargar.</li>
+          <li><b>? AYUDA:</b> abre este panel de ayuda.</li>
         </ul>
 
         <h3>Pestaña VÚMETROS</h3>
-        <p>Muestra los vúmetros de entradas y salidas junto con sus faders de control.</p>
+        <p>Monitoreo en tiempo real de todos los canales con control completo de ganancia.</p>
         <h4>Botones de vista</h4>
         <ul>
           <li><b>TODO / ENTRADAS / SALIDAS:</b> filtra qué canales se muestran.</li>
-          <li><b>MUTE ALL:</b> silencia todos los canales de salida de una vez.</li>
+          <li><b>MUTE ALL:</b> silencia todos los canales de salida de una vez (rojo = activo).</li>
           <li><b>VOL: X dB:</b> nivel de volumen maestro aplicado por CamillaDSP.</li>
         </ul>
         <h4>Vúmetros (canvas superior)</h4>
         <ul>
-          <li>Barra verde = nivel de señal RMS en tiempo real.</li>
-          <li>Barra roja (arriba) = reducción de ganancia aplicada por el compresor (GR).</li>
-          <li>Línea amarilla = pico de señal (peak hold, 2 s de retención).</li>
-          <li>Línea azul punteada = umbral del compresor (Threshold).</li>
-          <li>Escala numérica: 0 dB arriba → −80 dB abajo.</li>
+          <li>Barra <b style="color:#0f0">verde</b> = nivel de señal RMS en tiempo real.</li>
+          <li>Barra <b style="color:#f44">roja</b> (arriba) = reducción de ganancia del compresor (GR).</li>
+          <li>Línea <b style="color:#ff0">amarilla</b> = pico de señal retenido (peak hold, 2 s).</li>
+          <li>Línea <b style="color:#88f">azul</b> punteada = umbral del compresor (Threshold).</li>
+          <li>Escala: 0 dB arriba → −80 dB abajo.</li>
         </ul>
         <h4>Faders (sección inferior)</h4>
         <ul>
-          <li><b>Canvas del fader:</b> haz clic y arrastra arriba/abajo para ajustar la ganancia del canal (–∞ a +6 dB). El valor en dB se muestra en tiempo real.</li>
+          <li><b>Fader (canvas):</b> haz clic y arrastra arriba/abajo para ajustar la ganancia del canal (−∞ a +6 dB). El valor en dB se muestra en tiempo real durante el arrastre.</li>
           <li><b>MUTE:</b> silencia el canal individualmente (rojo = muteado).</li>
           <li><b>Ø (Polaridad):</b> invierte la fase del canal (morado = invertido).</li>
-          <li><b>Delay (ms):</b> campo de texto para introducir retardo en milisegundos.</li>
+          <li><b>Delay (ms):</b> campo de texto para introducir retardo de tiempo en milisegundos.</li>
         </ul>
         <h4>Tabla de compresores</h4>
-        <p>Muestra y permite editar los parámetros de los compresores asignados a cada canal de salida:</p>
+        <p>Muestra y permite editar los parámetros de los compresores de dinámica por canal de salida:</p>
         <ul>
           <li><b>Attack / Release:</b> tiempos de ataque y liberación en segundos.</li>
           <li><b>Threshold:</b> umbral de activación en dBFS.</li>
           <li><b>Ratio:</b> relación de compresión (ej. 4 = 4:1).</li>
           <li><b>Makeup:</b> ganancia de compensación post-compresión en dB.</li>
-          <li><b>ClipLim:</b> activa el limitador de clip a 0 dBFS.</li>
-          <li><b>Auto:</b> activa autoajuste del tiempo de release.</li>
+          <li><b>ClipLim:</b> activa limitador de clip a 0 dBFS.</li>
+          <li><b>Auto:</b> activa autoajuste del tiempo de release según el programa.</li>
         </ul>
 
-        <h3>Pestaña EQ &amp; FILTROS</h3>
-        <p>Ecualizador paramétrico completo por canal.</p>
+        <h3>Pestaña GRAPHIC EQ</h3>
+        <p>Ecualizador gráfico de <b>31 bandas</b> de fase lineal, aplicable a canales de entrada.</p>
+        <h4>Selector de canales</h4>
+        <ul>
+          <li><b>ALL:</b> selecciona o deselecciona todos los canales de entrada a la vez.</li>
+          <li><b>Botones por canal (🎤 Nombre):</b> toggle individual. Se pueden activar uno o varios canales simultáneamente. Siempre queda al menos uno seleccionado.</li>
+          <li>Al mover un fader, la ganancia se aplica a <b>todos los canales seleccionados</b> al mismo tiempo.</li>
+          <li>Solo se pueden asignar canales de <b>entrada</b> (no salidas).</li>
+        </ul>
+        <h4>Faders de banda</h4>
+        <ul>
+          <li><b>31 bandas</b> de 20 Hz a 18 kHz siguiendo el patrón ×1.25 por banda: 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
+          <li><b>Rango:</b> ±9 dB, escala lineal. Marcas de referencia en 0, ±3, ±6, ±9 dB.</li>
+          <li><b>Arrastre:</b> haz clic y arrastra hacia arriba (boost) o hacia abajo (cut). El valor exacto en dB aparece en un tooltip sobre el cursor durante el arrastre.</li>
+          <li><b>Doble clic:</b> resetea esa banda a 0 dB.</li>
+          <li>Relleno <b style="color:#0af">azul</b> = boost (ganancia positiva), relleno <b style="color:#f64">naranja/rojo</b> = cut (ganancia negativa).</li>
+        </ul>
+        <h4>Botones del toolbar</h4>
+        <ul>
+          <li><b>Flat:</b> pone todas las bandas de los canales seleccionados a 0 dB.</li>
+          <li><b>Reset canal:</b> elimina completamente el filtro GEQ de los canales seleccionados del pipeline de CamillaDSP.</li>
+        </ul>
+        <div class="tip">El ecualizador gráfico aplica un filtro tipo BiquadCombo/GraphicEqualizer en CamillaDSP. El filtro se crea automáticamente en el pipeline la primera vez que se mueve un fader.</div>
+
+        <h3>Pestaña PARAMETRIC EQ</h3>
+        <p>Ecualizador paramétrico de precisión por canal (entradas y salidas).</p>
         <h4>Selector de canal</h4>
-        <p>La barra de botones bajo las pestañas muestra los canales de entrada (fila superior) y de salida (fila inferior). Haz clic en uno para ver y editar sus filtros. El botón <b>ALL</b> muestra todos los filtros superpuestos.</p>
+        <p>La barra bajo las pestañas muestra los canales de entrada (fila superior) y de salida (fila inferior). Haz clic en un canal para ver y editar sus filtros. El botón <b>ALL IN</b> / <b>ALL OUT</b> muestra todos los filtros superpuestos en el gráfico.</p>
         <h4>Gráfico de respuesta en frecuencia</h4>
         <ul>
-          <li>Eje X: frecuencia (20 Hz – 20 kHz, escala logarítmica).</li>
+          <li>Eje X: frecuencia 20 Hz – 20 kHz (escala logarítmica).</li>
           <li>Eje Y: ganancia en dB (±18 dB).</li>
-          <li><b>Clic en el gráfico:</b> añade un nuevo filtro Peaking en la frecuencia y ganancia donde se haga clic.</li>
-          <li>Cada filtro tiene su propio color; el marcador muestra su posición.</li>
-          <li>La curva total (suma de todos los filtros) se dibuja en blanco.</li>
+          <li><b>Clic en el gráfico:</b> añade un nuevo filtro Peaking en la frecuencia y ganancia indicadas.</li>
+          <li>Cada filtro tiene su propio color; el marcador circular indica su frecuencia y ganancia.</li>
+          <li>La curva blanca = suma total de todos los filtros del canal seleccionado.</li>
         </ul>
         <h4>Tabla de filtros</h4>
         <ul>
           <li><b>Tipo:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
-          <li><b>Freq (Hz):</b> frecuencia central o de corte.</li>
-          <li><b>Gain (dB):</b> ganancia (no aplica en HP/LP).</li>
+          <li><b>Freq (Hz):</b> frecuencia central (Peaking/Shelf) o de corte (HP/LP).</li>
+          <li><b>Gain (dB):</b> ganancia del filtro (no aplica en Highpass/Lowpass).</li>
           <li><b>Q:</b> factor de calidad / anchura de banda.</li>
-          <li><b>Canal:</b> a qué canal de entrada o salida pertenece el filtro.</li>
-          <li><b>✕:</b> elimina el filtro.</li>
+          <li><b>Canal:</b> canal de entrada o salida al que pertenece el filtro.</li>
+          <li><b>✕:</b> elimina el filtro permanentemente.</li>
         </ul>
-        <div class="tip">Consejo: Q = 0.707 equivale a un filtro Butterworth (máxima planicidad). Q alto → pico estrecho; Q bajo → curva ancha.</div>
-
-        <h3>Pestaña CROSSOVERS</h3>
-        <p>Filtros de división de frecuencia (crossover) para sistemas multiamplificados.</p>
-        <ul>
-          <li><b>Tipos disponibles:</b> Butterworth Lowpass/Highpass y Linkwitz-Riley Lowpass/Highpass.</li>
-          <li><b>Orden:</b> pendiente del filtro. Orden 2 = 12 dB/oct, Orden 4 = 24 dB/oct.</li>
-          <li>Linkwitz-Riley es el estándar de la industria para divisores activos (fase coincidente a la frecuencia de cruce).</li>
-          <li>El gráfico muestra la respuesta en frecuencia de cada filtro con su color de canal.</li>
-        </ul>
-        <div class="tip">Para un crossover completo se necesita al menos un LP para el woofer y un HP para el tweeter, en distintos canales de salida.</div>
-
-        <h3>Pestaña MIXER</h3>
-        <p>Matriz de mezcla que determina cómo se combinan los canales de entrada en los de salida.</p>
-        <h4>Canvas del mixer</h4>
-        <ul>
-          <li>Filas = canales de entrada, columnas = canales de salida.</li>
-          <li><b>Clic en una celda:</b> activa o desactiva la conexión entre ese par de canales.</li>
-          <li>Celda iluminada = conexión activa (la señal del canal de entrada llega al canal de salida).</li>
-        </ul>
-        <h4>Panel de dispositivos</h4>
-        <ul>
-          <li><b>IN / OUT:</b> selectores de tarjeta de sonido para captura y reproducción. Los cambios se aplican inmediatamente al DSP.</li>
-          <li><b>Chunk:</b> tamaño del buffer de procesado (128 – 4096 muestras). Valores bajos = menor latencia pero mayor riesgo de dropout. Valores altos = mayor latencia pero más estabilidad.</li>
-          <li><b>↺ Actualizar:</b> recarga la lista de dispositivos ALSA disponibles.</li>
-          <li><b>⟳ Motor:</b> reinicia el proceso de CamillaDSP (detiene y vuelve a arrancar el motor de audio).</li>
-        </ul>
-
-        <h3>Importación de filtros EQ (Imp EQ)</h3>
-        <p>Soporta los siguientes formatos de exportación de REW (Room EQ Wizard) y Equalizer APO:</p>
+        <div class="tip">Q = 0.707 → filtro Butterworth (máxima planicidad). Q alto → pico estrecho y preciso; Q bajo → curva ancha y suave.</div>
+        <h4>Importación de filtros (Imp EQ)</h4>
+        <p>Soporta archivos exportados desde REW (Room EQ Wizard) y Equalizer APO:</p>
         <ul>
           <li><b>REW Generic:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
           <li><b>Equalizer APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
-          <li><b>HP/LP sin Gain:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
-          <li><b>BW Octave:</b> <span class="kbd">Filter: ON PK Fc 500 Hz Gain -2 dB BW Oct 0.5</span></li>
-          <li>Tipos soportados: PK/PEQ (Peaking), LS/LSC (Lowshelf), HS/HSC (Highshelf), HP/HPQ (Highpass), LP/LPQ (Lowpass).</li>
-          <li>Tipos ignorados: NO (Notch), AP (Allpass), None.</li>
-          <li>Formato genérico tab/espacio: <span class="kbd">1000  3.0  1.41  PK</span></li>
+          <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span> (Gain no requerido)</li>
+          <li><b>BW Oct:</b> <span class="kbd">Filter: ON PK Fc 500 Hz Gain -2 dB BW Oct 0.5</span></li>
+          <li>Tipos: PK/PEQ→Peaking, LS/LSC→Lowshelf, HS/HSC→Highshelf, HP/HPQ→Highpass, LP/LPQ→Lowpass.</li>
+          <li>Ignorados: NO (Notch), AP (Allpass), None.</li>
+          <li>Formato genérico: <span class="kbd">1000  3.0  1.41  PK</span></li>
         </ul>
-        <div class="warn">Los filtros importados se asignan al canal activo en el momento de la importación. Selecciona primero el canal destino en la pestaña EQ.</div>
+        <div class="warn">Los filtros importados se asignan al canal activo en la pestaña Parametric EQ al momento de la importación. Selecciona primero el canal destino.</div>
 
-        <h3>Exportación / Importación de configuración</h3>
+        <h3>Pestaña CROSSOVERS</h3>
+        <p>Filtros de división de frecuencia para sistemas multiamplificados (activos).</p>
         <ul>
-          <li><b>Exp Cfg:</b> descarga el archivo YAML completo de CamillaDSP (dispositivos, pipeline, filtros, mezcla).</li>
-          <li><b>Imp Cfg:</b> carga un archivo YAML o JSON previamente guardado y lo aplica al DSP.</li>
-          <li><b>Exp EQ:</b> exporta los filtros biquad actuales en formato de texto (compatible con reimportación).</li>
+          <li><b>Tipos:</b> Butterworth Lowpass/Highpass y Linkwitz-Riley Lowpass/Highpass.</li>
+          <li><b>Orden:</b> Orden 2 = 12 dB/oct, Orden 4 = 24 dB/oct, Orden 8 = 48 dB/oct.</li>
+          <li>Linkwitz-Riley (LR) es el estándar para divisores activos: las respuestas de LP y HP suman 0 dB a la frecuencia de corte y son de fase coincidente.</li>
+          <li>El gráfico muestra la curva de cada filtro en el color de su canal.</li>
+          <li>Los crossovers se asignan a canales de <b>salida</b>.</li>
+        </ul>
+        <div class="tip">Para un sistema de 2 vías: asignar LP al canal del woofer y HP al canal del tweeter, con la misma frecuencia de corte en ambos.</div>
+
+        <h3>Pestaña MIXER</h3>
+        <p>Matriz de mezcla que enruta y combina los canales de entrada hacia los de salida.</p>
+        <h4>Canvas del mixer</h4>
+        <ul>
+          <li>Filas = canales de entrada, columnas = canales de salida.</li>
+          <li><b>Clic en una celda:</b> activa o desactiva la conexión entre ese par entrada/salida.</li>
+          <li>Celda iluminada = conexión activa; la señal de esa entrada llega a esa salida.</li>
+        </ul>
+        <h4>Panel de dispositivos</h4>
+        <ul>
+          <li><b>IN:</b> selector de tarjeta de sonido de captura (entrada de audio).</li>
+          <li><b>OUT:</b> selector de tarjeta de sonido de reproducción (salida de audio).</li>
+          <li><b>Chunk:</b> tamaño del buffer de procesado en muestras (128 – 4096). Menor valor = menor latencia pero mayor riesgo de cortes; mayor valor = mayor estabilidad.</li>
+          <li><b>↺ Actualizar:</b> recarga la lista de dispositivos ALSA disponibles en el sistema.</li>
+          <li><b>⟳ Motor:</b> detiene y reinicia el proceso CamillaDSP. Útil tras cambiar dispositivos o configuración.</li>
+        </ul>
+
+        <h3>Configuración: importar / exportar</h3>
+        <ul>
+          <li><b>Exp Cfg:</b> descarga el archivo YAML completo (dispositivos, pipeline, filtros GEQ y paramétricos, crossovers, mezcla).</li>
+          <li><b>Imp Cfg:</b> carga un archivo YAML o JSON previamente guardado y lo aplica al DSP en tiempo real.</li>
+          <li><b>Exp EQ:</b> exporta los filtros paramétricos (biquad) actuales en formato texto compatible con REW.</li>
         </ul>
 
       </div><!-- /help-es -->
@@ -424,7 +451,7 @@ table.ftable tr:hover td{background:#1a1a1a}
       <div id="help-en" style="display:none">
 
         <h3>What is this application?</h3>
-        <p>CamillaDSP Console is a web interface to control the <b>CamillaDSP</b> digital audio processor in real time on an embedded device (TV-box, RPi, etc.). It lets you adjust equalization, crossovers, channel mixing, compressors, and audio devices without manually editing configuration files.</p>
+        <p>CamillaDSP Console is a web interface to control the <b>CamillaDSP</b> digital audio processor in real time on an embedded device (TV-box, RPi, etc.). It lets you adjust graphic and parametric equalization, crossovers, channel mixing, compressors, and audio devices without manually editing configuration files.</p>
 
         <h3>Top bar</h3>
         <ul>
@@ -432,111 +459,138 @@ table.ftable tr:hover td{background:#1a1a1a}
           <li><b>State / Buffer / DSP load:</b> engine state (Running/Idle/Error), audio buffer level and DSP CPU load, updated every ~200 ms.</li>
           <li><b>WEB 5005:</b> opens the native CamillaDSP interface in a new tab.</li>
           <li><b>Imp Cfg / Exp Cfg:</b> import or export the full configuration in YAML/JSON format.</li>
-          <li><b>Imp EQ / Exp EQ:</b> import filters from a text file (REW, Equalizer APO or generic format) or export current filters.</li>
+          <li><b>Imp EQ / Exp EQ:</b> import parametric filters from a text file (REW, Equalizer APO or generic format) or export current filters.</li>
           <li><b>Reset:</b> restores the configuration to the server-saved defaults. <span style="color:#f88">Irreversible!</span></li>
+          <li><b>ES/EN:</b> toggles the interface language between Spanish and English. The choice is saved across reloads.</li>
+          <li><b>? HELP:</b> opens this help panel.</li>
         </ul>
 
         <h3>METERS tab</h3>
-        <p>Shows input and output VU meters with their gain faders.</p>
+        <p>Real-time monitoring of all channels with full gain control.</p>
         <h4>View buttons</h4>
         <ul>
-          <li><b>ALL / INPUTS / OUTPUTS:</b> filters which channels are shown.</li>
-          <li><b>MUTE ALL:</b> mutes all output channels at once.</li>
+          <li><b>ALL / INPUTS / OUTPUTS:</b> filters which channels are displayed.</li>
+          <li><b>MUTE ALL:</b> mutes all output channels at once (red = active).</li>
           <li><b>VOL: X dB:</b> master volume level applied by CamillaDSP.</li>
         </ul>
         <h4>VU Meters (top canvas)</h4>
         <ul>
-          <li>Green bar = real-time RMS signal level.</li>
-          <li>Red bar (top) = gain reduction applied by the compressor (GR).</li>
-          <li>Yellow line = peak hold (2 s retention).</li>
-          <li>Blue dashed line = compressor threshold.</li>
+          <li><b style="color:#0f0">Green</b> bar = real-time RMS signal level.</li>
+          <li><b style="color:#f44">Red</b> bar (top) = compressor gain reduction (GR).</li>
+          <li><b style="color:#ff0">Yellow</b> line = peak hold (2 s retention).</li>
+          <li><b style="color:#88f">Blue</b> dashed line = compressor threshold.</li>
           <li>Scale: 0 dB at top → −80 dB at bottom.</li>
         </ul>
         <h4>Faders (bottom section)</h4>
         <ul>
-          <li><b>Fader canvas:</b> click and drag up/down to adjust channel gain (–∞ to +6 dB). The dB value is shown in real time.</li>
+          <li><b>Fader (canvas):</b> click and drag up/down to adjust channel gain (−∞ to +6 dB). The dB value is shown in real time during drag.</li>
           <li><b>MUTE:</b> mutes the channel individually (red = muted).</li>
           <li><b>Ø (Polarity):</b> inverts the channel phase (purple = inverted).</li>
-          <li><b>Delay (ms):</b> text field to enter delay in milliseconds.</li>
+          <li><b>Delay (ms):</b> text field to enter time delay in milliseconds.</li>
         </ul>
         <h4>Compressor table</h4>
-        <p>Shows and allows editing of compressor parameters for each output channel:</p>
+        <p>Shows and allows editing of dynamic compressor parameters per output channel:</p>
         <ul>
           <li><b>Attack / Release:</b> attack and release times in seconds.</li>
           <li><b>Threshold:</b> activation threshold in dBFS.</li>
           <li><b>Ratio:</b> compression ratio (e.g. 4 = 4:1).</li>
           <li><b>Makeup:</b> post-compression makeup gain in dB.</li>
           <li><b>ClipLim:</b> enables clip limiter at 0 dBFS.</li>
-          <li><b>Auto:</b> enables automatic release time adjustment.</li>
+          <li><b>Auto:</b> enables automatic program-dependent release time.</li>
         </ul>
 
-        <h3>EQ &amp; FILTERS tab</h3>
-        <p>Full parametric equalizer per channel.</p>
+        <h3>GRAPHIC EQ tab</h3>
+        <p>Linear-phase <b>31-band</b> graphic equalizer, assignable to input channels.</p>
         <h4>Channel selector</h4>
-        <p>The button bar below the tabs shows input channels (top row) and output channels (bottom row). Click one to view and edit its filters. The <b>ALL</b> button shows all filters overlaid.</p>
+        <ul>
+          <li><b>ALL:</b> selects or deselects all input channels at once.</li>
+          <li><b>Per-channel buttons (🎤 Name):</b> individual toggle. One or more channels can be active simultaneously. At least one is always selected.</li>
+          <li>Moving a fader applies the gain to <b>all selected channels</b> at the same time.</li>
+          <li>Only <b>input</b> channels can be assigned (outputs are not available).</li>
+        </ul>
+        <h4>Band faders</h4>
+        <ul>
+          <li><b>31 bands</b> from 20 Hz to 18 kHz following the ×1.25 per band pattern: 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
+          <li><b>Range:</b> ±9 dB, linear scale. Reference marks at 0, ±3, ±6, ±9 dB.</li>
+          <li><b>Drag:</b> click and drag up (boost) or down (cut). The exact dB value appears in a tooltip above the cursor during drag.</li>
+          <li><b>Double-click:</b> resets that band to 0 dB.</li>
+          <li><b style="color:#0af">Blue</b> fill = boost (positive gain), <b style="color:#f64">orange/red</b> fill = cut (negative gain).</li>
+        </ul>
+        <h4>Toolbar buttons</h4>
+        <ul>
+          <li><b>Flat:</b> sets all bands of the selected channels to 0 dB.</li>
+          <li><b>Reset channel:</b> completely removes the GEQ filter from the selected channels' pipeline.</li>
+        </ul>
+        <div class="tip">The graphic EQ applies a BiquadCombo/GraphicEqualizer filter in CamillaDSP. The filter is created automatically in the pipeline the first time a fader is moved.</div>
+
+        <h3>PARAMETRIC EQ tab</h3>
+        <p>High-precision parametric equalizer per channel (inputs and outputs).</p>
+        <h4>Channel selector</h4>
+        <p>The bar below the tabs shows input channels (top row) and output channels (bottom row). Click a channel to view and edit its filters. The <b>ALL IN</b> / <b>ALL OUT</b> button overlays all filters in the graph.</p>
         <h4>Frequency response graph</h4>
         <ul>
-          <li>X axis: frequency (20 Hz – 20 kHz, logarithmic scale).</li>
+          <li>X axis: 20 Hz – 20 kHz (logarithmic scale).</li>
           <li>Y axis: gain in dB (±18 dB).</li>
           <li><b>Click on the graph:</b> adds a new Peaking filter at the clicked frequency and gain.</li>
-          <li>Each filter has its own color; the marker shows its position.</li>
-          <li>The total curve (sum of all filters) is drawn in white.</li>
+          <li>Each filter has its own color; the circular marker shows its frequency and gain.</li>
+          <li>White curve = total response (sum of all filters for the selected channel).</li>
         </ul>
         <h4>Filter table</h4>
         <ul>
           <li><b>Type:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
-          <li><b>Freq (Hz):</b> center or cutoff frequency.</li>
-          <li><b>Gain (dB):</b> gain (not applicable to HP/LP).</li>
+          <li><b>Freq (Hz):</b> center frequency (Peaking/Shelf) or cutoff frequency (HP/LP).</li>
+          <li><b>Gain (dB):</b> filter gain (not applicable to Highpass/Lowpass).</li>
           <li><b>Q:</b> quality factor / bandwidth.</li>
-          <li><b>Channel:</b> which input or output channel the filter belongs to.</li>
-          <li><b>✕:</b> deletes the filter.</li>
+          <li><b>Channel:</b> input or output channel the filter belongs to.</li>
+          <li><b>✕:</b> permanently deletes the filter.</li>
         </ul>
-        <div class="tip">Tip: Q = 0.707 is a Butterworth filter (maximum flatness). High Q → narrow peak; low Q → wide curve.</div>
+        <div class="tip">Q = 0.707 → Butterworth filter (maximum flatness). High Q → narrow precise peak; low Q → wide gentle curve.</div>
+        <h4>Filter import (Imp EQ)</h4>
+        <p>Supports files exported from REW (Room EQ Wizard) and Equalizer APO:</p>
+        <ul>
+          <li><b>REW Generic:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>Equalizer APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span> (Gain not required)</li>
+          <li><b>BW Oct:</b> <span class="kbd">Filter: ON PK Fc 500 Hz Gain -2 dB BW Oct 0.5</span></li>
+          <li>Types: PK/PEQ→Peaking, LS/LSC→Lowshelf, HS/HSC→Highshelf, HP/HPQ→Highpass, LP/LPQ→Lowpass.</li>
+          <li>Ignored: NO (Notch), AP (Allpass), None.</li>
+          <li>Generic format: <span class="kbd">1000  3.0  1.41  PK</span></li>
+        </ul>
+        <div class="warn">Imported filters are assigned to the channel active in the Parametric EQ tab at the time of import. Select the target channel first.</div>
 
         <h3>CROSSOVERS tab</h3>
-        <p>Frequency crossover filters for multi-amplified systems.</p>
+        <p>Frequency crossover filters for multi-amplified (active) speaker systems.</p>
         <ul>
-          <li><b>Available types:</b> Butterworth Lowpass/Highpass and Linkwitz-Riley Lowpass/Highpass.</li>
-          <li><b>Order:</b> filter slope. Order 2 = 12 dB/oct, Order 4 = 24 dB/oct.</li>
-          <li>Linkwitz-Riley is the industry standard for active crossovers (phase-coincident at crossover frequency).</li>
-          <li>The graph shows the frequency response of each filter in its channel color.</li>
+          <li><b>Types:</b> Butterworth Lowpass/Highpass and Linkwitz-Riley Lowpass/Highpass.</li>
+          <li><b>Order:</b> Order 2 = 12 dB/oct, Order 4 = 24 dB/oct, Order 8 = 48 dB/oct.</li>
+          <li>Linkwitz-Riley (LR) is the industry standard for active crossovers: LP and HP responses sum to 0 dB at the crossover frequency and are phase-coincident.</li>
+          <li>The graph shows each filter's curve in its channel color.</li>
+          <li>Crossover filters are assigned to <b>output</b> channels.</li>
         </ul>
-        <div class="tip">A complete crossover requires at least one LP for the woofer and one HP for the tweeter, on separate output channels.</div>
+        <div class="tip">For a 2-way system: assign LP to the woofer output channel and HP to the tweeter output channel, both at the same crossover frequency.</div>
 
         <h3>MIXER tab</h3>
-        <p>Mixing matrix that determines how input channels are combined into output channels.</p>
+        <p>Routing matrix that combines input channels into output channels.</p>
         <h4>Mixer canvas</h4>
         <ul>
           <li>Rows = input channels, columns = output channels.</li>
           <li><b>Click on a cell:</b> toggles the connection between that input/output pair.</li>
-          <li>Lit cell = active connection (input signal reaches the output channel).</li>
+          <li>Lit cell = active connection; that input's signal reaches that output.</li>
         </ul>
         <h4>Device panel</h4>
         <ul>
-          <li><b>IN / OUT:</b> sound card selectors for capture and playback. Changes are applied to the DSP immediately.</li>
-          <li><b>Chunk:</b> processing buffer size (128 – 4096 samples). Low values = lower latency but higher dropout risk. High values = higher latency but more stability.</li>
-          <li><b>↺ Refresh:</b> reloads the list of available ALSA devices.</li>
-          <li><b>⟳ Engine:</b> restarts the CamillaDSP process (stops and restarts the audio engine).</li>
+          <li><b>IN:</b> capture sound card selector (audio input device).</li>
+          <li><b>OUT:</b> playback sound card selector (audio output device).</li>
+          <li><b>Chunk:</b> processing buffer size in samples (128 – 4096). Lower = less latency but higher dropout risk; higher = more stability.</li>
+          <li><b>↺ Refresh:</b> reloads the list of available ALSA devices from the system.</li>
+          <li><b>⟳ Engine:</b> stops and restarts the CamillaDSP process. Use after changing devices or configuration.</li>
         </ul>
 
-        <h3>EQ filter import (Imp EQ)</h3>
-        <p>Supports the following REW (Room EQ Wizard) and Equalizer APO export formats:</p>
+        <h3>Configuration: import / export</h3>
         <ul>
-          <li><b>REW Generic:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
-          <li><b>Equalizer APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
-          <li><b>HP/LP without Gain:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
-          <li><b>BW Octave:</b> <span class="kbd">Filter: ON PK Fc 500 Hz Gain -2 dB BW Oct 0.5</span></li>
-          <li>Supported types: PK/PEQ (Peaking), LS/LSC (Lowshelf), HS/HSC (Highshelf), HP/HPQ (Highpass), LP/LPQ (Lowpass).</li>
-          <li>Ignored types: NO (Notch), AP (Allpass), None.</li>
-          <li>Generic tab/space format: <span class="kbd">1000  3.0  1.41  PK</span></li>
-        </ul>
-        <div class="warn">Imported filters are assigned to the channel active at the time of import. Select the target channel in the EQ tab first.</div>
-
-        <h3>Config export / import</h3>
-        <ul>
-          <li><b>Exp Cfg:</b> downloads the full CamillaDSP YAML file (devices, pipeline, filters, mixing).</li>
-          <li><b>Imp Cfg:</b> loads a previously saved YAML or JSON file and applies it to the DSP.</li>
-          <li><b>Exp EQ:</b> exports current biquad filters as a text file (compatible with re-import).</li>
+          <li><b>Exp Cfg:</b> downloads the full YAML file (devices, pipeline, GEQ and parametric filters, crossovers, mixing).</li>
+          <li><b>Imp Cfg:</b> loads a previously saved YAML or JSON file and applies it to the DSP in real time.</li>
+          <li><b>Exp EQ:</b> exports current parametric (biquad) filters as a text file compatible with REW.</li>
         </ul>
 
       </div><!-- /help-en -->
