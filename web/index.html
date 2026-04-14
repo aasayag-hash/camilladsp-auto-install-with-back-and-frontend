@@ -865,9 +865,9 @@ function buildChannelPanel(){
   inLabels.forEach((n,i)=>{
     const b=document.createElement('button');
     b.className='ch-btn active'; b.textContent=`🔊 ${n}`; b.id=`btn-in-${i}`;
-    b.addEventListener('click',()=>{ toggleInCh(i,!b.classList.contains('active')); });
-    b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,false);};
     addLongPress(b,()=>{ toggleBypass(i,false); });
+    b.addEventListener('click',()=>{ if(b._lpRecentlyFired?.()) return; toggleInCh(i,!b.classList.contains('active')); });
+    b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,false);};
     inRow.appendChild(b);
   });
   // OUT row
@@ -881,9 +881,9 @@ function buildChannelPanel(){
     const b=document.createElement('button');
     const col=COLORS[i%COLORS.length];
     b.className='ch-btn out active'; b.style.setProperty('--col',col); b.textContent=`🔊 ${n}`; b.id=`btn-out-${i}`;
-    b.addEventListener('click',()=>{ toggleOutCh(i,!b.classList.contains('active')); });
-    b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,true);};
     addLongPress(b,()=>{ toggleBypass(i,true); });
+    b.addEventListener('click',()=>{ if(b._lpRecentlyFired?.()) return; toggleOutCh(i,!b.classList.contains('active')); });
+    b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,true);};
     outRow.appendChild(b);
   });
 }
@@ -2882,15 +2882,11 @@ const isTouch = ()=> window.matchMedia('(pointer:coarse)').matches || navigator.
 // evitando que el scroll del contenedor robe el gesto y dispare pointercancel.
 // Un tap corto (sin longpress) deja pasar el click normalmente.
 // Returns a cleanup function.
+// Longpress: dispara onLongPress al mantener el dedo quiet delay ms.
+// Expone el método .recentlyFired() para que el listener de click
+// del elemento pueda ignorar el click que sigue al longpress.
 function addLongPress(el, onLongPress, delay=400){
-  let timer=null, pointerId=null, startX=0, startY=0;
-  // _suppressClick: listener en CAPTURE phase que bloquea el próximo click
-  // tras un longpress, antes de que llegue a cualquier otro listener
-  const suppressNextClick=e=>{
-    e.stopImmediatePropagation();
-    e.preventDefault();
-    el.removeEventListener('click', suppressNextClick, true);
-  };
+  let timer=null, pointerId=null, startX=0, startY=0, firedAt=0;
 
   const onDown=e=>{
     if(e.pointerType==='mouse') return;
@@ -2900,8 +2896,7 @@ function addLongPress(el, onLongPress, delay=400){
     try{ el.setPointerCapture(e.pointerId); }catch(_){}
     timer=setTimeout(()=>{
       timer=null;
-      // Registrar el bloqueador de click ANTES de llamar al callback
-      el.addEventListener('click', suppressNextClick, true);
+      firedAt=Date.now();
       onLongPress(e.clientX, e.clientY);
     }, delay);
   };
@@ -2932,13 +2927,17 @@ function addLongPress(el, onLongPress, delay=400){
   el.addEventListener('pointerup',     onUp);
   el.addEventListener('pointercancel', onCancel);
 
+  // recentlyFired(): true si el longpress disparó hace menos de 600ms
+  // Úsalo en el listener de click para ignorar el click post-longpress
+  el._lpRecentlyFired = ()=> (Date.now()-firedAt) < 600;
+
   return ()=>{
     el.removeEventListener('pointerdown',   onDown);
     el.removeEventListener('pointermove',   onMove);
     el.removeEventListener('pointerup',     onUp);
     el.removeEventListener('pointercancel', onCancel);
-    el.removeEventListener('click', suppressNextClick, true);
     clearTimeout(timer);
+    delete el._lpRecentlyFired;
   };
 }
 
