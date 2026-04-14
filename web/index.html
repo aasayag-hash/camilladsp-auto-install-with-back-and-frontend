@@ -68,14 +68,19 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 .auto-btn{background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:2px 8px;font-weight:bold}
 .auto-btn:hover{background:#0056b3}
 
-/* EQ / Cross tab */
-.eq-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column}
-canvas.graph{width:100%;flex:1;min-height:140px;display:block;cursor:crosshair}
-.filter-table-wrap{flex-shrink:0;max-height:200px;overflow-y:auto}
-/* Táctil: ampliar área de toque en tablas */
+/* EQ / Cross tab — canvas flexible arriba, planilla fija 33% abajo */
+.eq-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
+canvas.graph{width:100%;flex:1;min-height:120px;display:block;cursor:crosshair}
+.filter-table-wrap{flex-shrink:0;height:33%;min-height:90px;max-height:240px;overflow-y:auto;border-top:1px solid #222}
+/* Overlay Q-buttons para táctil */
+#eq-q-overlay{position:absolute;display:none;align-items:center;gap:6px;background:rgba(0,0,0,.85);border:1px solid #0ff;border-radius:6px;padding:4px 8px;z-index:200;pointer-events:auto}
+#eq-q-overlay.show{display:flex}
+.eq-q-btn{width:36px;height:36px;border-radius:50%;border:2px solid #0ff;background:#003;color:#0ff;font-size:18px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+.eq-q-btn:active{background:#006}
+#eq-q-label{font-size:11px;color:#ff0;white-space:nowrap;text-align:center}
+/* Táctil: controles más grandes */
 @media (pointer:coarse){
-  canvas.graph{min-height:200px}
-  .filter-table-wrap{max-height:160px}
+  canvas.graph{min-height:160px}
   table.ftable td input{min-height:32px;font-size:13px}
   table.ftable select{min-height:32px;font-size:13px}
   .del-btn{min-height:32px;padding:4px 12px}
@@ -261,6 +266,12 @@ table.ftable tr:hover td{background:#1a1a1a}
   <div class="tab-page" id="page-2">
     <div class="eq-wrap">
       <canvas class="graph" id="eq-canvas"></canvas>
+      <!-- Overlay Q buttons (visible on touch when a filter is selected) -->
+      <div id="eq-q-overlay">
+        <button class="eq-q-btn" id="eq-q-minus" title="-Q">−</button>
+        <div id="eq-q-label">Q: —</div>
+        <button class="eq-q-btn" id="eq-q-plus" title="+Q">+</button>
+      </div>
       <div class="filter-table-wrap">
         <table class="ftable"><thead><tr><th>ID</th><th>Tipo</th><th>Freq(Hz)</th><th>Gain(dB)</th><th>Q</th><th>Canal</th><th></th></tr></thead>
         <tbody id="eq-tbody"></tbody></table>
@@ -818,6 +829,7 @@ async function init(){
 // ═══════════════════════════════════════════════════════════════════════════
 function switchTab(i){
   currentTab=i;
+  eqHideQOverlay();
   document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
   document.querySelectorAll('.tab-page').forEach((p,j)=>p.classList.toggle('active',i===j));
   const chPanel=document.getElementById('ch-panel');
@@ -1171,15 +1183,17 @@ function makeFaderStrip(name,chIdx,initDb,mode){
   });
   cv.addEventListener('contextmenu',e=>e.preventDefault());
   // Touch drag
+  let faderLongFired=false;
   cv.addEventListener('touchstart',e=>{
     if(e.touches.length!==1) return;
     e.preventDefault();
+    faderLongFired=false;
     w.dragging=true;
     const startClientY=e.touches[0].clientY;
     const startDb=w.db;
     draw();
     function tMove(e2){
-      if(e2.touches.length!==1) return;
+      if(faderLongFired||e2.touches.length!==1) return;
       const rect=cv.getBoundingClientRect();
       const scaleY=(cv.height-14)/rect.height;
       const startY=dbToY(startDb,cv.height-14);
@@ -1187,12 +1201,16 @@ function makeFaderStrip(name,chIdx,initDb,mode){
       w.db=Math.max(-60,Math.min(10,yToDb(startY+dy,cv.height-14)));
       draw();
     }
-    function tEnd(){ w.dragging=false; draw(); sendGain(w); cv.removeEventListener('touchmove',tMove); cv.removeEventListener('touchend',tEnd); }
+    function tEnd(){
+      if(!faderLongFired){ w.dragging=false; draw(); sendGain(w); }
+      cv.removeEventListener('touchmove',tMove);
+      cv.removeEventListener('touchend',tEnd);
+    }
     cv.addEventListener('touchmove',tMove,{passive:false});
     cv.addEventListener('touchend',tEnd,{passive:true});
   },{passive:false});
   // Longpress → reset to 0 dB (replaces right-click)
-  addLongPress(cv,()=>{ w.db=0; draw(); sendGain(w); toast('Ganancia a 0 dB'); });
+  addLongPress(cv,()=>{ faderLongFired=true; w.dragging=false; w.db=0; draw(); sendGain(w); toast('Ganancia a 0 dB'); });
   wrap.appendChild(cv);
   return {el:wrap,w};
 }
@@ -1492,11 +1510,13 @@ function renderEQGraph(){
     const x=fToX(p.freq,W), y=eqDbToY(markerDb,H);
     const isByp=bypassedFids.has(fid), isSel=fid===eqState.drag||fid===eqState.hover||fid===eqState.highlight;
     const col=COLORS[visChs[0]%COLORS.length];
+    const r=9; // radio del punto — más grande para toque táctil
     ctx.fillStyle=isByp?'#666':(isSel?'#fff':col);
-    ctx.beginPath(); ctx.arc(x,y,5,0,2*Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,r,0,2*Math.PI); ctx.fill();
+    if(isSel){ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,r+3,0,2*Math.PI); ctx.stroke(); }
     ctx.fillStyle=isByp?'#666':col; ctx.font='bold 7px Arial'; ctx.textAlign='center';
     const chName=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
-    ctx.fillText(`${idx}|${dom.toUpperCase()}:${chName}`,x,y-8);
+    ctx.fillText(`${idx}|${dom.toUpperCase()}:${chName}`,x,y-r-3);
     if(isSel){
       ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
       const bx=Math.max(0,Math.min(W-210,x-105)),by=Math.max(0,y-65);
@@ -1618,25 +1638,104 @@ function setupEQInteraction(){
         const p=filtrosBiquad[fid].data.parameters;
         patch[fid]={parameters:{freq:p.freq,gain:p.gain||0}};
       });
-      await patchCfg({filters:patch}); eqState.drag=null; eqTouchDragging=false;
+      await patchCfg({filters:patch});
+      // Mostrar overlay Q si no se arrastró (tap sobre filtro existente)
+      const dragged=eqState.drag;
+      eqState.drag=null; eqTouchDragging=false;
+      if(dragged) eqShowQOverlay(dragged);
+    } else {
+      eqHideQOverlay();
     }
   },{passive:true});
   // Longpress on filter point → delete (replaces right-click)
   addLongPress(cv,(clientX,clientY)=>{
     const {offsetX,offsetY}=touchOffset(cv,clientX,clientY);
     const cands=findEQNear(offsetX,offsetY,cv);
-    if(cands.length){ eqTouchLongFired=true; deleteEQ(cands[0]); toast('Filtro eliminado'); }
+    if(cands.length){ eqTouchLongFired=true; eqHideQOverlay(); deleteEQ(cands[0]); toast('Filtro eliminado'); }
+  });
+
+  // Q overlay buttons (táctil)
+  document.getElementById('eq-q-plus')?.addEventListener('click',async()=>{
+    const fid=eqState.highlight||eqState.drag;
+    if(!fid||!filtrosBiquad[fid]) return;
+    const p=filtrosBiquad[fid].data.parameters;
+    const nq=Math.min(20,Math.round(((p.q||1)+0.1)*100)/100);
+    const group=Object.keys(filtrosBiquad).filter(f2=>{
+      const p2=filtrosBiquad[f2]?.data?.parameters||{};
+      return Math.abs((p2.freq||0)-(p.freq||0))<1&&Math.abs((p2.gain||0)-(p.gain||0))<0.1;
+    });
+    const patch={};
+    group.forEach(f2=>{ if(filtrosBiquad[f2]) filtrosBiquad[f2].data.parameters.q=nq; patch[f2]={parameters:{q:nq}}; });
+    await patchCfg({filters:patch}); buildEQTable(); renderEQGraph(); eqUpdateQLabel(fid);
+  });
+  document.getElementById('eq-q-minus')?.addEventListener('click',async()=>{
+    const fid=eqState.highlight||eqState.drag;
+    if(!fid||!filtrosBiquad[fid]) return;
+    const p=filtrosBiquad[fid].data.parameters;
+    const nq=Math.max(0.1,Math.round(((p.q||1)-0.1)*100)/100);
+    const group=Object.keys(filtrosBiquad).filter(f2=>{
+      const p2=filtrosBiquad[f2]?.data?.parameters||{};
+      return Math.abs((p2.freq||0)-(p.freq||0))<1&&Math.abs((p2.gain||0)-(p.gain||0))<0.1;
+    });
+    const patch={};
+    group.forEach(f2=>{ if(filtrosBiquad[f2]) filtrosBiquad[f2].data.parameters.q=nq; patch[f2]={parameters:{q:nq}}; });
+    await patchCfg({filters:patch}); buildEQTable(); renderEQGraph(); eqUpdateQLabel(fid);
   });
 }
+
+function eqUpdateQLabel(fid){
+  const ov=document.getElementById('eq-q-overlay'); if(!ov||!ov.classList.contains('show')) return;
+  const p=filtrosBiquad[fid]?.data?.parameters; if(!p) return;
+  document.getElementById('eq-q-label').textContent=`Q: ${(p.q||1).toFixed(2)}`;
+}
+function eqShowQOverlay(fid, canvasX, canvasY){
+  if(!isTouch()) return;
+  const ov=document.getElementById('eq-q-overlay'); if(!ov) return;
+  const cv=eqCanvas(); if(!cv) return;
+  const wrap=cv.parentElement; // .eq-wrap
+  const wRect=wrap.getBoundingClientRect();
+  const p=filtrosBiquad[fid]?.data?.parameters; if(!p) return;
+  // Posicionar overlay junto al punto, dentro del eq-wrap
+  const cvRect=cv.getBoundingClientRect();
+  const W=cv.clientWidth, H=cv.clientHeight;
+  const px=fToX(p.freq||1000,W), py=eqDbToY(p.gain||0,H);
+  // absolute dentro de .eq-wrap
+  const absX = cvRect.left - wRect.left + px;
+  const absY = cvRect.top  - wRect.top  + py;
+  const ovW=140, ovH=44;
+  let left=absX-ovW/2, top=absY-ovH-16;
+  if(left<4) left=4;
+  if(left+ovW>wRect.width-4) left=wRect.width-ovW-4;
+  if(top<4) top=absY+20; // debajo si no cabe arriba
+  ov.style.left=left+'px'; ov.style.top=top+'px';
+  document.getElementById('eq-q-label').textContent=`Q: ${(p.q||1).toFixed(2)}`;
+  ov.classList.add('show');
+}
+function eqHideQOverlay(){
+  document.getElementById('eq-q-overlay')?.classList.remove('show');
+}
+
 function findEQNear(ox,oy,cv){
   const W=cv.clientWidth,H=cv.clientHeight,res=[];
+  const hitR=isTouch()?22:14; // mayor área de toque en táctil
   for(const [fid,info] of Object.entries(filtrosBiquad)){
     const dom=info.domain;
     const vis=info.channels.some(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
     if(!vis) continue;
     const p=info.data.parameters;
     const x=fToX(p.freq,W),y=eqDbToY(p.gain||0,H);
-    if(Math.hypot(ox-x,oy-y)<15) res.push(fid);
+    if(Math.hypot(ox-x,oy-y)<hitR) res.push(fid);
+  }
+  return res;
+}
+function findCrossNear(ox,oy,cv){
+  const W=cv.clientWidth,H=cv.clientHeight,res=[];
+  const hitR=isTouch()?22:14;
+  for(const [fid,info] of Object.entries(filtrosCross)){
+    const vis=info.channels.some(c=>visibleOut.has(c)); if(!vis) continue;
+    const p=info.data.parameters; const f=parseFloat(p.freq||1000);
+    const x=fToX(f,W),y=crDbToY(crossMag(p,f),H);
+    if(Math.hypot(ox-x,oy-y)<hitR) res.push(fid);
   }
   return res;
 }
@@ -1763,9 +1862,11 @@ function renderCrossGraph(){
     const x=fToX(f,W), y=crDbToY(crossMag(p,f),H);
     const isSel=fid===crossState.drag||fid===crossState.hover||fid===crossState.highlight;
     const col=COLORS[visChs[0]%COLORS.length];
-    ctx.fillStyle=isSel?'#fff':col; ctx.beginPath(); ctx.arc(x,y,5,0,2*Math.PI); ctx.fill();
+    const r=9;
+    ctx.fillStyle=isSel?'#fff':col; ctx.beginPath(); ctx.arc(x,y,r,0,2*Math.PI); ctx.fill();
+    if(isSel){ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,r+3,0,2*Math.PI); ctx.stroke(); }
     ctx.fillStyle=col; ctx.font='bold 7px Arial'; ctx.textAlign='center';
-    ctx.fillText(`${idx}|${outLabels[visChs[0]]||visChs[0]}`,x,y-8);
+    ctx.fillText(`${idx}|${outLabels[visChs[0]]||visChs[0]}`,x,y-r-3);
     if(isSel){
       ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
       const bx=Math.max(0,Math.min(W-210,x-105)),by=Math.max(0,y-65);
@@ -1873,17 +1974,6 @@ function setupCrossInteraction(){
     if(cands.length){ deleteCross(cands[0]); toast('Crossover eliminado'); }
   });
 }
-function findCrossNear(ox,oy,cv){
-  const W=cv.clientWidth,H=cv.clientHeight,res=[];
-  for(const [fid,info] of Object.entries(filtrosCross)){
-    const vis=info.channels.some(c=>visibleOut.has(c)); if(!vis) continue;
-    const p=info.data.parameters; const f=parseFloat(p.freq||1000);
-    const x=fToX(f,W),y=crDbToY(crossMag(p,f),H);
-    if(Math.hypot(ox-x,oy-y)<15) res.push(fid);
-  }
-  return res;
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 // CROSSOVER CRUD
 // ═══════════════════════════════════════════════════════════════════════════
