@@ -998,9 +998,13 @@ function buildVU(){
   mainNameDiv.textContent='MAIN'; mainArea.appendChild(mainNameDiv);
   const ms=makeFaderStrip('MAIN',-1,levels.volume||0,'master');
   mainArea.appendChild(ms.el);
+  // MUTE ALL va al final del fader-row como elemento separado (al fondo de la fila)
   const muteAllFaderBtn=document.createElement('button'); muteAllFaderBtn.className='fader-mute-all';
   muteAllFaderBtn.id='mute-all-btn2'; muteAllFaderBtn.textContent='MUTE ALL';
-  muteAllFaderBtn.onclick=toggleMuteAll; mainArea.appendChild(muteAllFaderBtn);
+  muteAllFaderBtn.onclick=toggleMuteAll;
+  mainArea.style.cssText='display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;align-self:stretch';
+  muteAllFaderBtn.style.marginTop='auto'; // empuja al fondo
+  mainArea.appendChild(muteAllFaderBtn);
   faderRow.appendChild(mainArea);
   if(outLabels.length){
     const sep=document.createElement('div');
@@ -1108,7 +1112,7 @@ function makeOutFaderArea(name,chIdx,vuW){
 
 function makeFaderStrip(name,chIdx,initDb,mode){
   // Canvas: pista centrada, escala dB a la derecha
-  const cv=document.createElement('canvas'); cv.width=68; cv.height=110;
+  const cv=document.createElement('canvas'); cv.width=68; cv.height=(mode==='master'?165:110);
   const ctx=cv.getContext('2d');
   const w={canvas:cv,ctx,db:Math.max(-60,Math.min(10,initDb)),dragging:false,name,chIdx,mode};
   const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center';
