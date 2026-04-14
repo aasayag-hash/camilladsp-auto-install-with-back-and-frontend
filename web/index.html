@@ -207,6 +207,12 @@ table.ftable tr:hover td{background:#1a1a1a}
         <select id="sel-capture" class="device-sel" onchange="applyDevice('capture',this.value)"><option>Cargando...</option></select>
         <span class="device-lbl">OUT:</span>
         <select id="sel-playback" class="device-sel" onchange="applyDevice('playback',this.value)"><option>Cargando...</option></select>
+        <span class="device-lbl">Chunk:</span>
+        <select id="sel-chunk" class="device-sel" style="flex:0;min-width:90px" onchange="applyChunksize(+this.value)">
+          <option value="128">128</option><option value="256">256</option>
+          <option value="512">512</option><option value="1024">1024</option>
+          <option value="2048">2048</option><option value="4096">4096</option>
+        </select>
         <button class="device-apply-btn" onclick="loadDevices()" title="Recargar lista de dispositivos">↺ Actualizar</button>
         <button class="device-restart-btn" onclick="restartEngine()" title="Reiniciar motor de audio">⟳ Motor</button>
       </div>
@@ -1546,6 +1552,21 @@ async function loadDevices(){
   ]);
   fillDeviceSel('sel-capture',  capR.devices||[],  config.devices?.capture?.device||'');
   fillDeviceSel('sel-playback', playR.devices||[], config.devices?.playback?.device||'');
+  // Pre-seleccionar chunksize actual
+  const curChunk=config.devices?.chunksize||512;
+  const selChunk=document.getElementById('sel-chunk');
+  if(selChunk) selChunk.value=String(curChunk);
+}
+async function applyChunksize(val){
+  if(!val) return;
+  config.devices=config.devices||{};
+  config.devices.chunksize=val;
+  try{
+    await patchCfg({devices:{chunksize:val}});
+    toast(`Chunksize: ${val} samples`);
+  }catch(e){
+    toast(`Error al cambiar chunksize: ${e.message||e}`);
+  }
 }
 function fillDeviceSel(id,devs,current){
   const sel=document.getElementById(id); if(!sel) return;
