@@ -72,15 +72,10 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 .eq-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
 canvas.graph{width:100%;flex:1;min-height:100px;display:block;cursor:crosshair}
 .filter-table-wrap{flex-shrink:0;height:40%;min-height:110px;max-height:280px;overflow-y:auto;border-top:1px solid #222}
-/* Barra Q-buttons — solo en táctil, entre canvas y tabla */
-#eq-q-bar{display:none;align-items:center;justify-content:center;gap:8px;padding:4px 8px;background:#060d0d;border-top:1px solid #0ff;border-bottom:1px solid #1a1a1a;flex-shrink:0}
-@media (pointer:coarse){
-  #eq-q-bar{display:flex}  /* siempre visible en táctil cuando el tab EQ está activo */
-}
-.eq-q-btn{width:40px;height:40px;border-radius:50%;border:2px solid #0ff;background:#003;color:#0ff;font-size:22px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;touch-action:manipulation}
-.eq-q-btn:active{background:#006}
-#eq-q-info{font-size:12px;color:#ff0;white-space:nowrap;text-align:center;flex:1;padding:0 4px}
-/* Overlay posicionado sobre canvas (no usado) — mantener oculto */
+/* Barra Q-buttons HTML — oculta; los botones Q se dibujan dentro del tooltip del canvas */
+#eq-q-bar{display:none!important}
+.eq-q-btn{display:none}
+#eq-q-info{display:none}
 #eq-q-overlay{display:none}
 /* Táctil: controles más grandes */
 @media (pointer:coarse){
@@ -861,10 +856,9 @@ function buildChannelPanel(){
   inLabels.forEach((n,i)=>{
     const b=document.createElement('button');
     b.className='ch-btn active'; b.textContent=`🔊 ${n}`; b.id=`btn-in-${i}`;
-    let _bypassFired=false;
-    b.addEventListener('click',()=>{ if(_bypassFired){_bypassFired=false;return;} toggleInCh(i,!b.classList.contains('active')); });
+    b.addEventListener('click',()=>{ toggleInCh(i,!b.classList.contains('active')); });
     b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,false);};
-    addLongPress(b,()=>{ _bypassFired=true; toggleBypass(i,false); });
+    addLongPress(b,()=>{ toggleBypass(i,false); });
     inRow.appendChild(b);
   });
   // OUT row
@@ -878,10 +872,9 @@ function buildChannelPanel(){
     const b=document.createElement('button');
     const col=COLORS[i%COLORS.length];
     b.className='ch-btn out active'; b.style.setProperty('--col',col); b.textContent=`🔊 ${n}`; b.id=`btn-out-${i}`;
-    let _bypassFiredOut=false;
-    b.addEventListener('click',()=>{ if(_bypassFiredOut){_bypassFiredOut=false;return;} toggleOutCh(i,!b.classList.contains('active')); });
+    b.addEventListener('click',()=>{ toggleOutCh(i,!b.classList.contains('active')); });
     b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,true);};
-    addLongPress(b,()=>{ _bypassFiredOut=true; toggleBypass(i,true); });
+    addLongPress(b,()=>{ toggleBypass(i,true); });
     outRow.appendChild(b);
   });
 }
@@ -1449,6 +1442,8 @@ function removeFilterFromPipeline(fid){
 // ═══════════════════════════════════════════════════════════════════════════
 const eqState={drag:null,hover:null,highlight:null,dragGroup:[]};
 const eqCanvas=()=>document.getElementById('eq-canvas');
+// Hit-rects para botones Q dibujados en el canvas (coordenadas CSS px, relativas al canvas)
+let eqQHitRects={minus:null,plus:null,activeFid:null};
 
 function fToX(f,W){ return W*(Math.log10(Math.max(20,Math.min(20000,f)))-Math.log10(20))/(Math.log10(20000)-Math.log10(20)); }
 function xToF(x,W){ return Math.pow(10,Math.log10(20)+(x/W)*(Math.log10(20000)-Math.log10(20))); }
@@ -1525,18 +1520,57 @@ function renderEQGraph(){
     const chName=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
     ctx.fillText(`${idx}|${dom.toUpperCase()}:${chName}`,x,y-r-3);
     if(isSel){
+      const touch=isTouch();
+      // En touch: recuadro más ancho para incluir botones [-Q] y [+Q]
+      const BW=touch?296:210, BH=60;
+      const bx=Math.max(0,Math.min(W-BW,x-BW/2)), by=Math.max(0,y-65);
       ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
-      const bx=Math.max(0,Math.min(W-210,x-105)),by=Math.max(0,y-65);
-      ctx.beginPath(); ctx.roundRect(bx,by,210,60,6); ctx.fill(); ctx.stroke();
-      ctx.fillStyle='#fff'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
-      ctx.fillText(`${p.freq.toFixed(0)} Hz`,bx+105,by+18);
-      ctx.fillStyle='#ff0'; ctx.font='bold 11px Arial';
-      ctx.fillText(`${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`,bx+105,by+34);
-      ctx.fillStyle='#8cf'; ctx.font='bold 9px Arial'; ctx.fillText(p.type||'',bx+105,by+50);
-      const chLblEQ=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
-      ctx.fillStyle='#8f8'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(`${dom.toUpperCase()}: ${chLblEQ}`,bx+208,by+50);
+      ctx.beginPath(); ctx.roundRect(bx,by,BW,BH,6); ctx.fill(); ctx.stroke();
+      if(touch){
+        // Botón [-Q] a la izquierda
+        ctx.fillStyle='#003'; ctx.strokeStyle='#0ff'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.roundRect(bx+5,by+12,36,36,18); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#0ff'; ctx.font='bold 22px Arial'; ctx.textAlign='center';
+        ctx.fillText('−',bx+23,by+36);
+        // Botón [+Q] a la derecha
+        ctx.fillStyle='#003'; ctx.strokeStyle='#0ff'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.roundRect(bx+BW-41,by+12,36,36,18); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#0ff'; ctx.font='bold 22px Arial'; ctx.textAlign='center';
+        ctx.fillText('+',bx+BW-23,by+36);
+        // Registrar hit-rects (coordenadas canvas == CSS porque cv.width=cv.clientWidth)
+        eqQHitRects={
+          minus:{x:bx+5,   y:by+12, w:36, h:36},
+          plus :{x:bx+BW-41,y:by+12, w:36, h:36},
+          activeFid:fid
+        };
+        // Info en el centro
+        ctx.fillStyle='#fff'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
+        ctx.fillText(`${p.freq.toFixed(0)} Hz`,bx+BW/2,by+18);
+        ctx.fillStyle='#ff0'; ctx.font='bold 10px Arial';
+        ctx.fillText(`${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`,bx+BW/2,by+33);
+        ctx.fillStyle='#8cf'; ctx.font='bold 9px Arial'; ctx.fillText(p.type||'',bx+BW/2,by+48);
+        const chLblEQ=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
+        ctx.fillStyle='#8f8'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(`${dom.toUpperCase()}: ${chLblEQ}`,bx+BW-44,by+58);
+      } else {
+        // Desktop: tooltip normal sin botones
+        eqQHitRects={minus:null,plus:null,activeFid:null};
+        ctx.fillStyle='#fff'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
+        ctx.fillText(`${p.freq.toFixed(0)} Hz`,bx+105,by+18);
+        ctx.fillStyle='#ff0'; ctx.font='bold 11px Arial';
+        ctx.fillText(`${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`,bx+105,by+34);
+        ctx.fillStyle='#8cf'; ctx.font='bold 9px Arial'; ctx.fillText(p.type||'',bx+105,by+50);
+        const chLblEQ=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
+        ctx.fillStyle='#8f8'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(`${dom.toUpperCase()}: ${chLblEQ}`,bx+208,by+50);
+      }
+    } else {
+      // Limpiar hit-rects si no hay filtro seleccionado de este fid
     }
   }
+  // Limpiar hit-rects si ningún filtro está seleccionado
+  const hasSel=Object.keys(filtrosBiquad).some(fid=>{
+    return fid===eqState.drag||fid===eqState.hover||fid===eqState.highlight;
+  });
+  if(!hasSel) eqQHitRects={minus:null,plus:null,activeFid:null};
 }
 
 function setupEQInteraction(){
@@ -1608,11 +1642,21 @@ function setupEQInteraction(){
 
   // Touch interactions
   // Single touch drag → move filter point
-  let eqTouchDragging=false, eqTouchLongFired=false;
+  let eqTouchDragging=false, eqTouchLongFired=false, eqTouchMoved=false;
   cv.addEventListener('touchstart',e=>{
     if(e.touches.length!==1) return;
-    eqTouchDragging=false; eqTouchLongFired=false;
+    eqTouchDragging=false; eqTouchLongFired=false; eqTouchMoved=false;
     const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
+    // Primero: comprobar si el tap cae sobre un botón Q del tooltip
+    if(eqQHitRects.activeFid){
+      const hm=eqQHitRects.minus, hp=eqQHitRects.plus;
+      if(hm && offsetX>=hm.x && offsetX<=hm.x+hm.w && offsetY>=hm.y && offsetY<=hm.y+hm.h){
+        qStep(-0.1); e.preventDefault(); return;
+      }
+      if(hp && offsetX>=hp.x && offsetX<=hp.x+hp.w && offsetY>=hp.y && offsetY<=hp.y+hp.h){
+        qStep(+0.1); e.preventDefault(); return;
+      }
+    }
     const cands=findEQNear(offsetX,offsetY,cv);
     if(cands.length){
       const [primary]=cands; eqState.drag=primary; eqTouchDragging=true; highlightEQRow(primary);
@@ -1629,6 +1673,7 @@ function setupEQInteraction(){
   },{passive:false});
   cv.addEventListener('touchmove',e=>{
     if(!eqTouchDragging||e.touches.length!==1) return;
+    eqTouchMoved=true;
     const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
     const nf=xToF(offsetX,cv.clientWidth), ng=eqYToDb(offsetY,cv.clientHeight);
     eqState.dragGroup.forEach(fid=>{
@@ -1639,32 +1684,42 @@ function setupEQInteraction(){
   },{passive:false});
   cv.addEventListener('touchend',async e=>{
     if(eqTouchDragging&&eqState.drag){
-      const patch={};
-      eqState.dragGroup.forEach(fid=>{
-        if(!filtrosBiquad[fid]) return;
-        const p=filtrosBiquad[fid].data.parameters;
-        patch[fid]={parameters:{freq:p.freq,gain:p.gain||0}};
-      });
-      await patchCfg({filters:patch});
-      // Mostrar overlay Q si no se arrastró (tap sobre filtro existente)
-      const dragged=eqState.drag;
-      eqState.drag=null; eqTouchDragging=false;
-      if(dragged) eqShowQOverlay(dragged);
+      if(eqTouchMoved){
+        // Arrastrado: guardar nueva posición
+        const patch={};
+        eqState.dragGroup.forEach(fid=>{
+          if(!filtrosBiquad[fid]) return;
+          const p=filtrosBiquad[fid].data.parameters;
+          patch[fid]={parameters:{freq:p.freq,gain:p.gain||0}};
+        });
+        await patchCfg({filters:patch});
+      }
+      // En ambos casos (tap o drag): activar el tooltip con botones Q
+      eqState.highlight=eqState.drag;
+      eqQHitRects.activeFid=eqState.drag;
+      eqState.drag=null; eqTouchDragging=false; eqTouchMoved=false;
+      renderEQGraph();
     } else {
-      eqHideQOverlay();
+      // Tap en zona vacía → cerrar tooltip
+      eqState.highlight=null;
+      eqQHitRects={minus:null,plus:null,activeFid:null};
+      renderEQGraph();
     }
   },{passive:true});
   // Longpress on filter point → delete (replaces right-click)
   addLongPress(cv,(clientX,clientY)=>{
     const {offsetX,offsetY}=touchOffset(cv,clientX,clientY);
     const cands=findEQNear(offsetX,offsetY,cv);
-    if(cands.length){ eqTouchLongFired=true; eqHideQOverlay(); deleteEQ(cands[0]); toast('Filtro eliminado'); }
+    if(cands.length){
+      eqTouchLongFired=true;
+      eqState.highlight=null; eqQHitRects={minus:null,plus:null,activeFid:null};
+      deleteEQ(cands[0]); toast('Filtro eliminado');
+    }
   });
 
-  // Q bar buttons (táctil) — leen el fid desde bar.dataset.fid
+  // Botones Q — usan el fid activo desde eqQHitRects o el estado del EQ
   async function qStep(delta){
-    const bar=document.getElementById('eq-q-bar');
-    const fid=bar?.dataset?.fid || eqState.highlight || eqState.drag;
+    const fid=eqQHitRects.activeFid || eqState.highlight || eqState.drag;
     if(!fid||!filtrosBiquad[fid]) return;
     const p=filtrosBiquad[fid].data.parameters;
     const nq=Math.max(0.1,Math.min(20,Math.round(((p.q||1)+delta)*100)/100));
@@ -1674,32 +1729,29 @@ function setupEQInteraction(){
     });
     const patch={};
     group.forEach(f2=>{ if(filtrosBiquad[f2]) filtrosBiquad[f2].data.parameters.q=nq; patch[f2]={parameters:{q:nq}}; });
-    await patchCfg({filters:patch}); buildEQTable(); renderEQGraph(); eqUpdateQLabel(fid);
-    if(bar) bar.dataset.fid=fid; // mantener fid activo
+    await patchCfg({filters:patch}); buildEQTable(); renderEQGraph();
+    eqQHitRects.activeFid=fid; // mantener fid activo para próximos taps
   }
+  // Botones HTML del eq-q-bar (fallback para dispositivos que muestran la barra)
   document.getElementById('eq-q-plus') ?.addEventListener('click',()=>qStep(+0.1));
   document.getElementById('eq-q-minus')?.addEventListener('click',()=>qStep(-0.1));
 }
 
+// Estas funciones actualizan el tooltip del canvas (dibujado en renderEQGraph)
 function eqUpdateQLabel(fid){
-  const bar=document.getElementById('eq-q-bar'); if(!bar||!bar.classList.contains('show')) return;
-  const p=filtrosBiquad[fid]?.data?.parameters; if(!p) return;
-  document.getElementById('eq-q-info').textContent=`${p.freq.toFixed(0)} Hz  ${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`;
+  // El tooltip se redibuja con renderEQGraph(); no hay elemento HTML separado
+  renderEQGraph();
 }
 function eqShowQOverlay(fid){
   if(!isTouch()) return;
-  const bar=document.getElementById('eq-q-bar'); if(!bar) return;
-  const p=filtrosBiquad[fid]?.data?.parameters; if(!p) return;
-  document.getElementById('eq-q-info').textContent=`${p.freq.toFixed(0)} Hz  ${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`;
-  bar.classList.add('show');
-  // Guardar fid activo en el bar para que los botones lo usen
-  bar.dataset.fid=fid;
+  eqState.highlight=fid;
+  eqQHitRects.activeFid=fid;
+  renderEQGraph();
 }
 function eqHideQOverlay(){
-  const bar=document.getElementById('eq-q-bar'); if(!bar) return;
-  delete bar.dataset.fid;
-  const info=document.getElementById('eq-q-info');
-  if(info) info.textContent='Toca un filtro';
+  eqState.highlight=null;
+  eqQHitRects={minus:null,plus:null,activeFid:null};
+  renderEQGraph();
 }
 
 function findEQNear(ox,oy,cv){
@@ -2810,33 +2862,51 @@ async function geqResetChannel(){
 const isTouch = ()=> window.matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints>0;
 
 // Attach a longpress listener that fires a synthetic right-click callback.
+// When the longpress fires, the subsequent touchend calls preventDefault()
+// to suppress the synthetic click event the browser would generate.
 // Returns a cleanup function.
 function addLongPress(el, onLongPress, delay=500){
-  let timer=null, moved=false, startX=0, startY=0;
+  let timer=null, moved=false, fired=false, startX=0, startY=0;
 
   function start(clientX, clientY){
-    moved=false; startX=clientX; startY=clientY;
-    timer=setTimeout(()=>{ if(!moved){ onLongPress(clientX,clientY); } }, delay);
+    moved=false; fired=false; startX=clientX; startY=clientY;
+    timer=setTimeout(()=>{
+      if(!moved){
+        fired=true;
+        onLongPress(clientX,clientY);
+      }
+    }, delay);
   }
   function cancel(){ clearTimeout(timer); timer=null; }
   function move(clientX, clientY){
     if(Math.hypot(clientX-startX, clientY-startY)>10){ moved=true; cancel(); }
   }
 
-  const tStart=e=>{ if(e.touches.length!==1) return; const t=e.touches[0]; start(t.clientX,t.clientY); };
-  const tMove =e=>{ if(e.touches.length!==1) return; const t=e.touches[0]; move(t.clientX,t.clientY); };
-  const tEnd  =()=>cancel();
+  const tStart=e=>{
+    if(e.touches.length!==1) return;
+    const t=e.touches[0]; start(t.clientX,t.clientY);
+  };
+  const tMove=e=>{
+    if(e.touches.length!==1) return;
+    const t=e.touches[0]; move(t.clientX,t.clientY);
+  };
+  const tEnd=e=>{
+    cancel();
+    // Si el longpress ya se disparó, bloquar el click sintético del navegador
+    if(fired){ e.preventDefault(); fired=false; }
+  };
+  const tCancel=()=>{ cancel(); fired=false; };
 
-  el.addEventListener('touchstart', tStart, {passive:true});
-  el.addEventListener('touchmove',  tMove,  {passive:true});
-  el.addEventListener('touchend',   tEnd,   {passive:true});
-  el.addEventListener('touchcancel',tEnd,   {passive:true});
+  el.addEventListener('touchstart',  tStart,  {passive:true});
+  el.addEventListener('touchmove',   tMove,   {passive:true});
+  el.addEventListener('touchend',    tEnd,    {passive:false}); // needs preventDefault
+  el.addEventListener('touchcancel', tCancel, {passive:true});
 
   return ()=>{
-    el.removeEventListener('touchstart', tStart);
-    el.removeEventListener('touchmove',  tMove);
-    el.removeEventListener('touchend',   tEnd);
-    el.removeEventListener('touchcancel',tEnd);
+    el.removeEventListener('touchstart',  tStart);
+    el.removeEventListener('touchmove',   tMove);
+    el.removeEventListener('touchend',    tEnd);
+    el.removeEventListener('touchcancel', tCancel);
     cancel();
   };
 }
