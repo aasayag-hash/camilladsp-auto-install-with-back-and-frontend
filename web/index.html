@@ -17,6 +17,11 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 #status-dot{width:10px;height:10px;border-radius:50%;background:#f00;flex-shrink:0}
 #status-dot.ok{background:#0f0}
 #status-txt{font-size:11px;color:#888}
+#dsp-stats{display:flex;align-items:center;gap:10px;margin-left:4px}
+.dsp-stat{font-size:10px;color:#666;white-space:nowrap}
+.dsp-stat span{font-weight:bold;color:#0ff}
+.dsp-state-run{color:#0f0!important}
+.dsp-state-err{color:#f55!important}
 
 /* Tabs */
 #tabs{display:flex;border-bottom:1px solid #333;flex-shrink:0;background:#111}
@@ -119,6 +124,11 @@ table.ftable tr:hover td{background:#1a1a1a}
   <div id="status-dot"></div>
   <h1>CAMILLADSP CONSOLE</h1>
   <span id="status-txt">Conectando...</span>
+  <div id="dsp-stats">
+    <span class="dsp-stat">State: <span id="dsp-state">—</span></span>
+    <span class="dsp-stat">Buffer: <span id="dsp-buf">—</span></span>
+    <span class="dsp-stat">DSP load: <span id="dsp-load">—</span></span>
+  </div>
   <div style="flex:1"></div>
   <button class="top-btn web" onclick="window.open('http://'+location.hostname+':5005','_blank')">WEB 5005</button>
   <button class="top-btn" onclick="importConfig()">Imp Cfg</button>
@@ -257,6 +267,22 @@ async function fetchLevels(){
   const r = await apiGet('/api/levels');
   if(r.ok){ levels = r; updateVU(); }
 }
+let _statusTick=0;
+async function fetchStatus(){
+  if(++_statusTick % 4 !== 0) return; // cada ~200ms (4 × 50ms)
+  const r = await apiGet('/api/status').catch(()=>null);
+  if(!r) return;
+  const stEl=document.getElementById('dsp-state');
+  const buEl=document.getElementById('dsp-buf');
+  const ldEl=document.getElementById('dsp-load');
+  if(!stEl) return;
+  const st=r.state||'—';
+  stEl.textContent=st;
+  stEl.className= st==='Running'?'dsp-state-run':
+                  (st==='Error'||st==='Stalled')?'dsp-state-err':'';
+  buEl.textContent= r.buffer!=null ? String(r.buffer) : '—';
+  ldEl.textContent= r.load!=null   ? r.load.toFixed(1)+'%' : '—';
+}
 async function setVolume(db){
   await apiPost('/api/volume',{volume:db});
 }
@@ -385,7 +411,7 @@ async function init(){
   buildEQTable(); buildCrossTable(); buildCompTable();
   // Start level polling
   if(levelTimer) clearInterval(levelTimer);
-  levelTimer = setInterval(fetchLevels, 50);
+  levelTimer = setInterval(()=>{ fetchLevels(); fetchStatus(); }, 50);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

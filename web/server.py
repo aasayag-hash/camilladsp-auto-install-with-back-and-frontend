@@ -107,6 +107,16 @@ def patch_config():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+@app.route("/api/status", methods=["GET"])
+def get_status():
+    try:
+        state  = cdsp("GetState")  or "Unknown"
+        buf    = cdsp("GetBufferLevel")
+        load   = cdsp("GetProcessingLoad")
+        return jsonify({"ok": True, "state": state, "buffer": buf, "load": load})
+    except Exception as e:
+        return jsonify({"ok": False, "state": "Error", "buffer": None, "load": None})
+
 @app.route("/api/levels", methods=["GET"])
 def get_levels():
     try:
