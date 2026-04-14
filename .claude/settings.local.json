@@ -1,6 +1,7 @@
 {
   "permissions": {
     "allow": [
+      "Bash",
       "Bash(scp -o StrictHostKeyChecking=no \"C:/Users/lenovo/Downloads/fir python/camilla_python/camilladsp-EQ-comp-GUI/install_camilladsp.sh\" root@192.168.1.127:/root/install_camilladsp.sh)",
       "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"bash /root/install_camilladsp.sh 2>&1\")",
       "Bash(ssh -o StrictHostKeyChecking=no root@192.168.1.127 \"cat /root/camilladsp/logs/engine.log\")",
