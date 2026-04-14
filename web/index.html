@@ -1110,7 +1110,8 @@ function findEQNear(ox,oy,cv){
 // ═══════════════════════════════════════════════════════════════════════════
 // EQ CRUD
 // ═══════════════════════════════════════════════════════════════════════════
-function makeEQId(domain,ch){ return `EQ_${domain.toUpperCase()}_${cleanName(domain==='in'?inLabels[ch]:outLabels[ch])}_${Date.now()}_${ch}`; }
+let _eqSeq=0;
+function makeEQId(domain,ch){ return `EQ_${domain.toUpperCase()}_${cleanName(domain==='in'?inLabels[ch]:outLabels[ch])}_${Date.now()}_${++_eqSeq}_${ch}`; }
 async function createEQFilters(f,g){
   const pf={};
   [...visibleIn].forEach(ch=>{ const fid=makeEQId('in',ch); const d={type:'Biquad',description:null,parameters:{type:'Peaking',freq:f,gain:g,q:1}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'in',channels:[ch]}; addFilterToPipeline(fid,'in',ch); pf[fid]=d; });
