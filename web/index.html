@@ -1717,41 +1717,105 @@ function importConfig(){
   fi.click();
 }
 function exportConfig(){ window.open('/api/export','_blank'); }
+// BW en octavas → Q (fórmula estándar)
+function bwOctToQ(bw){ return 1/(2*Math.sinh(Math.log(2)/2*bw)); }
+
 function importEQ(){
   const fi=document.getElementById('file-input');
-  fi.accept='.txt,.yml,.yaml'; fi.onchange=async()=>{
+  fi.accept='.txt,.csv,.yml,.yaml'; fi.onchange=async()=>{
     const f=fi.files[0]; if(!f) return;
     const txt=await f.text(); const lines=txt.split('\n');
     const pf={}; let count=0;
+
     for(const line of lines){
-      const l=line.trim(); if(!l||l.toLowerCase().startsWith('freq')||l.toLowerCase().startsWith('#')) continue;
-      let freq,gain,q,tipo;
-      if(l.toLowerCase().startsWith('filter')){
-        if(!l.includes('ON')) continue;
+      const l=line.trim();
+      // Saltar vacíos, comentarios REW (*), comentarios (#), encabezados y Preamp
+      if(!l||l.startsWith('*')||l.startsWith('#')) continue;
+      if(/^(freq|preamp|title|note|source|room|measure|equaliser|supports|filter type|frequency range)/i.test(l)) continue;
+
+      let freq,gain=0,q=0.707,tipo;
+
+      // ── Formato REW Generic / Equalizer APO ───────────────────────────────
+      // Ejemplos:
+      //   Filter  1: ON  PK       Fc    90.0 Hz  Gain   6.00 dB  Q  3.000
+      //   Filter  4: ON  HP       Fc    20.0 Hz
+      //   Filter  4: ON  HP       Fc    20.0 Hz             BW Oct 1.000
+      //   Filter: ON PK Fc 90 Hz Gain 6 dB Q 3          ← APO sin número
+      if(/^filter/i.test(l)){
         const parts=l.split(/\s+/);
-        try{
-          if(parts.includes('None')) continue;
-          freq=parseFloat(parts[parts.indexOf('Fc')+1]);
-          gain=parseFloat(parts[parts.indexOf('Gain')+1]);
-          q=parts.includes('Q')?parseFloat(parts[parts.indexOf('Q')+1]):1;
-          const tr=parts[3].toUpperCase();
-          if(['PK','PEQ'].includes(tr)) tipo='Peaking';
-          else if(tr.includes('LS')) tipo='Lowshelf';
-          else if(tr.includes('HS')) tipo='Highshelf';
-          else tipo='Peaking';
-        }catch{continue;}
+        // Buscar 'ON' dinámicamente (posición varía entre REW y APO)
+        const onIdx=parts.findIndex(p=>p.toUpperCase()==='ON');
+        if(onIdx<0) continue; // filtro OFF o sin ON → saltar
+        const fcIdx=parts.indexOf('Fc');
+        if(fcIdx<0) continue;
+
+        freq=parseFloat(parts[fcIdx+1]);
+
+        // Ganancia (ausente en HP/LP)
+        const gIdx=parts.indexOf('Gain');
+        gain=gIdx>=0?parseFloat(parts[gIdx+1]):0;
+
+        // Q o BW Oct → Q
+        const qIdx=parts.indexOf('Q');
+        const bwIdx=parts.indexOf('BW');
+        if(qIdx>=0)        q=parseFloat(parts[qIdx+1]);
+        else if(bwIdx>=0&&parts[bwIdx+1]==='Oct') q=bwOctToQ(parseFloat(parts[bwIdx+2]));
+        else               q=0.707;
+
+        // Tipo: token inmediatamente después de ON
+        const tr=(parts[onIdx+1]||'').toUpperCase();
+        if(tr==='PK'||tr==='PEQ')           tipo='Peaking';
+        else if(tr==='LS'||tr==='LSC')      tipo='Lowshelf';
+        else if(tr==='HS'||tr==='HSC')      tipo='Highshelf';
+        else if(tr==='HP'||tr==='HPQ')      tipo='Highpass';
+        else if(tr==='LP'||tr==='LPQ')      tipo='Lowpass';
+        else continue; // NO (notch), AP (allpass), None, etc. → saltar
+
+      // ── Formato columnas: FREQ  GAIN  Q  [TIPO] ──────────────────────────
       } else {
         const parts=l.split(/\t|\s+/);
-        if(parts.length<3) continue;
-        try{ freq=parseFloat(parts[0]);gain=parseFloat(parts[1]);q=parseFloat(parts[2]);tipo=(parts[3]||'Peak').replace('Peak','Peaking'); }catch{continue;}
+        if(parts.length<2) continue;
+        freq=parseFloat(parts[0]);
+        gain=parseFloat(parts[1])||0;
+        q=parseFloat(parts[2])||0.707;
+        const raw=(parts[3]||'').trim();
+        if(!raw||raw==='Peak')          tipo='Peaking';
+        else if(raw==='Peaking')        tipo='Peaking';
+        else if(/lowshelf/i.test(raw))  tipo='Lowshelf';
+        else if(/highshelf/i.test(raw)) tipo='Highshelf';
+        else if(/highpass/i.test(raw))  tipo='Highpass';
+        else if(/lowpass/i.test(raw))   tipo='Lowpass';
+        else                            tipo='Peaking';
       }
-      if(!freq) continue;
-      [...visibleIn].forEach(ch=>{ const fid=makeEQId('in',ch); const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'in',channels:[ch]}; addFilterToPipeline(fid,'in',ch); pf[fid]=d; });
-      [...visibleOut].forEach(ch=>{ const fid=makeEQId('out',ch); const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'out',channels:[ch]}; addFilterToPipeline(fid,'out',ch); pf[fid]=d; });
+
+      if(!freq||isNaN(freq)) continue;
+      if(isNaN(gain))   gain=0;
+      if(isNaN(q)||q<=0) q=0.707;
+
+      [...visibleIn].forEach(ch=>{
+        const fid=makeEQId('in',ch);
+        const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}};
+        (config.filters=config.filters||{})[fid]=d;
+        filtrosBiquad[fid]={data:d,domain:'in',channels:[ch]};
+        addFilterToPipeline(fid,'in',ch); pf[fid]=d;
+      });
+      [...visibleOut].forEach(ch=>{
+        const fid=makeEQId('out',ch);
+        const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}};
+        (config.filters=config.filters||{})[fid]=d;
+        filtrosBiquad[fid]={data:d,domain:'out',channels:[ch]};
+        addFilterToPipeline(fid,'out',ch); pf[fid]=d;
+      });
       count++;
     }
-    if(count>0){ await patchCfg({filters:pf,pipeline:config.pipeline}); buildEQTable(); renderEQGraph(); toast(`${count} filtros importados`); }
-    else toast('No se encontraron filtros');
+
+    if(count>0){
+      await patchCfg({filters:pf,pipeline:config.pipeline});
+      buildEQTable(); renderEQGraph();
+      toast(`${count} filtros importados`);
+    } else {
+      toast('No se encontraron filtros válidos');
+    }
   };
   fi.click();
 }
