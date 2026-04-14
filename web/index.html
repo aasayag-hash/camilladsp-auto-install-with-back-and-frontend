@@ -43,7 +43,7 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 #ch-panel.show{display:block}
 .ch-row{display:flex;gap:3px;overflow-x:auto;padding:1px 0}
 .ch-row::-webkit-scrollbar{height:4px}.ch-row::-webkit-scrollbar-thumb{background:#444}
-.ch-btn{height:20px;padding:0 8px;border:1px solid #444;border-radius:2px;background:#2a2a2a;color:#999;cursor:pointer;font-size:11px;font-weight:bold;white-space:nowrap;flex-shrink:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.ch-btn{height:20px;padding:0 8px;border:1px solid #444;border-radius:2px;background:#2a2a2a;color:#999;cursor:pointer;font-size:11px;font-weight:bold;white-space:nowrap;flex-shrink:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
 .ch-btn.active{background:#00aaaa;color:#000;border-color:#fff}
 .ch-btn.out.active{background:var(--col);color:#000;border-color:#fff}
 .ch-btn.all{background:#2a2a2a}.ch-btn.all.active{background:#007bff;color:#fff;border-color:#0ff}
@@ -2901,12 +2901,14 @@ function addLongPress(el, onLongPress, delay=400){
   const tStart=e=>{
     if(e.touches.length!==1) return;
     const t=e.touches[0]; start(t.clientX,t.clientY);
-    // preventDefault evita que el navegador cancele el gesto (menú contextual, selección, scroll)
-    e.preventDefault();
+    // NO preventDefault aquí — dejar que el click normal funcione si no hay longpress
   };
   const tMove=e=>{
     if(e.touches.length!==1) return;
     const t=e.touches[0]; move(t.clientX,t.clientY);
+    // Si el timer sigue activo (no se movió demasiado), bloquear el scroll del padre
+    // para evitar que el contenedor robe el touch y dispare touchcancel
+    if(timer && !moved) e.preventDefault();
   };
   const tEnd=e=>{
     cancel();
@@ -2915,8 +2917,8 @@ function addLongPress(el, onLongPress, delay=400){
   };
   const tCancel=()=>{ cancel(); fired=false; };
 
-  el.addEventListener('touchstart',  tStart,  {passive:false}); // non-passive para preventDefault
-  el.addEventListener('touchmove',   tMove,   {passive:true});
+  el.addEventListener('touchstart',  tStart,  {passive:true});
+  el.addEventListener('touchmove',   tMove,   {passive:false}); // non-passive para bloquear scroll
   el.addEventListener('touchend',    tEnd,    {passive:false}); // non-passive para preventDefault
   el.addEventListener('touchcancel', tCancel, {passive:true});
 
