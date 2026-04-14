@@ -2,7 +2,7 @@
 """CamillaDSP Web GUI — Servidor Flask"""
 import json, threading, os
 from flask import Flask, jsonify, request, send_file, Response
-import websocket
+import websocket, urllib.request
 
 # Configurable — el instalador reemplaza este path
 INSTALL_BASE = "/root/camilladsp"
@@ -140,6 +140,44 @@ def export_config():
 
 @app.route("/api/import-support")
 def import_support():
+    return jsonify({"ok": True})
+
+CDSP_GUI = "http://127.0.0.1:5005"
+
+def _cdsp_gui_get(path):
+    with urllib.request.urlopen(f"{CDSP_GUI}{path}", timeout=5) as r:
+        return json.loads(r.read())
+
+@app.route("/api/capturedevices")
+def get_capture_devices():
+    try:
+        data = _cdsp_gui_get("/api/capturedevices/Alsa")
+        return jsonify({"ok": True, "devices": data})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "devices": []})
+
+@app.route("/api/playbackdevices")
+def get_playback_devices():
+    try:
+        data = _cdsp_gui_get("/api/playbackdevices/Alsa")
+        return jsonify({"ok": True, "devices": data})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "devices": []})
+
+@app.route("/api/restart", methods=["POST"])
+def restart_engine():
+    try:
+        req = urllib.request.Request(f"{CDSP_GUI}/api/stopcamilladsp",
+                                     method="GET")
+        urllib.request.urlopen(req, timeout=3)
+    except Exception:
+        pass
+    try:
+        req = urllib.request.Request(f"{CDSP_GUI}/api/startcamilladsp",
+                                     method="GET")
+        urllib.request.urlopen(req, timeout=3)
+    except Exception:
+        pass
     return jsonify({"ok": True})
 
 if __name__ == "__main__":

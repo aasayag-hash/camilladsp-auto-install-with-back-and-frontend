@@ -77,6 +77,15 @@ table.ftable tr:hover td{background:#1a1a1a}
 /* Mixer */
 #mixer-scroll{flex:1;overflow:auto}
 #mixer-canvas{display:block;cursor:pointer}
+#device-panel{flex-shrink:0;padding:6px 8px;background:#0a0a0a;border-top:1px solid #222}
+.device-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.device-lbl{font-size:10px;color:#0ff;font-weight:bold;white-space:nowrap}
+.device-sel{flex:1;min-width:160px;background:#111;color:#ccc;border:1px solid #444;border-radius:3px;padding:3px 5px;font-size:10px}
+.device-sel:focus{outline:none;border-color:#0ff}
+.device-apply-btn{height:24px;padding:0 10px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:3px;background:#1a1a1a;color:#0ff;cursor:pointer;white-space:nowrap}
+.device-apply-btn:hover{background:#222;border-color:#0ff}
+.device-restart-btn{height:24px;padding:0 10px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:3px;background:linear-gradient(180deg,#1a3a1a,#0a1a0a);color:#0f0;cursor:pointer;white-space:nowrap}
+.device-restart-btn:hover{background:linear-gradient(180deg,#2a5a2a,#0a2a0a);border-color:#0f0}
 
 /* Fader */
 .strip{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
@@ -182,6 +191,16 @@ table.ftable tr:hover td{background:#1a1a1a}
   <!-- MIXER TAB -->
   <div class="tab-page" id="page-3">
     <div id="mixer-scroll"><canvas id="mixer-canvas"></canvas></div>
+    <div id="device-panel">
+      <div class="device-row">
+        <span class="device-lbl">IN:</span>
+        <select id="sel-capture" class="device-sel" onchange="applyDevice('capture',this.value)"><option>Cargando...</option></select>
+        <span class="device-lbl">OUT:</span>
+        <select id="sel-playback" class="device-sel" onchange="applyDevice('playback',this.value)"><option>Cargando...</option></select>
+        <button class="device-apply-btn" onclick="loadDevices()" title="Recargar lista de dispositivos">↺ Actualizar</button>
+        <button class="device-restart-btn" onclick="restartEngine()" title="Reiniciar motor de audio">⟳ Motor</button>
+      </div>
+    </div>
   </div>
 
 </div>
@@ -382,7 +401,7 @@ function switchTab(i){
   if(inRow) inRow.style.display=(i===1)?'flex':'none';
   if(i===1) renderEQGraph();
   if(i===2) renderCrossGraph();
-  if(i===3) renderMixer();
+  if(i===3){ renderMixer(); loadDevices(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1489,6 +1508,50 @@ async function renameLabel(domain,idx,newName){
   buildChannelPanel(); buildVU(); renderEQGraph(); renderCrossGraph(); renderMixer();
   buildEQTable(); buildCrossTable();
   toast(`Renombrado: ${domain.toUpperCase()} ${idx} → "${newName}"`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DEVICE SELECTOR
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadDevices(){
+  const [capR,playR]=await Promise.all([
+    fetch('/api/capturedevices').then(r=>r.json()).catch(()=>({ok:false,devices:[]})),
+    fetch('/api/playbackdevices').then(r=>r.json()).catch(()=>({ok:false,devices:[]}))
+  ]);
+  fillDeviceSel('sel-capture',  capR.devices||[],  config.devices?.capture?.device||'');
+  fillDeviceSel('sel-playback', playR.devices||[], config.devices?.playback?.device||'');
+}
+function fillDeviceSel(id,devs,current){
+  const sel=document.getElementById(id); if(!sel) return;
+  sel.innerHTML='';
+  if(!devs.length){const o=document.createElement('option');o.textContent='(sin dispositivos)';sel.appendChild(o);return;}
+  for(const [dev,desc] of devs){
+    const o=document.createElement('option');
+    o.value=dev;
+    o.textContent=`${dev}  —  ${desc.split('\n')[0].trim()}`;
+    o.selected=(dev===current);
+    sel.appendChild(o);
+  }
+}
+async function applyDevice(domain,val){
+  if(!val) return;
+  const patch=domain==='capture'?{devices:{capture:{device:val}}}:{devices:{playback:{device:val}}};
+  if(domain==='capture'&&config.devices?.capture) config.devices.capture.device=val;
+  if(domain==='playback'&&config.devices?.playback) config.devices.playback.device=val;
+  try{
+    await patchCfg(patch);
+    toast(`${domain==='capture'?'Captura':'Reproducción'}: ${val}`);
+  }catch(e){
+    toast(`Error al cambiar dispositivo: ${e.message||e}`);
+  }
+}
+async function restartEngine(){
+  try{
+    await fetch('/api/restart',{method:'POST'});
+    toast('Motor reiniciado');
+  }catch(e){
+    toast('Error al reiniciar motor');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
