@@ -2198,9 +2198,11 @@ const GEQ_LABELS = [
 const GEQ_BANDS = GEQ_FREQS.length; // 31
 
 // State
-let geqChannel  = null;   // {domain:'in'|'out', ch:N}  — channel being edited
-let geqRange    = 10;     // ± dB display range
-let geqDragging = null;   // {idx, startY, startGain}
+let geqChannels = new Set(); // Set of keys "in:N" — selected input channels (multi)
+let geqRange    = 10;        // ± dB display range
+// helpers
+const geqKey    = (domain,ch)=>`${domain}:${ch}`;
+const geqFirst  = ()=>{ const k=[...geqChannels][0]; if(!k) return null; const [d,c]=k.split(':'); return {domain:d,ch:+c}; };
 
 // Unique filter name for a given channel
 function geqFilterName(domain, ch){
@@ -2270,47 +2272,74 @@ async function geqEnsureFilter(domain, ch){
   if(needPatch) await patchCfg({filters:filterPatch});
 }
 
-// Write gains to config and DSP
+// Write gains to config and DSP — applies to ALL selected channels
 async function geqApplyGains(gains){
-  if(!geqChannel) return;
-  const {domain,ch} = geqChannel;
-  await geqEnsureFilter(domain, ch);
-  const fname = geqFilterName(domain, ch);
-  await patchCfg({filters:{[fname]:{parameters:{gains:[...gains]}}}});
+  if(!geqChannels.size) return;
+  const filtersPatch={};
+  for(const key of geqChannels){
+    const [d,c]=key.split(':');
+    await geqEnsureFilter(d,+c);
+    const fname=geqFilterName(d,+c);
+    filtersPatch[fname]={parameters:{gains:[...gains]}};
+  }
+  await patchCfg({filters:filtersPatch});
 }
 
-// Build channel selector buttons
+// Build channel selector buttons (multi-select, input-only)
 function geqBuildChannelBtns(){
   const wrap = document.getElementById('geq-ch-btns');
   if(!wrap) return;
   wrap.innerHTML='';
-  const make=(domain,ch,label)=>{
+
+  // "ALL" button
+  const allBtn=document.createElement('button');
+  allBtn.className='geq-ch-btn';
+  allBtn.id='geq-btn-all';
+  allBtn.textContent='ALL';
+  allBtn.onclick=()=>{
+    const allKeys=inLabels.map((_,i)=>geqKey('in',i));
+    const allSelected=allKeys.every(k=>geqChannels.has(k));
+    if(allSelected){ geqChannels.clear(); } // deselect all → reselect first
+    else allKeys.forEach(k=>geqChannels.add(k));
+    if(!geqChannels.size && inLabels.length>0) geqChannels.add(geqKey('in',0));
+    geqHighlightBtn(); geqBuildStrips();
+  };
+  wrap.appendChild(allBtn);
+
+  // Per-channel buttons (toggle on click)
+  inLabels.forEach((n,i)=>{
     const b=document.createElement('button');
     b.className='geq-ch-btn';
-    b.textContent=label;
-    b.dataset.domain=domain; b.dataset.ch=ch;
-    b.onclick=()=>{ geqSelectChannel(domain,ch); };
+    b.textContent='🎤 '+n;
+    b.dataset.key=geqKey('in',i);
+    b.onclick=()=>{
+      const k=geqKey('in',i);
+      if(geqChannels.has(k)){
+        geqChannels.delete(k);
+        // Keep at least one selected
+        if(!geqChannels.size) geqChannels.add(k);
+      } else {
+        geqChannels.add(k);
+      }
+      geqHighlightBtn(); geqBuildStrips();
+    };
     wrap.appendChild(b);
-  };
-  // GEQ is input-only — outputs are not assignable
-  inLabels.forEach((n,i)=>make('in',i,'🎤 '+n));
-  // Select first input channel if none selected
-  if(!geqChannel && inLabels.length>0) geqSelectChannel('in',0);
-  else if(geqChannel && geqChannel.domain==='out'){ geqChannel=null; if(inLabels.length>0) geqSelectChannel('in',0); }
-  else geqHighlightBtn();
+  });
+
+  // Init: select first channel if nothing selected, clear any stale 'out:N' keys
+  [...geqChannels].filter(k=>k.startsWith('out:')).forEach(k=>geqChannels.delete(k));
+  if(!geqChannels.size && inLabels.length>0) geqChannels.add(geqKey('in',0));
+  geqHighlightBtn();
 }
 
 function geqHighlightBtn(){
-  document.querySelectorAll('.geq-ch-btn').forEach(b=>{
-    b.classList.toggle('active',
-      geqChannel && b.dataset.domain===geqChannel.domain && +b.dataset.ch===geqChannel.ch);
+  const allKeys=inLabels.map((_,i)=>geqKey('in',i));
+  const allSelected=allKeys.length>0 && allKeys.every(k=>geqChannels.has(k));
+  const allBtn=document.getElementById('geq-btn-all');
+  if(allBtn) allBtn.classList.toggle('active',allSelected);
+  document.querySelectorAll('.geq-ch-btn[data-key]').forEach(b=>{
+    b.classList.toggle('active', geqChannels.has(b.dataset.key));
   });
-}
-
-function geqSelectChannel(domain, ch){
-  geqChannel={domain,ch};
-  geqHighlightBtn();
-  geqBuildStrips();
 }
 
 // Tooltip element (shared across all strips)
@@ -2343,8 +2372,10 @@ function geqFracToDb(frac){
 
 // Build the 31-band fader strips
 function geqBuildStrips(){
-  if(!geqChannel) return;
-  const {domain,ch} = geqChannel;
+  const first = geqFirst();
+  if(!first) return;
+  const {domain,ch} = first;
+  // Display gains of the first selected channel
   const gains = geqGetGains(domain,ch);
 
   const fadersEl = document.getElementById('geq-faders');
@@ -2486,20 +2517,24 @@ function geqSetRange(v){
 }
 
 async function geqFlatAll(){
-  if(!geqChannel) return;
+  if(!geqChannels.size) return;
   const gains=Array(GEQ_BANDS).fill(0);
   await geqApplyGains(gains);
   geqBuildStrips();
 }
 
 async function geqResetChannel(){
-  if(!geqChannel) return;
-  const {domain,ch}=geqChannel;
-  const fname=geqFilterName(domain,ch);
-  // Remove filter from pipeline and delete it
+  if(!geqChannels.size) return;
+  const filtersPatch={};
   const pipeline=JSON.parse(JSON.stringify(config.pipeline||[]));
-  const newPipeline=pipeline.filter(s=>!(s.type==='Filter'&&(s.names||[]).includes(fname)));
-  await patchCfg({filters:{[fname]:null},pipeline:newPipeline});
+  let newPipeline=pipeline;
+  for(const key of geqChannels){
+    const [d,c]=key.split(':');
+    const fname=geqFilterName(d,+c);
+    filtersPatch[fname]=null;
+    newPipeline=newPipeline.filter(s=>!(s.type==='Filter'&&(s.names||[]).includes(fname)));
+  }
+  await patchCfg({filters:filtersPatch, pipeline:newPipeline});
   geqBuildStrips();
 }
 
