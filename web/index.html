@@ -137,6 +137,30 @@ table.ftable tr:hover td{background:#1a1a1a}
 #help-body .warn{background:#1f0a0a;border-left:3px solid #f44;padding:6px 10px;border-radius:0 4px 4px 0;margin:8px 0;color:#faa;font-size:12px}
 .top-btn.lang{background:#1a2a1a;border-color:#0a0;color:#0f0;font-size:10px;padding:0 7px}
 .top-btn.lang:hover{background:#0a3a0a}
+
+/* ── Graphic EQ ───────────────────────────────────────────────── */
+#geq-wrap{display:flex;flex-direction:column;flex:1;overflow:hidden;background:#050505;padding:0 6px 4px}
+#geq-toolbar{display:flex;align-items:center;gap:6px;padding:5px 4px;flex-shrink:0;border-bottom:1px solid #1a1a1a;flex-wrap:wrap}
+#geq-ch-btns{display:flex;gap:3px;flex-wrap:wrap}
+.geq-lbl{font-size:11px;color:#888;white-space:nowrap}
+.geq-range-lbl{font-size:11px;color:#0ff;white-space:nowrap;margin-left:6px}
+.geq-btn{height:22px;padding:0 10px;border:1px solid #444;border-radius:3px;background:#222;color:#ccc;cursor:pointer;font-size:11px;font-weight:bold}
+.geq-btn:hover{background:#007bff;color:#fff;border-color:#0af}
+.geq-ch-btn{height:20px;padding:0 8px;border:1px solid #444;border-radius:2px;background:#1a1a1a;color:#888;cursor:pointer;font-size:10px;font-weight:bold;white-space:nowrap}
+.geq-ch-btn.active{background:#007bff;color:#fff;border-color:#0ff}
+#geq-range{width:70px;vertical-align:middle;accent-color:#0ff}
+#geq-body{display:flex;flex:1;overflow:hidden;margin-top:4px;min-height:0}
+#geq-scale{width:30px;flex-shrink:0;display:flex;flex-direction:column;justify-content:space-between;padding:26px 0 24px;font-size:9px;color:#666;text-align:right;padding-right:4px}
+#geq-faders{display:flex;flex:1;gap:2px;overflow-x:auto;overflow-y:hidden;align-items:stretch;padding:0 2px}
+#geq-faders::-webkit-scrollbar{height:5px}#geq-faders::-webkit-scrollbar-thumb{background:#333}
+#geq-labels{width:0;overflow:visible;position:relative}
+.geq-strip{display:flex;flex-direction:column;align-items:center;min-width:28px;flex:1;max-width:52px;cursor:ns-resize;user-select:none}
+.geq-strip-top{font-size:8px;color:#0ff;font-weight:bold;text-align:center;height:20px;line-height:20px;white-space:nowrap}
+.geq-track{flex:1;position:relative;width:14px;background:#111;border-radius:3px;border:1px solid #2a2a2a;overflow:hidden}
+.geq-fill-pos{position:absolute;bottom:50%;left:0;right:0;background:linear-gradient(180deg,#00d4ff,#007bff);border-radius:2px 2px 0 0}
+.geq-fill-neg{position:absolute;top:50%;left:0;right:0;background:linear-gradient(180deg,#ff6b35,#c0392b);border-radius:0 0 2px 2px}
+.geq-zero{position:absolute;top:50%;left:0;right:0;height:1px;background:#444;pointer-events:none}
+.geq-strip-bot{font-size:7px;color:#666;text-align:center;height:22px;line-height:22px;white-space:nowrap;overflow:hidden;width:100%}
 </style>
 </head>
 <body>
@@ -165,9 +189,10 @@ table.ftable tr:hover td{background:#1a1a1a}
 <!-- TABS -->
 <div id="tabs">
   <div class="tab active" onclick="switchTab(0)">VÚMETROS</div>
-  <div class="tab" onclick="switchTab(1)">EQ &amp; FILTROS</div>
-  <div class="tab" onclick="switchTab(2)">CROSSOVERS</div>
-  <div class="tab" onclick="switchTab(3)">MIXER</div>
+  <div class="tab" onclick="switchTab(1)">GRAPHIC EQ</div>
+  <div class="tab" onclick="switchTab(2)">PARAMETRIC EQ</div>
+  <div class="tab" onclick="switchTab(3)">CROSSOVERS</div>
+  <div class="tab" onclick="switchTab(4)">MIXER</div>
 </div>
 
 <!-- CHANNEL SELECTOR (shown on EQ/CROSS tabs) -->
@@ -200,8 +225,27 @@ table.ftable tr:hover td{background:#1a1a1a}
     </div>
   </div>
 
-  <!-- EQ TAB -->
+  <!-- GRAPHIC EQ TAB -->
   <div class="tab-page" id="page-1">
+    <div id="geq-wrap">
+      <div id="geq-toolbar">
+        <span class="geq-lbl">Canal:</span>
+        <div id="geq-ch-btns"></div>
+        <button class="geq-btn" onclick="geqFlatAll()">Flat</button>
+        <button class="geq-btn" onclick="geqResetChannel()">Reset canal</button>
+        <span class="geq-range-lbl">±<span id="geq-range-val">10</span> dB</span>
+        <input type="range" id="geq-range" min="3" max="18" value="10" step="1" oninput="geqSetRange(+this.value)">
+      </div>
+      <div id="geq-body">
+        <div id="geq-scale"></div>
+        <div id="geq-faders"></div>
+        <div id="geq-labels"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARAMETRIC EQ TAB -->
+  <div class="tab-page" id="page-2">
     <div class="eq-wrap">
       <canvas class="graph" id="eq-canvas"></canvas>
       <div class="filter-table-wrap">
@@ -212,7 +256,7 @@ table.ftable tr:hover td{background:#1a1a1a}
   </div>
 
   <!-- CROSS TAB -->
-  <div class="tab-page" id="page-2">
+  <div class="tab-page" id="page-3">
     <div class="eq-wrap">
       <canvas class="graph" id="cross-canvas"></canvas>
       <div class="filter-table-wrap">
@@ -223,7 +267,7 @@ table.ftable tr:hover td{background:#1a1a1a}
   </div>
 
   <!-- MIXER TAB -->
-  <div class="tab-page" id="page-3">
+  <div class="tab-page" id="page-4">
     <div id="mixer-scroll"><canvas id="mixer-canvas"></canvas></div>
     <div id="device-panel">
       <div class="device-row">
@@ -643,6 +687,7 @@ function parseFilters(){
       }
       if(!chs.length) continue;
       const pt = d.parameters?.type||'';
+      if(pt==='GraphicEqualizer') continue; // handled by Graphic EQ tab
       if(t==='Biquad'&&bqTypes.includes(pt)) filtrosBiquad[fid]={data:d,domain,channels:chs};
       else if(t==='BiquadCombo'&&crTypes.includes(pt)) filtrosCross[fid]={data:d,domain,channels:chs};
     }
@@ -694,6 +739,7 @@ async function init(){
   buildVU();
   renderEQGraph(); renderCrossGraph(); renderMixer();
   buildEQTable(); buildCrossTable(); buildCompTable();
+  geqBuildChannelBtns();
   // Start level polling
   if(levelTimer) clearInterval(levelTimer);
   levelTimer = setInterval(()=>{ fetchLevels(); fetchStatus(); }, 50);
@@ -707,12 +753,13 @@ function switchTab(i){
   document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
   document.querySelectorAll('.tab-page').forEach((p,j)=>p.classList.toggle('active',i===j));
   const chPanel=document.getElementById('ch-panel');
-  chPanel.classList.toggle('show',i===1||i===2);
+  chPanel.classList.toggle('show',i===2||i===3);
   const inRow=document.getElementById('ch-in-row');
-  if(inRow) inRow.style.display=(i===1)?'flex':'none';
-  if(i===1) renderEQGraph();
-  if(i===2) renderCrossGraph();
-  if(i===3){ renderMixer(); loadDevices(); }
+  if(inRow) inRow.style.display=(i===2)?'flex':'none';
+  if(i===1) geqSyncChannel();
+  if(i===2) renderEQGraph();
+  if(i===3) renderCrossGraph();
+  if(i===4){ renderMixer(); loadDevices(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2131,6 +2178,271 @@ function toast(msg){
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// GRAPHIC EQ
+// ═══════════════════════════════════════════════════════════════════════════
+// ISO 1/3-octave center frequencies (31 bands, 20 Hz – 18 kHz)
+const GEQ_FREQS = [
+  20,25,31.5,40,50,63,80,100,125,160,
+  200,250,315,400,500,630,800,1000,1250,1600,
+  2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000
+];
+const GEQ_BANDS = GEQ_FREQS.length; // 31
+
+// State
+let geqChannel  = null;   // {domain:'in'|'out', ch:N}  — channel being edited
+let geqRange    = 10;     // ± dB display range
+let geqDragging = null;   // {idx, startY, startGain}
+
+// Unique filter name for a given channel
+function geqFilterName(domain, ch){
+  const lbl = domain==='in' ? (inLabels[ch]||`IN${ch}`) : (outLabels[ch]||`OUT${ch}`);
+  return `GEQ_${domain.toUpperCase()}_${cleanName(lbl)}`;
+}
+
+// Default 31-band GraphicEqualizer filter object
+function geqDefaultFilter(){
+  return {
+    type: 'BiquadCombo',
+    description: 'Graphic equalizer',
+    parameters: {
+      type: 'GraphicEqualizer',
+      freq_min: 20,
+      freq_max: 20000,
+      gains: Array(GEQ_BANDS).fill(0)
+    }
+  };
+}
+
+// Get gains array for current channel (from config), or zeros
+function geqGetGains(domain, ch){
+  const fname = geqFilterName(domain, ch);
+  const f = (config.filters||{})[fname];
+  if(f && f.parameters?.type==='GraphicEqualizer' && Array.isArray(f.parameters.gains)){
+    const g = [...f.parameters.gains];
+    while(g.length < GEQ_BANDS) g.push(0);
+    return g;
+  }
+  return Array(GEQ_BANDS).fill(0);
+}
+
+// Ensure the filter exists in config AND is in the pipeline for the given channel
+async function geqEnsureFilter(domain, ch){
+  const fname = geqFilterName(domain, ch);
+  const filters = config.filters || {};
+  let needPatch = false;
+  let filterPatch = {};
+  if(!filters[fname] || filters[fname].parameters?.type !== 'GraphicEqualizer'){
+    filterPatch[fname] = geqDefaultFilter();
+    needPatch = true;
+  }
+  // Check pipeline presence
+  const pipeline = config.pipeline || [];
+  const mixerIdx = pipeline.findIndex(s=>s.type==='Mixer');
+  let inPipeline = false;
+  for(const s of pipeline){
+    if(s.type==='Filter' && (s.names||[]).includes(fname)){
+      const sd = (mixerIdx>=0 && pipeline.indexOf(s)<mixerIdx) ? 'in':'out';
+      if(sd===domain && (s.channels||[]).includes(ch)){ inPipeline=true; break; }
+    }
+  }
+  if(!inPipeline){
+    // Build new pipeline with filter inserted at correct position
+    const newPipeline = JSON.parse(JSON.stringify(pipeline));
+    const insertIdx = (domain==='in') ? 0 : (mixerIdx>=0 ? mixerIdx+1 : newPipeline.length);
+    newPipeline.splice(insertIdx,0,{
+      type:'Filter',
+      channels:[ch],
+      names:[fname]
+    });
+    filterPatch[fname] = filterPatch[fname] || (filters[fname] || geqDefaultFilter());
+    await patchCfg({filters:filterPatch, pipeline:newPipeline});
+    return;
+  }
+  if(needPatch) await patchCfg({filters:filterPatch});
+}
+
+// Write gains to config and DSP
+async function geqApplyGains(gains){
+  if(!geqChannel) return;
+  const {domain,ch} = geqChannel;
+  await geqEnsureFilter(domain, ch);
+  const fname = geqFilterName(domain, ch);
+  await patchCfg({filters:{[fname]:{parameters:{gains:[...gains]}}}});
+}
+
+// Build channel selector buttons
+function geqBuildChannelBtns(){
+  const wrap = document.getElementById('geq-ch-btns');
+  if(!wrap) return;
+  wrap.innerHTML='';
+  const make=(domain,ch,label)=>{
+    const b=document.createElement('button');
+    b.className='geq-ch-btn';
+    b.textContent=label;
+    b.dataset.domain=domain; b.dataset.ch=ch;
+    b.onclick=()=>{ geqSelectChannel(domain,ch); };
+    wrap.appendChild(b);
+  };
+  inLabels.forEach((n,i)=>make('in',i,'🎤 '+n));
+  outLabels.forEach((n,i)=>make('out',i,'🔊 '+n));
+  // Select first channel if none selected
+  if(!geqChannel && inLabels.length>0) geqSelectChannel('in',0);
+  else if(!geqChannel && outLabels.length>0) geqSelectChannel('out',0);
+  else geqHighlightBtn();
+}
+
+function geqHighlightBtn(){
+  document.querySelectorAll('.geq-ch-btn').forEach(b=>{
+    b.classList.toggle('active',
+      geqChannel && b.dataset.domain===geqChannel.domain && +b.dataset.ch===geqChannel.ch);
+  });
+}
+
+function geqSelectChannel(domain, ch){
+  geqChannel={domain,ch};
+  geqHighlightBtn();
+  geqBuildStrips();
+}
+
+// Build the 31-band fader strips
+function geqBuildStrips(){
+  if(!geqChannel) return;
+  const {domain,ch} = geqChannel;
+  const gains = geqGetGains(domain,ch);
+
+  const fadersEl  = document.getElementById('geq-faders');
+  const scaleEl   = document.getElementById('geq-scale');
+  const labelsEl  = document.getElementById('geq-labels');
+  if(!fadersEl) return;
+
+  // Scale (right side)
+  scaleEl.innerHTML='';
+  [geqRange, Math.round(geqRange/2), 0, -Math.round(geqRange/2), -geqRange]
+    .forEach(v=>{ const d=document.createElement('div'); d.textContent=(v>0?'+':'')+v; scaleEl.appendChild(d); });
+
+  fadersEl.innerHTML='';
+  gains.forEach((g,idx)=>{
+    const strip=document.createElement('div');
+    strip.className='geq-strip';
+    strip.dataset.idx=idx;
+
+    // dB value label on top
+    const topLbl=document.createElement('div');
+    topLbl.className='geq-strip-top';
+    topLbl.textContent=g===0?'0':(g>0?'+'+g.toFixed(1):g.toFixed(1));
+
+    // Track
+    const track=document.createElement('div');
+    track.className='geq-track';
+    const fillPos=document.createElement('div'); fillPos.className='geq-fill-pos';
+    const fillNeg=document.createElement('div'); fillNeg.className='geq-fill-neg';
+    const zeroLine=document.createElement('div'); zeroLine.className='geq-zero';
+    track.appendChild(fillPos); track.appendChild(fillNeg); track.appendChild(zeroLine);
+    geqUpdateFill(fillPos,fillNeg,g);
+
+    // Frequency label
+    const botLbl=document.createElement('div');
+    botLbl.className='geq-strip-bot';
+    const f=GEQ_FREQS[idx];
+    botLbl.textContent=f>=1000?(f/1000)+'k':String(f);
+
+    strip.appendChild(topLbl);
+    strip.appendChild(track);
+    strip.appendChild(botLbl);
+    fadersEl.appendChild(strip);
+
+    // Drag logic
+    let dragStartY=0, dragStartGain=0, isDragging=false;
+    const onMove=(clientY)=>{
+      if(!isDragging) return;
+      const trackH = track.getBoundingClientRect().height || 100;
+      const dy = dragStartY - clientY;
+      const dbPerPx = (geqRange*2) / trackH;
+      let newG = dragStartGain + dy*dbPerPx;
+      newG = Math.round(Math.max(-geqRange, Math.min(geqRange, newG))*10)/10;
+      gains[idx]=newG;
+      topLbl.textContent=newG===0?'0':(newG>0?'+'+newG.toFixed(1):newG.toFixed(1));
+      geqUpdateFill(fillPos,fillNeg,newG);
+    };
+    const onEnd=()=>{
+      if(!isDragging) return;
+      isDragging=false;
+      document.removeEventListener('mousemove',mMove);
+      document.removeEventListener('mouseup',mUp);
+      document.removeEventListener('touchmove',tMove);
+      document.removeEventListener('touchend',tEnd);
+      geqApplyGains(gains);
+    };
+    const mMove=e=>onMove(e.clientY);
+    const mUp=()=>onEnd();
+    const tMove=e=>{ e.preventDefault(); onMove(e.touches[0].clientY); };
+    const tEnd=()=>onEnd();
+
+    strip.addEventListener('mousedown',e=>{
+      isDragging=true; dragStartY=e.clientY; dragStartGain=gains[idx];
+      document.addEventListener('mousemove',mMove);
+      document.addEventListener('mouseup',mUp);
+      e.preventDefault();
+    });
+    strip.addEventListener('touchstart',e=>{
+      isDragging=true; dragStartY=e.touches[0].clientY; dragStartGain=gains[idx];
+      document.addEventListener('touchmove',tMove,{passive:false});
+      document.addEventListener('touchend',tEnd);
+      e.preventDefault();
+    },{passive:false});
+
+    // Double-click → reset band to 0
+    strip.addEventListener('dblclick',async()=>{
+      gains[idx]=0;
+      topLbl.textContent='0';
+      geqUpdateFill(fillPos,fillNeg,0);
+      await geqApplyGains(gains);
+    });
+  });
+}
+
+function geqUpdateFill(fillPos, fillNeg, g){
+  const pct = Math.abs(g)/geqRange*50; // % of half-height
+  if(g>=0){
+    fillPos.style.height=pct+'%';
+    fillNeg.style.height='0';
+  } else {
+    fillPos.style.height='0';
+    fillNeg.style.height=pct+'%';
+  }
+}
+
+// Called when tab is activated — sync strips with current config
+function geqSyncChannel(){
+  geqBuildChannelBtns();
+  geqBuildStrips();
+}
+
+function geqSetRange(v){
+  geqRange=v;
+  document.getElementById('geq-range-val').textContent=v;
+  geqBuildStrips();
+}
+
+async function geqFlatAll(){
+  if(!geqChannel) return;
+  const gains=Array(GEQ_BANDS).fill(0);
+  await geqApplyGains(gains);
+  geqBuildStrips();
+}
+
+async function geqResetChannel(){
+  if(!geqChannel) return;
+  const {domain,ch}=geqChannel;
+  const fname=geqFilterName(domain,ch);
+  // Remove filter from pipeline and delete it
+  const pipeline=JSON.parse(JSON.stringify(config.pipeline||[]));
+  const newPipeline=pipeline.filter(s=>!(s.type==='Filter'&&(s.names||[]).includes(fname)));
+  await patchCfg({filters:{[fname]:null},pipeline:newPipeline});
+  geqBuildStrips();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // STARTUP
 // ═══════════════════════════════════════════════════════════════════════════
 window.addEventListener('load',async()=>{
@@ -2140,8 +2452,9 @@ window.addEventListener('load',async()=>{
   setupMixerInteraction();
   // Resize handlers
   window.addEventListener('resize',()=>{
-    if(currentTab===1) renderEQGraph();
-    if(currentTab===2) renderCrossGraph();
+    if(currentTab===1) geqBuildStrips();
+    if(currentTab===2) renderEQGraph();
+    if(currentTab===3) renderCrossGraph();
   });
   // Import YAML support via server
   await fetch('/api/import-support').catch(()=>{});
@@ -2163,11 +2476,11 @@ function applyLang(){
   // Tabs
   const tabs = document.querySelectorAll('.tab');
   if(isEs){
-    tabs[0].textContent='VÚMETROS'; tabs[1].innerHTML='EQ &amp; FILTROS';
-    tabs[2].textContent='CROSSOVERS'; tabs[3].textContent='MIXER';
+    tabs[0].textContent='VÚMETROS'; tabs[1].textContent='GRAPHIC EQ';
+    tabs[2].textContent='PARAMETRIC EQ'; tabs[3].textContent='CROSSOVERS'; tabs[4].textContent='MIXER';
   } else {
-    tabs[0].textContent='METERS'; tabs[1].innerHTML='EQ &amp; FILTERS';
-    tabs[2].textContent='CROSSOVERS'; tabs[3].textContent='MIXER';
+    tabs[0].textContent='METERS'; tabs[1].textContent='GRAPHIC EQ';
+    tabs[2].textContent='PARAMETRIC EQ'; tabs[3].textContent='CROSSOVERS'; tabs[4].textContent='MIXER';
   }
   // View buttons
   const vb = document.querySelectorAll('.view-btn');
