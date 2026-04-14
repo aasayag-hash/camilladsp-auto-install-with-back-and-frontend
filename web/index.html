@@ -68,16 +68,20 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 .auto-btn{background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:2px 8px;font-weight:bold}
 .auto-btn:hover{background:#0056b3}
 
-/* EQ / Cross tab — canvas flexible arriba, planilla fija 33% abajo */
+/* EQ / Cross tab — canvas flexible arriba, planilla fija 40% abajo */
 .eq-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column;position:relative}
-canvas.graph{width:100%;flex:1;min-height:120px;display:block;cursor:crosshair}
-.filter-table-wrap{flex-shrink:0;height:33%;min-height:90px;max-height:240px;overflow-y:auto;border-top:1px solid #222}
-/* Overlay Q-buttons para táctil */
-#eq-q-overlay{position:absolute;display:none;align-items:center;gap:6px;background:rgba(0,0,0,.85);border:1px solid #0ff;border-radius:6px;padding:4px 8px;z-index:200;pointer-events:auto}
-#eq-q-overlay.show{display:flex}
-.eq-q-btn{width:36px;height:36px;border-radius:50%;border:2px solid #0ff;background:#003;color:#0ff;font-size:18px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1}
+canvas.graph{width:100%;flex:1;min-height:100px;display:block;cursor:crosshair}
+.filter-table-wrap{flex-shrink:0;height:40%;min-height:110px;max-height:280px;overflow-y:auto;border-top:1px solid #222}
+/* Barra Q-buttons — solo en táctil, entre canvas y tabla */
+#eq-q-bar{display:none;align-items:center;justify-content:center;gap:8px;padding:4px 8px;background:#060d0d;border-top:1px solid #0ff;border-bottom:1px solid #1a1a1a;flex-shrink:0}
+@media (pointer:coarse){
+  #eq-q-bar{display:flex}  /* siempre visible en táctil cuando el tab EQ está activo */
+}
+.eq-q-btn{width:40px;height:40px;border-radius:50%;border:2px solid #0ff;background:#003;color:#0ff;font-size:22px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;touch-action:manipulation}
 .eq-q-btn:active{background:#006}
-#eq-q-label{font-size:11px;color:#ff0;white-space:nowrap;text-align:center}
+#eq-q-info{font-size:12px;color:#ff0;white-space:nowrap;text-align:center;flex:1;padding:0 4px}
+/* Overlay posicionado sobre canvas (no usado) — mantener oculto */
+#eq-q-overlay{display:none}
 /* Táctil: controles más grandes */
 @media (pointer:coarse){
   canvas.graph{min-height:160px}
@@ -266,12 +270,13 @@ table.ftable tr:hover td{background:#1a1a1a}
   <div class="tab-page" id="page-2">
     <div class="eq-wrap">
       <canvas class="graph" id="eq-canvas"></canvas>
-      <!-- Overlay Q buttons (visible on touch when a filter is selected) -->
-      <div id="eq-q-overlay">
+      <!-- Barra Q: botón −Q | info filtro | botón +Q (entre canvas y tabla) -->
+      <div id="eq-q-bar">
         <button class="eq-q-btn" id="eq-q-minus" title="-Q">−</button>
-        <div id="eq-q-label">Q: —</div>
+        <div id="eq-q-info">Toca un filtro</div>
         <button class="eq-q-btn" id="eq-q-plus" title="+Q">+</button>
       </div>
+      <div id="eq-q-overlay"></div><!-- compatibilidad con código existente -->
       <div class="filter-table-wrap">
         <table class="ftable"><thead><tr><th>ID</th><th>Tipo</th><th>Freq(Hz)</th><th>Gain(dB)</th><th>Q</th><th>Canal</th><th></th></tr></thead>
         <tbody id="eq-tbody"></tbody></table>
@@ -856,9 +861,10 @@ function buildChannelPanel(){
   inLabels.forEach((n,i)=>{
     const b=document.createElement('button');
     b.className='ch-btn active'; b.textContent=`🔊 ${n}`; b.id=`btn-in-${i}`;
-    b.onclick=()=>toggleInCh(i,!b.classList.contains('active'));
+    let _bypassFired=false;
+    b.addEventListener('click',()=>{ if(_bypassFired){_bypassFired=false;return;} toggleInCh(i,!b.classList.contains('active')); });
     b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,false);};
-    addLongPress(b,()=>toggleBypass(i,false));
+    addLongPress(b,()=>{ _bypassFired=true; toggleBypass(i,false); });
     inRow.appendChild(b);
   });
   // OUT row
@@ -872,9 +878,10 @@ function buildChannelPanel(){
     const b=document.createElement('button');
     const col=COLORS[i%COLORS.length];
     b.className='ch-btn out active'; b.style.setProperty('--col',col); b.textContent=`🔊 ${n}`; b.id=`btn-out-${i}`;
-    b.onclick=()=>toggleOutCh(i,!b.classList.contains('active'));
+    let _bypassFiredOut=false;
+    b.addEventListener('click',()=>{ if(_bypassFiredOut){_bypassFiredOut=false;return;} toggleOutCh(i,!b.classList.contains('active')); });
     b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,true);};
-    addLongPress(b,()=>toggleBypass(i,true));
+    addLongPress(b,()=>{ _bypassFiredOut=true; toggleBypass(i,true); });
     outRow.appendChild(b);
   });
 }
@@ -1654,12 +1661,13 @@ function setupEQInteraction(){
     if(cands.length){ eqTouchLongFired=true; eqHideQOverlay(); deleteEQ(cands[0]); toast('Filtro eliminado'); }
   });
 
-  // Q overlay buttons (táctil)
-  document.getElementById('eq-q-plus')?.addEventListener('click',async()=>{
-    const fid=eqState.highlight||eqState.drag;
+  // Q bar buttons (táctil) — leen el fid desde bar.dataset.fid
+  async function qStep(delta){
+    const bar=document.getElementById('eq-q-bar');
+    const fid=bar?.dataset?.fid || eqState.highlight || eqState.drag;
     if(!fid||!filtrosBiquad[fid]) return;
     const p=filtrosBiquad[fid].data.parameters;
-    const nq=Math.min(20,Math.round(((p.q||1)+0.1)*100)/100);
+    const nq=Math.max(0.1,Math.min(20,Math.round(((p.q||1)+delta)*100)/100));
     const group=Object.keys(filtrosBiquad).filter(f2=>{
       const p2=filtrosBiquad[f2]?.data?.parameters||{};
       return Math.abs((p2.freq||0)-(p.freq||0))<1&&Math.abs((p2.gain||0)-(p.gain||0))<0.1;
@@ -1667,52 +1675,31 @@ function setupEQInteraction(){
     const patch={};
     group.forEach(f2=>{ if(filtrosBiquad[f2]) filtrosBiquad[f2].data.parameters.q=nq; patch[f2]={parameters:{q:nq}}; });
     await patchCfg({filters:patch}); buildEQTable(); renderEQGraph(); eqUpdateQLabel(fid);
-  });
-  document.getElementById('eq-q-minus')?.addEventListener('click',async()=>{
-    const fid=eqState.highlight||eqState.drag;
-    if(!fid||!filtrosBiquad[fid]) return;
-    const p=filtrosBiquad[fid].data.parameters;
-    const nq=Math.max(0.1,Math.round(((p.q||1)-0.1)*100)/100);
-    const group=Object.keys(filtrosBiquad).filter(f2=>{
-      const p2=filtrosBiquad[f2]?.data?.parameters||{};
-      return Math.abs((p2.freq||0)-(p.freq||0))<1&&Math.abs((p2.gain||0)-(p.gain||0))<0.1;
-    });
-    const patch={};
-    group.forEach(f2=>{ if(filtrosBiquad[f2]) filtrosBiquad[f2].data.parameters.q=nq; patch[f2]={parameters:{q:nq}}; });
-    await patchCfg({filters:patch}); buildEQTable(); renderEQGraph(); eqUpdateQLabel(fid);
-  });
+    if(bar) bar.dataset.fid=fid; // mantener fid activo
+  }
+  document.getElementById('eq-q-plus') ?.addEventListener('click',()=>qStep(+0.1));
+  document.getElementById('eq-q-minus')?.addEventListener('click',()=>qStep(-0.1));
 }
 
 function eqUpdateQLabel(fid){
-  const ov=document.getElementById('eq-q-overlay'); if(!ov||!ov.classList.contains('show')) return;
+  const bar=document.getElementById('eq-q-bar'); if(!bar||!bar.classList.contains('show')) return;
   const p=filtrosBiquad[fid]?.data?.parameters; if(!p) return;
-  document.getElementById('eq-q-label').textContent=`Q: ${(p.q||1).toFixed(2)}`;
+  document.getElementById('eq-q-info').textContent=`${p.freq.toFixed(0)} Hz  ${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`;
 }
-function eqShowQOverlay(fid, canvasX, canvasY){
+function eqShowQOverlay(fid){
   if(!isTouch()) return;
-  const ov=document.getElementById('eq-q-overlay'); if(!ov) return;
-  const cv=eqCanvas(); if(!cv) return;
-  const wrap=cv.parentElement; // .eq-wrap
-  const wRect=wrap.getBoundingClientRect();
+  const bar=document.getElementById('eq-q-bar'); if(!bar) return;
   const p=filtrosBiquad[fid]?.data?.parameters; if(!p) return;
-  // Posicionar overlay junto al punto, dentro del eq-wrap
-  const cvRect=cv.getBoundingClientRect();
-  const W=cv.clientWidth, H=cv.clientHeight;
-  const px=fToX(p.freq||1000,W), py=eqDbToY(p.gain||0,H);
-  // absolute dentro de .eq-wrap
-  const absX = cvRect.left - wRect.left + px;
-  const absY = cvRect.top  - wRect.top  + py;
-  const ovW=140, ovH=44;
-  let left=absX-ovW/2, top=absY-ovH-16;
-  if(left<4) left=4;
-  if(left+ovW>wRect.width-4) left=wRect.width-ovW-4;
-  if(top<4) top=absY+20; // debajo si no cabe arriba
-  ov.style.left=left+'px'; ov.style.top=top+'px';
-  document.getElementById('eq-q-label').textContent=`Q: ${(p.q||1).toFixed(2)}`;
-  ov.classList.add('show');
+  document.getElementById('eq-q-info').textContent=`${p.freq.toFixed(0)} Hz  ${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`;
+  bar.classList.add('show');
+  // Guardar fid activo en el bar para que los botones lo usen
+  bar.dataset.fid=fid;
 }
 function eqHideQOverlay(){
-  document.getElementById('eq-q-overlay')?.classList.remove('show');
+  const bar=document.getElementById('eq-q-bar'); if(!bar) return;
+  delete bar.dataset.fid;
+  const info=document.getElementById('eq-q-info');
+  if(info) info.textContent='Toca un filtro';
 }
 
 function findEQNear(ox,oy,cv){
