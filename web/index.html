@@ -235,8 +235,7 @@ table.ftable tr:hover td{background:#1a1a1a}
         <div id="geq-ch-btns"></div>
         <button class="geq-btn" onclick="geqFlatAll()">Flat</button>
         <button class="geq-btn" onclick="geqResetChannel()">Reset canal</button>
-        <span class="geq-range-lbl">±<span id="geq-range-val">10</span> dB</span>
-        <input type="range" id="geq-range" min="3" max="18" value="10" step="1" oninput="geqSetRange(+this.value)">
+        <span class="geq-range-lbl">± 9 dB</span>
       </div>
       <div id="geq-body">
         <div id="geq-scale"></div>
@@ -2200,7 +2199,7 @@ const GEQ_BANDS = GEQ_FREQS.length; // 31
 
 // State
 let geqChannels = new Set(); // Set of keys "in:N" — selected input channels (multi)
-let geqRange    = 10;        // ± dB display range
+const geqRange  = 9;         // ± dB fixed range (linear)
 // helpers
 const geqKey    = (domain,ch)=>`${domain}:${ch}`;
 const geqFirst  = ()=>{ const k=[...geqChannels][0]; if(!k) return null; const [d,c]=k.split(':'); return {domain:d,ch:+c}; };
@@ -2352,24 +2351,10 @@ function geqShowTip(x, y, db){
 }
 function geqHideTip(){ const t=_geqTip(); if(t) t.style.display='none'; }
 
-// ── Logarithmic dB ↔ position mapping ──────────────────────────────────────
-// Returns fraction [0,1] where 0 = -range, 0.5 = 0 dB, 1 = +range
-// Uses symmetric log: f(db) = 0.5 + sign(db)*log(1+|db|/range*(LOG_BASE-1))/log(LOG_BASE)*0.5
-const GEQ_LOG_BASE = 20; // higher = more expansion near 0 dB
-function geqDbToFrac(db){
-  if(db===0) return 0.5;
-  const s = db>0?1:-1;
-  const abs = Math.min(Math.abs(db), geqRange);
-  return 0.5 + s * Math.log(1 + abs/geqRange*(GEQ_LOG_BASE-1)) / Math.log(GEQ_LOG_BASE) * 0.5;
-}
-// Inverse: fraction → dB
-function geqFracToDb(frac){
-  if(Math.abs(frac-0.5)<1e-6) return 0;
-  const s = frac>0.5?1:-1;
-  const f = Math.abs(frac-0.5)*2; // [0,1]
-  const abs = geqRange*(Math.pow(GEQ_LOG_BASE,f)-1)/(GEQ_LOG_BASE-1);
-  return s*abs;
-}
+// ── Linear dB ↔ position mapping ──────────────────────────────────────────
+// frac: 0 = -9 dB (bottom), 0.5 = 0 dB (center), 1 = +9 dB (top)
+function geqDbToFrac(db){ return 0.5 + Math.max(-geqRange, Math.min(geqRange, db)) / (geqRange*2); }
+function geqFracToDb(frac){ return (frac - 0.5) * geqRange * 2; }
 
 // Build the 31-band fader strips
 function geqBuildStrips(){
@@ -2383,21 +2368,15 @@ function geqBuildStrips(){
   const scaleEl  = document.getElementById('geq-scale');
   if(!fadersEl) return;
 
-  // Logarithmic dB scale — ticks at ±1,±2,±3,±6,±9,±range
-  const allTicks = [0,1,2,3,6,9,12,15,18].filter(v=>v<=geqRange);
-  if(!allTicks.includes(geqRange)) allTicks.push(geqRange);
-  // Build as positioned elements inside a relative container
+  // Linear dB scale — ticks at 0, ±3, ±6, ±9
   scaleEl.innerHTML='';
   scaleEl.style.position='relative';
-  allTicks.forEach(v=>{
-    [-v, v].filter((x,i,a)=>a.indexOf(x)===i).sort((a,b)=>b-a).forEach(val=>{
-      const frac = geqDbToFrac(val); // 0=bottom,1=top → invert: top% = (1-frac)*100
-      const pct  = (1-frac)*100;
-      const d=document.createElement('div');
-      d.style.cssText=`position:absolute;right:2px;top:${pct}%;transform:translateY(-50%);font-size:9px;color:#fff;white-space:nowrap;line-height:1`;
-      d.textContent=(val>0?'+':'')+val;
-      scaleEl.appendChild(d);
-    });
+  [-9,-6,-3,0,3,6,9].forEach(val=>{
+    const pct = (1 - geqDbToFrac(val)) * 100;
+    const d=document.createElement('div');
+    d.style.cssText=`position:absolute;right:2px;top:${pct}%;transform:translateY(-50%);font-size:9px;color:#fff;white-space:nowrap;line-height:1`;
+    d.textContent=(val>0?'+':'')+val;
+    scaleEl.appendChild(d);
   });
 
   fadersEl.innerHTML='';
@@ -2508,12 +2487,6 @@ function geqUpdateFill(fillPos, fillNeg, g){
 // Called when tab is activated — sync strips with current config
 function geqSyncChannel(){
   geqBuildChannelBtns();
-  geqBuildStrips();
-}
-
-function geqSetRange(v){
-  geqRange=v;
-  document.getElementById('geq-range-val').textContent=v;
   geqBuildStrips();
 }
 
