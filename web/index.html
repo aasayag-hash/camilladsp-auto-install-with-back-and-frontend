@@ -2,10 +2,19 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
 <title>CamillaDSP Web Console</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+/* Pantalla completa en dispositivos táctiles */
+@media (pointer:coarse){
+  html,body{width:100%;height:100%;overflow:hidden;background:#000}
+  body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+}
 body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;overflow:hidden;height:100vh;display:flex;flex-direction:column}
 #topbar{display:flex;align-items:center;gap:6px;padding:4px 8px;background:#111;border-bottom:1px solid #333;flex-shrink:0}
 #topbar h1{font-size:14px;color:#0ff;font-weight:bold;margin-right:8px}
@@ -2942,6 +2951,30 @@ window.addEventListener('load',async()=>{
   });
   // Import YAML support via server
   await fetch('/api/import-support').catch(()=>{});
+
+  // Pantalla completa automática en dispositivos táctiles
+  // La Fullscreen API exige un gesto del usuario: se activa en el primer touchstart
+  if(isTouch()){
+    const requestFS=()=>{
+      const el=document.documentElement;
+      const req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+      if(req) req.call(el).catch(()=>{});
+      document.removeEventListener('touchstart',requestFS);
+    };
+    document.addEventListener('touchstart',requestFS,{once:true,passive:true});
+
+    // Si sale de fullscreen (botón atrás del sistema), volver a solicitarlo al próximo toque
+    document.addEventListener('fullscreenchange',()=>{
+      if(!document.fullscreenElement){
+        document.addEventListener('touchstart',requestFS,{once:true,passive:true});
+      }
+    });
+    document.addEventListener('webkitfullscreenchange',()=>{
+      if(!document.webkitFullscreenElement){
+        document.addEventListener('touchstart',requestFS,{once:true,passive:true});
+      }
+    });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
