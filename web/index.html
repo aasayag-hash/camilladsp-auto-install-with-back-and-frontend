@@ -115,6 +115,28 @@ table.ftable tr:hover td{background:#1a1a1a}
 /* Modal / dialogs */
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;pointer-events:none;opacity:0;transition:opacity .3s;z-index:9999}
 #toast.show{opacity:1}
+
+/* Help modal */
+#help-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10000;align-items:center;justify-content:center}
+#help-overlay.show{display:flex}
+#help-box{background:#0d0d0d;border:1px solid #0ff;border-radius:8px;width:min(820px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 0 30px rgba(0,255,255,.15)}
+#help-header{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #222;flex-shrink:0}
+#help-header h2{color:#0ff;font-size:15px;flex:1;margin:0}
+#help-close{background:none;border:1px solid #555;border-radius:4px;color:#aaa;font-size:16px;cursor:pointer;padding:2px 10px;line-height:1}
+#help-close:hover{background:#333;color:#fff}
+#help-body{overflow-y:auto;padding:16px 20px;flex:1;font-size:12.5px;line-height:1.65;color:#ccc}
+#help-body::-webkit-scrollbar{width:6px}#help-body::-webkit-scrollbar-thumb{background:#333}
+#help-body h3{color:#0ff;font-size:13px;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #1a3a3a;padding-bottom:4px}
+#help-body h3:first-child{margin-top:0}
+#help-body h4{color:#7df;font-size:12px;margin:12px 0 4px}
+#help-body ul{padding-left:18px;margin:4px 0 8px}
+#help-body li{margin:3px 0}
+#help-body b{color:#fff}
+#help-body .kbd{display:inline-block;background:#222;border:1px solid #555;border-radius:3px;padding:0 5px;font-family:monospace;font-size:11px;color:#0ff}
+#help-body .tip{background:#0a1f0a;border-left:3px solid #0f0;padding:6px 10px;border-radius:0 4px 4px 0;margin:8px 0;color:#afc;font-size:12px}
+#help-body .warn{background:#1f0a0a;border-left:3px solid #f44;padding:6px 10px;border-radius:0 4px 4px 0;margin:8px 0;color:#faa;font-size:12px}
+.top-btn.lang{background:#1a2a1a;border-color:#0a0;color:#0f0;font-size:10px;padding:0 7px}
+.top-btn.lang:hover{background:#0a3a0a}
 </style>
 </head>
 <body>
@@ -136,6 +158,8 @@ table.ftable tr:hover td{background:#1a1a1a}
   <button class="top-btn" onclick="importEQ()">Imp EQ</button>
   <button class="top-btn" onclick="exportEQ()">Exp EQ</button>
   <button class="top-btn danger" onclick="resetConfig()">Reset</button>
+  <button class="top-btn lang" id="lang-btn" onclick="toggleLang()" title="Switch language / Cambiar idioma">ES/EN</button>
+  <button class="top-btn" onclick="showHelp()" title="Ayuda / Help" style="background:#0a1a2a;border-color:#0af;color:#0af">?&nbsp;AYUDA</button>
 </div>
 
 <!-- TABS -->
@@ -220,6 +244,261 @@ table.ftable tr:hover td{background:#1a1a1a}
   </div>
 
 </div>
+
+<!-- ═══════════════════ HELP MODAL ═══════════════════ -->
+<div id="help-overlay" onclick="closeHelp(event)">
+  <div id="help-box">
+    <div id="help-header">
+      <h2 id="help-title">CAMILLADSP CONSOLE — Ayuda</h2>
+      <button id="help-close" onclick="closeHelp(null)">✕</button>
+    </div>
+    <div id="help-body">
+
+      <!-- ─── ESPAÑOL ─── -->
+      <div id="help-es">
+
+        <h3>¿Qué es esta aplicación?</h3>
+        <p>CamillaDSP Console es una interfaz web para controlar en tiempo real el procesador de audio digital <b>CamillaDSP</b> que corre en un dispositivo embebido (TV-box, RPi, etc.). Permite ajustar ecualización, crossovers, mezcla de canales, compresores y dispositivos de audio sin editar archivos de configuración manualmente.</p>
+
+        <h3>Barra superior</h3>
+        <ul>
+          <li><b>● (punto de color):</b> verde = conectado al DSP, rojo = sin conexión.</li>
+          <li><b>State / Buffer / DSP load:</b> estado del motor (Running/Idle/Error), nivel de buffer de audio y carga de CPU del DSP, actualizados cada ~200 ms.</li>
+          <li><b>WEB 5005:</b> abre la interfaz nativa de CamillaDSP en otra pestaña.</li>
+          <li><b>Imp Cfg / Exp Cfg:</b> importa o exporta la configuración completa en formato YAML/JSON.</li>
+          <li><b>Imp EQ / Exp EQ:</b> importa filtros desde un archivo de texto (formato REW, Equalizer APO o genérico) o exporta los filtros actuales.</li>
+          <li><b>Reset:</b> restablece la configuración a los valores por defecto guardados en el servidor. <span style="color:#f88">¡Operación irreversible!</span></li>
+        </ul>
+
+        <h3>Pestaña VÚMETROS</h3>
+        <p>Muestra los vúmetros de entradas y salidas junto con sus faders de control.</p>
+        <h4>Botones de vista</h4>
+        <ul>
+          <li><b>TODO / ENTRADAS / SALIDAS:</b> filtra qué canales se muestran.</li>
+          <li><b>MUTE ALL:</b> silencia todos los canales de salida de una vez.</li>
+          <li><b>VOL: X dB:</b> nivel de volumen maestro aplicado por CamillaDSP.</li>
+        </ul>
+        <h4>Vúmetros (canvas superior)</h4>
+        <ul>
+          <li>Barra verde = nivel de señal RMS en tiempo real.</li>
+          <li>Barra roja (arriba) = reducción de ganancia aplicada por el compresor (GR).</li>
+          <li>Línea amarilla = pico de señal (peak hold, 2 s de retención).</li>
+          <li>Línea azul punteada = umbral del compresor (Threshold).</li>
+          <li>Escala numérica: 0 dB arriba → −80 dB abajo.</li>
+        </ul>
+        <h4>Faders (sección inferior)</h4>
+        <ul>
+          <li><b>Canvas del fader:</b> haz clic y arrastra arriba/abajo para ajustar la ganancia del canal (–∞ a +6 dB). El valor en dB se muestra en tiempo real.</li>
+          <li><b>MUTE:</b> silencia el canal individualmente (rojo = muteado).</li>
+          <li><b>Ø (Polaridad):</b> invierte la fase del canal (morado = invertido).</li>
+          <li><b>Delay (ms):</b> campo de texto para introducir retardo en milisegundos.</li>
+        </ul>
+        <h4>Tabla de compresores</h4>
+        <p>Muestra y permite editar los parámetros de los compresores asignados a cada canal de salida:</p>
+        <ul>
+          <li><b>Attack / Release:</b> tiempos de ataque y liberación en segundos.</li>
+          <li><b>Threshold:</b> umbral de activación en dBFS.</li>
+          <li><b>Ratio:</b> relación de compresión (ej. 4 = 4:1).</li>
+          <li><b>Makeup:</b> ganancia de compensación post-compresión en dB.</li>
+          <li><b>ClipLim:</b> activa el limitador de clip a 0 dBFS.</li>
+          <li><b>Auto:</b> activa autoajuste del tiempo de release.</li>
+        </ul>
+
+        <h3>Pestaña EQ &amp; FILTROS</h3>
+        <p>Ecualizador paramétrico completo por canal.</p>
+        <h4>Selector de canal</h4>
+        <p>La barra de botones bajo las pestañas muestra los canales de entrada (fila superior) y de salida (fila inferior). Haz clic en uno para ver y editar sus filtros. El botón <b>ALL</b> muestra todos los filtros superpuestos.</p>
+        <h4>Gráfico de respuesta en frecuencia</h4>
+        <ul>
+          <li>Eje X: frecuencia (20 Hz – 20 kHz, escala logarítmica).</li>
+          <li>Eje Y: ganancia en dB (±18 dB).</li>
+          <li><b>Clic en el gráfico:</b> añade un nuevo filtro Peaking en la frecuencia y ganancia donde se haga clic.</li>
+          <li>Cada filtro tiene su propio color; el marcador muestra su posición.</li>
+          <li>La curva total (suma de todos los filtros) se dibuja en blanco.</li>
+        </ul>
+        <h4>Tabla de filtros</h4>
+        <ul>
+          <li><b>Tipo:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
+          <li><b>Freq (Hz):</b> frecuencia central o de corte.</li>
+          <li><b>Gain (dB):</b> ganancia (no aplica en HP/LP).</li>
+          <li><b>Q:</b> factor de calidad / anchura de banda.</li>
+          <li><b>Canal:</b> a qué canal de entrada o salida pertenece el filtro.</li>
+          <li><b>✕:</b> elimina el filtro.</li>
+        </ul>
+        <div class="tip">Consejo: Q = 0.707 equivale a un filtro Butterworth (máxima planicidad). Q alto → pico estrecho; Q bajo → curva ancha.</div>
+
+        <h3>Pestaña CROSSOVERS</h3>
+        <p>Filtros de división de frecuencia (crossover) para sistemas multiamplificados.</p>
+        <ul>
+          <li><b>Tipos disponibles:</b> Butterworth Lowpass/Highpass y Linkwitz-Riley Lowpass/Highpass.</li>
+          <li><b>Orden:</b> pendiente del filtro. Orden 2 = 12 dB/oct, Orden 4 = 24 dB/oct.</li>
+          <li>Linkwitz-Riley es el estándar de la industria para divisores activos (fase coincidente a la frecuencia de cruce).</li>
+          <li>El gráfico muestra la respuesta en frecuencia de cada filtro con su color de canal.</li>
+        </ul>
+        <div class="tip">Para un crossover completo se necesita al menos un LP para el woofer y un HP para el tweeter, en distintos canales de salida.</div>
+
+        <h3>Pestaña MIXER</h3>
+        <p>Matriz de mezcla que determina cómo se combinan los canales de entrada en los de salida.</p>
+        <h4>Canvas del mixer</h4>
+        <ul>
+          <li>Filas = canales de entrada, columnas = canales de salida.</li>
+          <li><b>Clic en una celda:</b> activa o desactiva la conexión entre ese par de canales.</li>
+          <li>Celda iluminada = conexión activa (la señal del canal de entrada llega al canal de salida).</li>
+        </ul>
+        <h4>Panel de dispositivos</h4>
+        <ul>
+          <li><b>IN / OUT:</b> selectores de tarjeta de sonido para captura y reproducción. Los cambios se aplican inmediatamente al DSP.</li>
+          <li><b>Chunk:</b> tamaño del buffer de procesado (128 – 4096 muestras). Valores bajos = menor latencia pero mayor riesgo de dropout. Valores altos = mayor latencia pero más estabilidad.</li>
+          <li><b>↺ Actualizar:</b> recarga la lista de dispositivos ALSA disponibles.</li>
+          <li><b>⟳ Motor:</b> reinicia el proceso de CamillaDSP (detiene y vuelve a arrancar el motor de audio).</li>
+        </ul>
+
+        <h3>Importación de filtros EQ (Imp EQ)</h3>
+        <p>Soporta los siguientes formatos de exportación de REW (Room EQ Wizard) y Equalizer APO:</p>
+        <ul>
+          <li><b>REW Generic:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>Equalizer APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>HP/LP sin Gain:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
+          <li><b>BW Octave:</b> <span class="kbd">Filter: ON PK Fc 500 Hz Gain -2 dB BW Oct 0.5</span></li>
+          <li>Tipos soportados: PK/PEQ (Peaking), LS/LSC (Lowshelf), HS/HSC (Highshelf), HP/HPQ (Highpass), LP/LPQ (Lowpass).</li>
+          <li>Tipos ignorados: NO (Notch), AP (Allpass), None.</li>
+          <li>Formato genérico tab/espacio: <span class="kbd">1000  3.0  1.41  PK</span></li>
+        </ul>
+        <div class="warn">Los filtros importados se asignan al canal activo en el momento de la importación. Selecciona primero el canal destino en la pestaña EQ.</div>
+
+        <h3>Exportación / Importación de configuración</h3>
+        <ul>
+          <li><b>Exp Cfg:</b> descarga el archivo YAML completo de CamillaDSP (dispositivos, pipeline, filtros, mezcla).</li>
+          <li><b>Imp Cfg:</b> carga un archivo YAML o JSON previamente guardado y lo aplica al DSP.</li>
+          <li><b>Exp EQ:</b> exporta los filtros biquad actuales en formato de texto (compatible con reimportación).</li>
+        </ul>
+
+      </div><!-- /help-es -->
+
+      <!-- ─── ENGLISH ─── -->
+      <div id="help-en" style="display:none">
+
+        <h3>What is this application?</h3>
+        <p>CamillaDSP Console is a web interface to control the <b>CamillaDSP</b> digital audio processor in real time on an embedded device (TV-box, RPi, etc.). It lets you adjust equalization, crossovers, channel mixing, compressors, and audio devices without manually editing configuration files.</p>
+
+        <h3>Top bar</h3>
+        <ul>
+          <li><b>● (colored dot):</b> green = connected to DSP, red = no connection.</li>
+          <li><b>State / Buffer / DSP load:</b> engine state (Running/Idle/Error), audio buffer level and DSP CPU load, updated every ~200 ms.</li>
+          <li><b>WEB 5005:</b> opens the native CamillaDSP interface in a new tab.</li>
+          <li><b>Imp Cfg / Exp Cfg:</b> import or export the full configuration in YAML/JSON format.</li>
+          <li><b>Imp EQ / Exp EQ:</b> import filters from a text file (REW, Equalizer APO or generic format) or export current filters.</li>
+          <li><b>Reset:</b> restores the configuration to the server-saved defaults. <span style="color:#f88">Irreversible!</span></li>
+        </ul>
+
+        <h3>METERS tab</h3>
+        <p>Shows input and output VU meters with their gain faders.</p>
+        <h4>View buttons</h4>
+        <ul>
+          <li><b>ALL / INPUTS / OUTPUTS:</b> filters which channels are shown.</li>
+          <li><b>MUTE ALL:</b> mutes all output channels at once.</li>
+          <li><b>VOL: X dB:</b> master volume level applied by CamillaDSP.</li>
+        </ul>
+        <h4>VU Meters (top canvas)</h4>
+        <ul>
+          <li>Green bar = real-time RMS signal level.</li>
+          <li>Red bar (top) = gain reduction applied by the compressor (GR).</li>
+          <li>Yellow line = peak hold (2 s retention).</li>
+          <li>Blue dashed line = compressor threshold.</li>
+          <li>Scale: 0 dB at top → −80 dB at bottom.</li>
+        </ul>
+        <h4>Faders (bottom section)</h4>
+        <ul>
+          <li><b>Fader canvas:</b> click and drag up/down to adjust channel gain (–∞ to +6 dB). The dB value is shown in real time.</li>
+          <li><b>MUTE:</b> mutes the channel individually (red = muted).</li>
+          <li><b>Ø (Polarity):</b> inverts the channel phase (purple = inverted).</li>
+          <li><b>Delay (ms):</b> text field to enter delay in milliseconds.</li>
+        </ul>
+        <h4>Compressor table</h4>
+        <p>Shows and allows editing of compressor parameters for each output channel:</p>
+        <ul>
+          <li><b>Attack / Release:</b> attack and release times in seconds.</li>
+          <li><b>Threshold:</b> activation threshold in dBFS.</li>
+          <li><b>Ratio:</b> compression ratio (e.g. 4 = 4:1).</li>
+          <li><b>Makeup:</b> post-compression makeup gain in dB.</li>
+          <li><b>ClipLim:</b> enables clip limiter at 0 dBFS.</li>
+          <li><b>Auto:</b> enables automatic release time adjustment.</li>
+        </ul>
+
+        <h3>EQ &amp; FILTERS tab</h3>
+        <p>Full parametric equalizer per channel.</p>
+        <h4>Channel selector</h4>
+        <p>The button bar below the tabs shows input channels (top row) and output channels (bottom row). Click one to view and edit its filters. The <b>ALL</b> button shows all filters overlaid.</p>
+        <h4>Frequency response graph</h4>
+        <ul>
+          <li>X axis: frequency (20 Hz – 20 kHz, logarithmic scale).</li>
+          <li>Y axis: gain in dB (±18 dB).</li>
+          <li><b>Click on the graph:</b> adds a new Peaking filter at the clicked frequency and gain.</li>
+          <li>Each filter has its own color; the marker shows its position.</li>
+          <li>The total curve (sum of all filters) is drawn in white.</li>
+        </ul>
+        <h4>Filter table</h4>
+        <ul>
+          <li><b>Type:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
+          <li><b>Freq (Hz):</b> center or cutoff frequency.</li>
+          <li><b>Gain (dB):</b> gain (not applicable to HP/LP).</li>
+          <li><b>Q:</b> quality factor / bandwidth.</li>
+          <li><b>Channel:</b> which input or output channel the filter belongs to.</li>
+          <li><b>✕:</b> deletes the filter.</li>
+        </ul>
+        <div class="tip">Tip: Q = 0.707 is a Butterworth filter (maximum flatness). High Q → narrow peak; low Q → wide curve.</div>
+
+        <h3>CROSSOVERS tab</h3>
+        <p>Frequency crossover filters for multi-amplified systems.</p>
+        <ul>
+          <li><b>Available types:</b> Butterworth Lowpass/Highpass and Linkwitz-Riley Lowpass/Highpass.</li>
+          <li><b>Order:</b> filter slope. Order 2 = 12 dB/oct, Order 4 = 24 dB/oct.</li>
+          <li>Linkwitz-Riley is the industry standard for active crossovers (phase-coincident at crossover frequency).</li>
+          <li>The graph shows the frequency response of each filter in its channel color.</li>
+        </ul>
+        <div class="tip">A complete crossover requires at least one LP for the woofer and one HP for the tweeter, on separate output channels.</div>
+
+        <h3>MIXER tab</h3>
+        <p>Mixing matrix that determines how input channels are combined into output channels.</p>
+        <h4>Mixer canvas</h4>
+        <ul>
+          <li>Rows = input channels, columns = output channels.</li>
+          <li><b>Click on a cell:</b> toggles the connection between that input/output pair.</li>
+          <li>Lit cell = active connection (input signal reaches the output channel).</li>
+        </ul>
+        <h4>Device panel</h4>
+        <ul>
+          <li><b>IN / OUT:</b> sound card selectors for capture and playback. Changes are applied to the DSP immediately.</li>
+          <li><b>Chunk:</b> processing buffer size (128 – 4096 samples). Low values = lower latency but higher dropout risk. High values = higher latency but more stability.</li>
+          <li><b>↺ Refresh:</b> reloads the list of available ALSA devices.</li>
+          <li><b>⟳ Engine:</b> restarts the CamillaDSP process (stops and restarts the audio engine).</li>
+        </ul>
+
+        <h3>EQ filter import (Imp EQ)</h3>
+        <p>Supports the following REW (Room EQ Wizard) and Equalizer APO export formats:</p>
+        <ul>
+          <li><b>REW Generic:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>Equalizer APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>HP/LP without Gain:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
+          <li><b>BW Octave:</b> <span class="kbd">Filter: ON PK Fc 500 Hz Gain -2 dB BW Oct 0.5</span></li>
+          <li>Supported types: PK/PEQ (Peaking), LS/LSC (Lowshelf), HS/HSC (Highshelf), HP/HPQ (Highpass), LP/LPQ (Lowpass).</li>
+          <li>Ignored types: NO (Notch), AP (Allpass), None.</li>
+          <li>Generic tab/space format: <span class="kbd">1000  3.0  1.41  PK</span></li>
+        </ul>
+        <div class="warn">Imported filters are assigned to the channel active at the time of import. Select the target channel in the EQ tab first.</div>
+
+        <h3>Config export / import</h3>
+        <ul>
+          <li><b>Exp Cfg:</b> downloads the full CamillaDSP YAML file (devices, pipeline, filters, mixing).</li>
+          <li><b>Imp Cfg:</b> loads a previously saved YAML or JSON file and applies it to the DSP.</li>
+          <li><b>Exp EQ:</b> exports current biquad filters as a text file (compatible with re-import).</li>
+        </ul>
+
+      </div><!-- /help-en -->
+
+    </div><!-- /help-body -->
+  </div><!-- /help-box -->
+</div><!-- /help-overlay -->
 
 <div id="toast"></div>
 <input type="file" id="file-input" style="display:none" accept=".yml,.yaml,.json,.txt">
@@ -1867,6 +2146,101 @@ window.addEventListener('load',async()=>{
   // Import YAML support via server
   await fetch('/api/import-support').catch(()=>{});
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LANGUAGE SWITCH
+// ═══════════════════════════════════════════════════════════════════════════
+let _lang = localStorage.getItem('cdsp_lang') || 'es';
+
+function applyLang(){
+  const isEs = _lang === 'es';
+  document.getElementById('help-es').style.display = isEs ? '' : 'none';
+  document.getElementById('help-en').style.display = isEs ? 'none' : '';
+  document.getElementById('help-title').textContent = isEs
+    ? 'CAMILLADSP CONSOLE — Ayuda'
+    : 'CAMILLADSP CONSOLE — Help';
+  document.getElementById('lang-btn').textContent = isEs ? 'ES/EN' : 'EN/ES';
+  // Tabs
+  const tabs = document.querySelectorAll('.tab');
+  if(isEs){
+    tabs[0].textContent='VÚMETROS'; tabs[1].innerHTML='EQ &amp; FILTROS';
+    tabs[2].textContent='CROSSOVERS'; tabs[3].textContent='MIXER';
+  } else {
+    tabs[0].textContent='METERS'; tabs[1].innerHTML='EQ &amp; FILTERS';
+    tabs[2].textContent='CROSSOVERS'; tabs[3].textContent='MIXER';
+  }
+  // View buttons
+  const vb = document.querySelectorAll('.view-btn');
+  if(vb.length>=3){
+    vb[0].textContent=isEs?'TODO':'ALL';
+    vb[1].textContent=isEs?'ENTRADAS':'INPUTS';
+    vb[2].textContent=isEs?'SALIDAS':'OUTPUTS';
+  }
+  // Top bar buttons (indices: WEB5005, ImpCfg, ExpCfg, ImpEQ, ExpEQ, Reset, Lang, Help)
+  const btns = document.querySelectorAll('.top-btn');
+  btns.forEach(b=>{
+    const t = b.textContent.trim();
+    if(t==='Imp Cfg'||t==='Imp Config') b.textContent=isEs?'Imp Cfg':'Imp Config';
+    if(t==='Exp Cfg'||t==='Exp Config') b.textContent=isEs?'Exp Cfg':'Exp Config';
+    if(t==='Imp EQ') b.textContent='Imp EQ';
+    if(t==='Exp EQ') b.textContent='Exp EQ';
+    if(t==='Reset') b.textContent='Reset';
+  });
+  // DSP stats labels
+  const statSpans = document.querySelectorAll('.dsp-stat');
+  if(statSpans.length>=3){
+    statSpans[0].childNodes[0].textContent = isEs ? 'State: ' : 'State: ';
+    statSpans[1].childNodes[0].textContent = isEs ? 'Buffer: ' : 'Buffer: ';
+    statSpans[2].childNodes[0].textContent = isEs ? 'DSP load: ' : 'DSP load: ';
+  }
+  // Mute all button
+  const muteAllBtn = document.getElementById('mute-all-btn');
+  if(muteAllBtn) muteAllBtn.textContent = isEs ? 'MUTE ALL' : 'MUTE ALL';
+  // Help button
+  const helpBtn = document.querySelector('[onclick="showHelp()"]');
+  if(helpBtn) helpBtn.innerHTML = isEs ? '?&nbsp;AYUDA' : '?&nbsp;HELP';
+  // Status text (only if still connecting)
+  const stTxt = document.getElementById('status-txt');
+  if(stTxt && (stTxt.textContent==='Conectando...'||stTxt.textContent==='Connecting...'))
+    stTxt.textContent = isEs ? 'Conectando...' : 'Connecting...';
+  if(stTxt && (stTxt.textContent==='Conectado'||stTxt.textContent==='Connected'))
+    stTxt.textContent = isEs ? 'Conectado' : 'Connected';
+  // Vista label
+  const vistaLbl = document.querySelector('#vu-top span[style*="color:#888"]');
+  if(vistaLbl) vistaLbl.textContent = isEs ? 'VISTA:' : 'VIEW:';
+  // Device panel labels
+  const devLabels = document.querySelectorAll('.device-lbl');
+  if(devLabels.length>=3){
+    devLabels[0].textContent='IN:'; devLabels[1].textContent='OUT:';
+    devLabels[2].textContent=isEs?'Chunk:':'Chunk:';
+  }
+  const dab = document.querySelector('.device-apply-btn');
+  if(dab) dab.textContent = isEs ? '↺ Actualizar' : '↺ Refresh';
+  const drb = document.querySelector('.device-restart-btn');
+  if(drb) drb.textContent = isEs ? '⟳ Motor' : '⟳ Engine';
+}
+
+function toggleLang(){
+  _lang = _lang === 'es' ? 'en' : 'es';
+  localStorage.setItem('cdsp_lang', _lang);
+  applyLang();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELP MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+function showHelp(){
+  applyLang(); // make sure content matches current language
+  document.getElementById('help-overlay').classList.add('show');
+}
+function closeHelp(evt){
+  if(evt && evt.target !== document.getElementById('help-overlay')) return;
+  document.getElementById('help-overlay').classList.remove('show');
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeHelp(null); });
+
+// Apply language on load (after DOM ready)
+document.addEventListener('DOMContentLoaded', ()=>{ applyLang(); });
 </script>
 </body>
 </html>
