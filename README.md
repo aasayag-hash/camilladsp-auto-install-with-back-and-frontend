@@ -179,19 +179,32 @@ WebSocket DSP:  ws://IP-DISPOSITIVO:1234     ← API directa del engine
 
 ---
 
-## Inicio automático con systemd (Linux)
+## Inicio automático al arranque
+
+El instalador configura el arranque automático de forma automática, con este orden de prioridad:
+
+1. **systemd (modo usuario)** — si está disponible (Debian, Ubuntu, Armbian, etc.)
+2. **rc.local** — fallback para sistemas sin systemd (OpenWrt, algunos TV-box)
+3. **cron @reboot** — último recurso si no hay systemd ni rc.local
+
+### Gestión manual (systemd)
 
 ```bash
-# Habilitar inicio tras reinicio
-systemctl --user enable camilladsp-engine.service
-systemctl --user enable camilladsp-gui.service
+# Ver estado del servicio unificado
+systemctl --user status camilladsp.service
 
-# Verificar estado
-systemctl --user status camilladsp-engine.service
+# Deshabilitar arranque automático
+systemctl --user disable camilladsp.service
+
+# Habilitar arranque automático (si se instaló con --no-service)
+systemctl --user enable camilladsp.service
+loginctl enable-linger $USER
 
 # Ver logs en vivo
-journalctl --user -u camilladsp-engine.service -f
+journalctl --user -u camilladsp.service -f
 ```
+
+> En sistemas headless (sin sesión de usuario al arrancar), el instalador habilita automáticamente `loginctl enable-linger` para que el servicio arranque sin login.
 
 ---
 

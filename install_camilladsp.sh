@@ -545,6 +545,71 @@ EOF
   log_ok "Config GUI creada"
 }
 
+# Autostart al arranque del sistema
+setup_autostart() {
+  local base="${INSTALL_BASE}"
+  local start_script="${base}/scripts/start_all.sh"
+
+  # --- systemd (modo usuario) ---
+  if command -v systemctl &>/dev/null; then
+    local unit_dir="$HOME/.config/systemd/user"
+    mkdir -p "$unit_dir"
+
+    cat > "${unit_dir}/camilladsp.service" << EOF
+[Unit]
+Description=CamillaDSP + GUI + Web Console
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=${start_script}
+ExecStop=${base}/scripts/stop_all.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+EOF
+
+    # Habilitar el servicio (requiere lingering para arranque sin sesión)
+    systemctl --user daemon-reload 2>/dev/null || true
+    systemctl --user enable camilladsp.service 2>/dev/null && \
+      loginctl enable-linger "$(whoami)" 2>/dev/null || true
+    log_ok "Autostart systemd habilitado (systemctl --user)"
+    return 0
+  fi
+
+  # --- rc.local (fallback para sistemas sin systemd) ---
+  local rc_local="/etc/rc.local"
+  local marker="# camilladsp-autostart"
+
+  if [ -f "$rc_local" ] || [ -d "/etc/rc.d" ]; then
+    if ! grep -q "$marker" "$rc_local" 2>/dev/null; then
+      # Insertar antes de 'exit 0' o al final
+      if grep -q "^exit 0" "$rc_local" 2>/dev/null; then
+        sed -i "s|^exit 0|${marker}\nbash ${start_script} &\n\nexit 0|" "$rc_local"
+      else
+        printf "\n%s\nbash %s &\n" "$marker" "$start_script" >> "$rc_local"
+      fi
+      chmod +x "$rc_local"
+    fi
+    log_ok "Autostart rc.local habilitado"
+    return 0
+  fi
+
+  # --- cron @reboot (último recurso) ---
+  if command -v crontab &>/dev/null; then
+    local existing
+    existing=$(crontab -l 2>/dev/null | grep -v "camilladsp-autostart" || true)
+    printf "%s\n@reboot sleep 10 && bash %s  # camilladsp-autostart\n" \
+      "$existing" "$start_script" | crontab -
+    log_ok "Autostart cron @reboot habilitado"
+    return 0
+  fi
+
+  log_warn "No se pudo configurar autostart (sin systemd, rc.local ni cron)"
+}
+
 # Main
 main() {
   # Capturar directorio del script antes de cualquier cambio de directorio
@@ -612,6 +677,12 @@ main() {
     log_step "Iniciando servicios..."
     bash "${INSTALL_BASE}/scripts/start_all.sh"
     sleep 3
+  fi
+
+  # Configurar arranque automático al inicio del sistema
+  if [ "$ARG_NO_SERVICE" != "1" ] && [ "$ARG_UPDATE" != "1" ]; then
+    log_step "Configurando autostart..."
+    setup_autostart
   fi
 
   local host_ip
