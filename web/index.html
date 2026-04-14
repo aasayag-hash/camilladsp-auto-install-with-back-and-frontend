@@ -1578,8 +1578,13 @@ function setupEQInteraction(){
 
   // Double-click (desktop) / double-tap (touch via dblclick) → add filter
   cv.addEventListener('dblclick',e=>{
+    // Si el doble-tap cayó sobre un botón Q del tooltip, ignorar (no crear filtro)
+    const ox=e.offsetX, oy=e.offsetY;
+    const hm=eqQHitRects.minus, hp=eqQHitRects.plus;
+    if(hm && ox>=hm.x && ox<=hm.x+hm.w && oy>=hm.y && oy<=hm.y+hm.h) return;
+    if(hp && ox>=hp.x && ox<=hp.x+hp.w && oy>=hp.y && oy<=hp.y+hp.h) return;
     if(!visibleIn.size&&!visibleOut.size){toast('Selecciona al menos un canal');return;}
-    createEQFilters(xToF(e.offsetX,cv.clientWidth),eqYToDb(e.offsetY,cv.clientHeight));
+    createEQFilters(xToF(ox,cv.clientWidth),eqYToDb(oy,cv.clientHeight));
   });
 
   // Mouse interactions
