@@ -40,7 +40,7 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 .tab-page.active{display:flex}
 
 /* VU tab */
-#vu-top{display:flex;align-items:center;gap:8px;padding:4px 8px 10px;flex-shrink:0;border-bottom:1px solid #222}
+#vu-top{display:flex;align-items:center;gap:8px;padding:4px 8px;flex-shrink:0;border-bottom:1px solid #222}
 .view-btn{height:24px;padding:0 12px;border:1px solid #444;border-radius:3px;background:#222;color:#ccc;cursor:pointer;font-weight:bold;font-size:11px}
 .view-btn.active{background:#007bff;color:#fff;border-color:#0ff}
 #vu-meters-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-end;padding:4px 8px;gap:2px;background:#050505;flex-shrink:0;height:190px}
@@ -727,55 +727,55 @@ function makeFaderStrip(name,chIdx,initDb,mode){
 function drawVU(w){
   const cv=w.canvas; const {width:W,height:H}=cv; const ctx=w.ctx;
   ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
-  const fh=22, bh=H-fh, bx=22, bw=18;
-  ctx.fillStyle='#222'; ctx.fillRect(bx,0,bw,bh);
+  const fh=22, topM=8, bh=H-fh-topM, bx=22, bw=18;
+  ctx.fillStyle='#222'; ctx.fillRect(bx,topM,bw,bh);
   // Scale labels LEFT side of bar — all white
   ctx.font='7px Arial'; ctx.textAlign='right';
   for(const db of [0,-6,-12,-24,-40,-60,-80]){
-    const y=bh-((db+80)/80*bh);
+    const y=topM+bh-((db+80)/80*bh);
     ctx.fillStyle='#555'; ctx.fillRect(bx-4,~~y,4,1);
     ctx.fillStyle=(db===0)?'#0f0':'#fff';
     ctx.fillText(String(db),bx-6,y+3);
   }
   // Level bar
   const lh=Math.max(0,(Math.max(-80,w.level)+80)/80*bh);
-  const grad=ctx.createLinearGradient(0,bh,0,0);
+  const grad=ctx.createLinearGradient(0,topM+bh,0,topM);
   grad.addColorStop(0,'#00aa00'); grad.addColorStop(0.7,'#aaaa00'); grad.addColorStop(0.9,'#aa0000');
-  ctx.fillStyle=grad; ctx.fillRect(bx,bh-lh,bw,lh);
+  ctx.fillStyle=grad; ctx.fillRect(bx,topM+bh-lh,bw,lh);
 
   // GR bar + scale (compressor) RIGHT side, visible only on wider canvas
   if(w.isOut&&w.compTh!==null){
     const gr=w.grLevel||0;
     if(gr>0.1){
       const grH=Math.min(bh,(gr/30)*bh);
-      ctx.fillStyle='rgba(255,140,0,0.9)'; ctx.fillRect(bx+bw+2,0,4,grH);
+      ctx.fillStyle='rgba(255,140,0,0.9)'; ctx.fillRect(bx+bw+2,topM,4,grH);
     }
     // Threshold line
     if(w.compTh!==null&&w.compTh!==0){
-      const thy=bh-((w.compTh+80)/80*bh);
-      ctx.fillStyle='rgba(255,0,0,0.25)'; ctx.fillRect(bx,0,bw,thy);
+      const thy=topM+bh-((w.compTh+80)/80*bh);
+      ctx.fillStyle='rgba(255,0,0,0.25)'; ctx.fillRect(bx,topM,bw,thy-topM);
       ctx.strokeStyle='#f00'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(bx,thy); ctx.lineTo(bx+bw,thy); ctx.stroke();
     }
     // GR scale labels (only on wider output canvas)
     if(W>54){
       ctx.font='bold 6px Arial'; ctx.fillStyle='#ffa040'; ctx.textAlign='center';
-      ctx.fillText('GR',bx+bw+8,bh+16);
+      ctx.fillText('GR',bx+bw+8,topM+bh+16);
       ctx.font='6px Arial'; ctx.textAlign='left';
       for(const [grDb,lbl] of [[0,'0'],[6,'6'],[12,'12'],[20,'20']]){
-        const gy=~~((grDb/30)*bh);
+        const gy=topM+~~((grDb/30)*bh);
         ctx.fillStyle='#553'; ctx.fillRect(bx+bw+7,gy,3,1);
-        ctx.fillStyle='#ffa040'; ctx.fillText(lbl,bx+bw+11,Math.max(5,gy+3));
+        ctx.fillStyle='#ffa040'; ctx.fillText(lbl,bx+bw+11,Math.max(topM+3,gy+3));
       }
     }
   }
 
   // Peak hold
-  const py=bh-((Math.max(-80,w.peak)+80)/80*bh);
+  const py=topM+bh-((Math.max(-80,w.peak)+80)/80*bh);
   ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(bx-2,py); ctx.lineTo(bx+bw+2,py); ctx.stroke();
-  ctx.fillStyle='#ff0'; ctx.font='bold 7px Arial'; ctx.textAlign='center'; ctx.fillText(w.peak.toFixed(1),bx+bw/2,Math.max(8,py-3));
+  ctx.fillStyle='#ff0'; ctx.font='bold 7px Arial'; ctx.textAlign='center'; ctx.fillText(w.peak.toFixed(1),bx+bw/2,Math.max(topM+6,py-3));
 
   // Name area
-  const nameY=bh+4;
+  const nameY=topM+bh+4;
   if(w.isOut){
     ctx.fillStyle=w.isMuted?'#f00':'#0f0'; ctx.font='bold 8px Arial';
     ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+7);
