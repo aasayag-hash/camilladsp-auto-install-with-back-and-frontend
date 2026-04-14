@@ -2242,7 +2242,16 @@ async function renameLabel(domain,idx,newName){
       await patchCfg({mixers:{[mixName]:{labels}}});
     }
   }
-  buildChannelPanel(); buildVU(); renderEQGraph(); renderCrossGraph(); renderMixer();
+  // Actualizar nombres en los widgets existentes sin reconstruir todo
+  if(domain==='in'){
+    const w=vuWidgets[`in_${idx}`]; if(w){ w.name=newName; drawVU(w); }
+    const b=document.getElementById(`btn-in-${idx}`); if(b) b.textContent=`🔊 ${newName}`;
+  } else {
+    const w=vuWidgets[`out_${idx}`]; if(w){ w.name=newName; drawVU(w); }
+    const nameDiv=document.querySelector(`#fader-out-${idx} .fader-name`); if(nameDiv) nameDiv.textContent=newName.substring(0,8);
+    const b=document.getElementById(`btn-out-${idx}`); if(b) b.textContent=`🔊 ${newName}`;
+  }
+  renderEQGraph(); renderCrossGraph(); renderMixer();
   buildEQTable(); buildCrossTable();
   toast(`Renombrado: ${domain.toUpperCase()} ${idx} → "${newName}"`);
 }
