@@ -161,10 +161,25 @@ def _cdsp_gui_get(path):
     with urllib.request.urlopen(f"{CDSP_GUI}{path}", timeout=5) as r:
         return json.loads(r.read())
 
+def _get_alsa_hw(mode):
+    cmd = "arecord -L" if mode == "capture" else "aplay -L"
+    devs = []
+    try:
+        out = subprocess.check_output(cmd, shell=True, text=True)
+        for line in out.splitlines():
+            if line and not line.startswith(" ") and not line.startswith("null") and not line.startswith("default"):
+                devs.append(line.strip())
+    except Exception:
+        pass
+    return sorted(list(set(devs)))
+
 @app.route("/api/capturedevices")
 def get_capture_devices():
     try:
-        data = _cdsp_gui_get("/api/capturedevices/Alsa")
+        # Fallback a CamillaGUI si _get_alsa_hw falla, pero nativo primero
+        data = _get_alsa_hw("capture")
+        if not data:
+            data = _cdsp_gui_get("/api/capturedevices/Alsa")
         return jsonify({"ok": True, "devices": data})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "devices": []})
@@ -172,7 +187,9 @@ def get_capture_devices():
 @app.route("/api/playbackdevices")
 def get_playback_devices():
     try:
-        data = _cdsp_gui_get("/api/playbackdevices/Alsa")
+        data = _get_alsa_hw("playback")
+        if not data:
+            data = _cdsp_gui_get("/api/playbackdevices/Alsa")
         return jsonify({"ok": True, "devices": data})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "devices": []})
