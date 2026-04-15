@@ -398,12 +398,12 @@ unmute_alsa() {
   log_step "Desmuteando tarjetas de sonido ALSA (prevención de seguridad de Linux)..."
   if command -v amixer >/dev/null 2>&1; then
     for card in $(aplay -l 2>/dev/null | grep '^card' | awk '{print $2}' | sed 's/://g' | sort -u); do
-      amixer -c $card sset Master playback 75% unmute >/dev/null 2>&1 || true
-      amixer -c $card sset PCM playback 75% unmute >/dev/null 2>&1 || true
-      amixer -c $card sset Speaker playback 75% unmute >/dev/null 2>&1 || true
-      amixer -c $card sset Front playback 75% unmute >/dev/null 2>&1 || true
-      # Activar captura de Linea pero silenciar la reproducción (anula el hardware loopback/monitoring)
-      amixer -c $card sset Line capture 75% unmute >/dev/null 2>&1 || true
+      amixer -c $card sset Master playback 100% unmute >/dev/null 2>&1 || true
+      amixer -c $card sset PCM playback 100% unmute >/dev/null 2>&1 || true
+      amixer -c $card sset Speaker playback 100% unmute >/dev/null 2>&1 || true
+      amixer -c $card sset Front playback 100% unmute >/dev/null 2>&1 || true
+      # Activar captura de Linea a 0% (unity gain en interfaces pro) y silenciar hardware loopback
+      amixer -c $card sset Line capture 0% unmute >/dev/null 2>&1 || true
       amixer -c $card sset Line playback 0% mute >/dev/null 2>&1 || true
     done
     log_ok "Tarjetas desmuteadas y loopback deshabilitado."
