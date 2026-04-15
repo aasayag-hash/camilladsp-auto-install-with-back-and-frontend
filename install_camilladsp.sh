@@ -59,8 +59,55 @@ header() {
   echo -e "║         CamillaDSP  —  Instalador Automático             ║"
   echo -e "║    Engine  +  GUI Backend  +  Frontend                   ║"
   printf  "║                                         v%-19s║\n" "$SCRIPT_VERSION"
-  echo -e "╚══════════════════════════════════════════════════════════╝${RESET}"
-  echo -e ""
+}
+
+# Limpieza profunda de instalaciones previas
+cleanup_previous_install() {
+  local found_svcs
+  found_svcs=$(systemctl list-unit-files --all 'camilla*' 2>/dev/null | grep 'camilla' | awk '{print $1}')
+
+  if [ -n "$found_svcs" ]; then
+    echo -e "${YELLOW}${BOLD}⚠ SE DETECTÓ UNA INSTALACIÓN PREVIA DE CAMILLADSP${RESET}"
+    echo -e "Servicios encontrados:"
+    echo "$found_svcs" | sed 's/^/  - /'
+    echo ""
+    echo -n " ¿Desea realizar una LIMPIEZA PROFUNDA antes de continuar? (Borrará directorios y servicios camilla*) [s/N]: "
+    read -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Ss]$ ]]; then
+      log_step "Iniciando limpieza profunda..."
+      
+      # Detener y deshabilitar servicios
+      echo "$found_svcs" | while read -r svc; do
+        log_info "Eliminando servicio: $svc"
+        sudo systemctl stop "$svc" 2>/dev/null || true
+        sudo systemctl disable "$svc" 2>/dev/null || true
+        # Intentar modo usuario también
+        systemctl --user stop "$svc" 2>/dev/null || true
+        systemctl --user disable "$svc" 2>/dev/null || true
+      done
+
+      # Borrar archivos de unidad en el sistema
+      log_info "Borrando archivos de unidad systemd..."
+      sudo rm -f /etc/systemd/system/camilla* 2>/dev/null
+      sudo rm -f /usr/lib/systemd/system/camilla* 2>/dev/null
+      rm -f "$HOME/.config/systemd/user/camilla*" 2>/dev/null
+
+      # Recargar systemd
+      sudo systemctl daemon-reload 2>/dev/null || true
+      sudo systemctl reset-failed 2>/dev/null || true
+      systemctl --user daemon-reload 2>/dev/null || true
+
+      # Borrar directorios en todo el sistema (excepto el actual)
+      log_info "Buscando y borrando directorios camilla* en todo el sistema..."
+      # Excluimos el directorio actual para no borrar el instalador mismo
+      sudo find / -name "camilla*" -type d ! -path "$(pwd)*" -prune -exec rm -rf {} + 2>/dev/null
+      
+      log_ok "Limpieza completada. Continuando con la instalación limpia."
+    else
+      log_info "Continuando sin limpieza profunda."
+    fi
+  fi
 }
 
 # Detección de sistema
@@ -617,6 +664,7 @@ main() {
 
   header
   detect_system
+  cleanup_previous_install
   get_install_base
 
   log_info "Sistema: $(uname -s) $(uname -m)"

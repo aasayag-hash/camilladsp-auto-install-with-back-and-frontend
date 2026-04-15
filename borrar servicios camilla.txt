@@ -1,0 +1,22 @@
+systemctl list-unit-files | grep camilla | awk '{print $1}' | while read svc; do
+  echo "Eliminando $svc"
+  sudo systemctl stop "$svc" 2>/dev/null
+  sudo systemctl disable "$svc" 2>/dev/null
+done
+
+# borrar en ambas ubicaciones
+sudo rm -f /etc/systemd/system/camilla*
+sudo rm -f /usr/lib/systemd/system/camilla*
+
+# recargar systemd
+sudo systemctl daemon-reload
+sudo systemctl reset-failed
+
+systemctl list-unit-files | grep camilla
+
+
+si no anda:
+
+apt update
+apt install -y python3-pip
+python3 -m pip install flask
