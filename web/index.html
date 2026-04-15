@@ -216,6 +216,7 @@ table.ftable tr:hover td{background:#1a1a1a}
   <h1>CAMILLADSP CONSOLE</h1>
   <div id="dsp-stats">
     <span class="dsp-stat">State: <span id="dsp-state">—</span></span>
+    <button class="top-btn danger" id="recovery-btn" onclick="recoverEngine()" style="display:none;padding:0 5px;font-size:10px;height:20px;border-color:#f00;margin-left:5px" title="Fuerza una configuración segura de fábrica para destrabar el motor">Recovery Config</button>
     <span class="dsp-stat">Buffer: <span id="dsp-buf">—</span></span>
     <span class="dsp-stat">DSP load: <span id="dsp-load">—</span></span>
     <span class="dsp-stat">CPU: <span id="cpu-load">—</span></span>
@@ -771,6 +772,10 @@ async function fetchStatus(){
   stEl.textContent=st;
   stEl.className= st==='Running'?'dsp-state-run':
                   (st==='Error'||st==='Stalled')?'dsp-state-err':'';
+  
+  const recBtn=document.getElementById('recovery-btn');
+  if(recBtn) recBtn.style.display=(st==='Error')?'inline-block':'none';
+
   buEl.textContent= r.buffer!=null ? String(r.buffer) : '—';
   ldEl.textContent= r.load!=null   ? r.load.toFixed(1)+'%' : '—';
   // CPU cada ~1s (20 × 50ms)
@@ -783,6 +788,17 @@ async function fetchStatus(){
 }
 async function setVolume(db){
   await apiPost('/api/volume',{volume:db});
+}
+async function recoverEngine(){
+  if(!confirm('¿El motor ALSA colapsó? Esto inyectará una configuración de emergencia (hw:1,0) para destrabarlo. ¿Continuar?')) return;
+  toast('Aplicando Rescue Config...');
+  try {
+    await fetch('/api/recovery', {method: 'POST'});
+    toast('Reiniciando DSP...');
+    setTimeout(() => location.reload(), 3000);
+  } catch(e) {
+    toast('Error en recovery');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

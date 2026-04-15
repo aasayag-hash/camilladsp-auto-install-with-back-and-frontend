@@ -225,6 +225,35 @@ def restart_engine():
         pass
     return jsonify({"ok": True})
 
+@app.route("/api/recovery", methods=["POST"])
+def recover_engine():
+    try:
+        cfg = load_yaml_config()
+        if "capture" in cfg.get("devices", {}):
+            cfg["devices"]["capture"]["device"] = "hw:1,0"
+            cfg["devices"]["capture"]["channels"] = 4
+        if "playback" in cfg.get("devices", {}):
+            cfg["devices"]["playback"]["device"] = "hw:1,0"
+            cfg["devices"]["playback"]["channels"] = 4
+        if "devices" in cfg:
+            cfg["devices"]["chunksize"] = 1024
+        
+        save_yaml_config(cfg)
+        
+        try:
+            r1 = urllib.request.Request(f"{CDSP_GUI}/api/stopcamilladsp", method="GET")
+            urllib.request.urlopen(r1, timeout=3)
+        except Exception: pass
+        
+        try:
+            r2 = urllib.request.Request(f"{CDSP_GUI}/api/startcamilladsp", method="GET")
+            urllib.request.urlopen(r2, timeout=3)
+        except Exception: pass
+            
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
 # ── Presets ───────────────────────────────────────────────────────────────────
 def _preset_path(name):
     # Sanitize: keep only alphanumeric, spaces, hyphens, underscores
