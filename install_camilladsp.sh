@@ -393,24 +393,6 @@ install_gui() {
   return 0
 }
 
-# Desmutear ALSA
-unmute_alsa() {
-  log_step "Desmuteando tarjetas de sonido ALSA (prevención de seguridad de Linux)..."
-  if command -v amixer >/dev/null 2>&1; then
-    for card in $(aplay -l 2>/dev/null | grep '^card' | awk '{print $2}' | sed 's/://g' | sort -u); do
-      amixer -c $card sset Master playback 100% unmute >/dev/null 2>&1 || true
-      amixer -c $card sset PCM playback 100% unmute >/dev/null 2>&1 || true
-      amixer -c $card sset Speaker playback 100% unmute >/dev/null 2>&1 || true
-      amixer -c $card sset Front playback 100% unmute >/dev/null 2>&1 || true
-      # Activar captura de Linea a 0% (unity gain en interfaces pro) y silenciar hardware loopback
-      amixer -c $card sset Line capture 0% unmute >/dev/null 2>&1 || true
-      amixer -c $card sset Line playback 0% mute >/dev/null 2>&1 || true
-    done
-    log_ok "Tarjetas desmuteadas y loopback deshabilitado."
-  else
-    log_warn "Comando amixer no encontrado. ALSA podría seguir en silencio."
-  fi
-}
 
 # Liberar puertos y detener servicios conflictivos
 stop_conflicting_services() {
@@ -789,8 +771,6 @@ main() {
     setup_autostart
   fi
 
-  # Asegurar de que ningún dispositivo o tarjeta de sonido USB inicia muteado desde Linux nativamente
-  unmute_alsa
 
   local host_ip
   host_ip=$(hostname -I 2>/dev/null | awk '{print $1}')
