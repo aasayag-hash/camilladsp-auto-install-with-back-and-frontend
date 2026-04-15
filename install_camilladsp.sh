@@ -132,7 +132,7 @@ detect_system() {
 # Verificación y resolución de dependencias
 check_system_dependencies() {
   log_step "Verificando dependencias del sistema..."
-  local deps="curl wget jq sshpass gettext"
+  local deps="curl wget jq"
   local missing=""
 
   if command -v apt-get &>/dev/null; then
