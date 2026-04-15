@@ -715,6 +715,11 @@ main() {
     fi
   fi
 
+  # Liberar puertos y detener procesos anteriores para evitar el error "Text file busy" al copiar binarios
+  if [ "$ARG_NO_SERVICE" != "1" ]; then
+    stop_conflicting_services
+  fi
+
   # Instalar engine
   log_step "Instalando Engine..."
   install_engine
@@ -751,11 +756,6 @@ main() {
   mkdir -p "${INSTALL_BASE}/logs"
   mkdir -p "${INSTALL_BASE}/pids"
   mkdir -p "${INSTALL_BASE}/scripts"
-
-  # Liberar puertos y detener servicios conflictivos antes de iniciar
-  if [ "$ARG_NO_SERVICE" != "1" ]; then
-    stop_conflicting_services
-  fi
 
   # Iniciar servicios
   if [ "$ARG_NO_SERVICE" != "1" ]; then
