@@ -129,6 +129,42 @@ detect_system() {
   esac
 }
 
+# Verificación y resolución de dependencias
+check_system_dependencies() {
+  log_step "Verificando dependencias del sistema..."
+  local deps="curl wget jq sshpass gettext"
+  local missing=""
+
+  if command -v apt-get &>/dev/null; then
+    for dep in $deps; do
+      if ! command -v $dep &>/dev/null; then
+        missing="$missing $dep"
+      fi
+    done
+
+    # Revisar python-pip específicamente
+    if ! command -v pip &>/dev/null && ! command -v pip3 &>/dev/null; then
+      missing="$missing python3-pip"
+    fi
+
+    if [ -n "$missing" ]; then
+      log_info "Instalando dependencias faltantes: $missing"
+      if [ "$(id -u)" = "0" ]; then
+        apt-get update -qq && apt-get install -y -qq $missing
+      elif command -v sudo &>/dev/null; then
+        # Actualizamos apt cache
+        sudo apt-get update -qq && sudo apt-get install -y -qq $missing
+      else
+        log_warn "Sudo no encontrado. No se pudieron instalar dependencias automáticamente."
+      fi
+    else
+      log_ok "Dependencias de sistema completas."
+    fi
+  else
+    log_info "Gestor de paquetes apt no detectado (asumiendo entorno pre-configurado)."
+  fi
+}
+
 get_install_base() {
   if [ -n "$ARG_DIR" ]; then
     INSTALL_BASE="$ARG_DIR"
@@ -664,6 +700,7 @@ main() {
 
   header
   detect_system
+  check_system_dependencies
   cleanup_previous_install
   get_install_base
 
