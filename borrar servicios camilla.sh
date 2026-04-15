@@ -13,3 +13,10 @@ sudo systemctl daemon-reload
 sudo systemctl reset-failed
 
 systemctl list-unit-files | grep camilla
+
+
+si no anda:
+
+apt update
+apt install -y python3-pip
+python3 -m pip install flask
