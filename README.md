@@ -1,6 +1,6 @@
 # CamillaDSP Web Console
 
-Instalador automático para **CamillaDSP** con interfaz web completa para ecualización gráfica y paramétrica, crossovers, compresión dinámica y control de dispositivos de audio.
+Instalador automático para **CamillaDSP** con interfaz web completa para ecualización gráfica y paramétrica, crossovers, compresión dinámica y control de dispositivos de audio. Funciona desde cualquier navegador de la red local, incluyendo tablets y teléfonos táctiles.
 
 ---
 
@@ -27,11 +27,13 @@ La consola web (`http://IP-DISPOSITIVO:5000`) cuenta con 5 pestañas:
 - Indicador de reducción de ganancia del compresor (GR) por canal
 - Peak hold con retención de 2 segundos
 - Indicador visual del umbral del compresor
-- Faders de ganancia por canal (−∞ a +6 dB), arrastre con valor en tiempo real
+- **Fader MAIN** más largo, con botón **MUTE ALL** al fondo de su columna
+- Faders de ganancia por canal (−∞ a +10 dB), arrastre con valor en tiempo real
+- Longpress sobre un fader: resetea a 0 dB (en dispositivos táctiles)
 - Control de polaridad (inversión de fase) por canal
 - Retardo (delay) configurable en milisegundos por canal
 - Mute individual por canal y MUTE ALL global
-- Volumen maestro
+- **Bypass de canal por longpress** (400 ms): desactiva el EQ del canal sin eliminar filtros; el botón muestra 🔴; longpress de nuevo para desactivar
 - Tabla de compresores: Attack, Release, Threshold, Ratio, Makeup, ClipLimiter, Auto-release
 
 ### GRAPHIC EQ
@@ -41,7 +43,7 @@ La consola web (`http://IP-DISPOSITIVO:5000`) cuenta con 5 pestañas:
   `20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz`
 - **Multiselección de canales**: aplicar a uno o varios canales de entrada simultáneamente (botón ALL o toggle individual)
 - Tooltip con valor exacto en dB durante el arrastre
-- Doble clic sobre una banda para resetearla a 0 dB
+- Doble clic / doble tap sobre una banda para resetearla a 0 dB
 - Botones **Flat** (todas las bandas a 0) y **Reset canal** (elimina el filtro del pipeline)
 - Solo aplicable a canales de **entrada**
 - Filtro generado en CamillaDSP: `BiquadCombo / GraphicEqualizer`
@@ -49,9 +51,14 @@ La consola web (`http://IP-DISPOSITIVO:5000`) cuenta con 5 pestañas:
 ### PARAMETRIC EQ
 - Ecualizador paramétrico de precisión por canal (entradas y salidas)
 - Gráfico de respuesta en frecuencia interactivo (20 Hz – 20 kHz, ±18 dB)
-- Clic en el gráfico para añadir filtros; curva total en blanco
+- Clic / doble tap en el gráfico para añadir filtros; curva total en blanco
+- Arrastrar un punto para mover el filtro en frecuencia y ganancia
+- Clic derecho / longpress sobre un punto para eliminar ese filtro
+- **Botones Q táctiles**: al tocar un filtro aparece un tooltip con botones [−] y [+] para ajustar el factor Q en pasos de 0.1
 - Tipos de filtro: Peaking, Highshelf, Lowshelf, Highpass, Lowpass
 - Parámetros editables: Frecuencia, Ganancia, Q
+- **Tabla de filtros con scroll** cuando no entran todos en pantalla
+- **Bypass de canal**: longpress sobre el botón de canal desactiva el EQ temporalmente sin eliminar filtros
 - **Importación de filtros REW / Equalizer APO**:
   - Formato REW Generic: `Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41`
   - Formato Equalizer APO: `Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41`
@@ -63,9 +70,11 @@ La consola web (`http://IP-DISPOSITIVO:5000`) cuenta con 5 pestañas:
 - Tipos: Butterworth LP/HP y Linkwitz-Riley LP/HP
 - Órdenes: 2 (12 dB/oct), 4 (24 dB/oct), 8 (48 dB/oct)
 - Gráfico de respuesta por canal; asignables a canales de salida
+- **Tabla de crossovers con scroll** cuando no entran todos en pantalla
 
 ### MIXER
 - Matriz de mezcla: enruta y combina entradas hacia salidas
+- **Renombrado de canales inline**: doble tap sobre la etiqueta abre un cuadro de texto en pantalla sin salir de pantalla completa; el nombre se actualiza instantáneamente en vúmetros, faders y botones de canal
 - Selector de tarjeta de sonido de captura (IN) y reproducción (OUT) con dispositivos ALSA en tiempo real
 - Selector de Chunksize: 128 / 256 / 512 / 1024 / 2048 / 4096 muestras
 - Botón de reinicio del motor de audio (⟳ Motor)
@@ -75,7 +84,16 @@ La consola web (`http://IP-DISPOSITIVO:5000`) cuenta con 5 pestañas:
 - Estado en tiempo real: **State**, **Buffer level**, **DSP load** (actualización cada 200 ms)
 - Botones: Imp Cfg / Exp Cfg (YAML completo), Imp EQ / Exp EQ (filtros paramétricos), Reset
 - **Cambio de idioma ES/EN** (persiste entre sesiones)
-- **Panel de ayuda** completo integrado en la interfaz
+- **Botón de pantalla completa (⛶)**: activa/desactiva fullscreen en dispositivos táctiles; también se activa automáticamente al primer toque
+- **Panel de ayuda** completo integrado en la interfaz (ES/EN)
+
+### Soporte táctil completo
+- Tap = clic, longpress (400 ms) = clic derecho, doble tap = doble clic
+- Bypass de canal por longpress sobre el botón de canal
+- Ajuste de Q por botones táctiles en el tooltip del EQ paramétrico
+- Renombrado de canales sin salir de pantalla completa
+- Scroll en tablas de filtros (EQ y crossovers) en pantallas pequeñas
+- Fader MAIN de mayor longitud para control ergonómico
 
 ---
 

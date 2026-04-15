@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """CamillaDSP Web GUI — Servidor Flask"""
-import json, threading, os
+import json, threading, os, subprocess
 from flask import Flask, jsonify, request, send_file, Response
 import websocket, urllib.request
 
 # Configurable — el instalador reemplaza este path
-INSTALL_BASE = "/root/camilladsp"
-CDSP_WS      = "ws://127.0.0.1:1234"
-CFG_FILE     = INSTALL_BASE + "/config/camilladsp.yml"
-WEB_DIR      = os.path.dirname(os.path.abspath(__file__))
-WEB_PORT     = 5000
+INSTALL_BASE  = "/root/camilladsp"
+CDSP_WS       = "ws://127.0.0.1:1234"
+CFG_FILE      = INSTALL_BASE + "/config/camilladsp.yml"
+PRESETS_DIR   = INSTALL_BASE + "/config/presets"
+WEB_DIR       = os.path.dirname(os.path.abspath(__file__))
+WEB_PORT      = 5000
+
+os.makedirs(PRESETS_DIR, exist_ok=True)
 
 app = Flask(__name__)
 _lock = threading.Lock()
@@ -189,6 +192,89 @@ def restart_engine():
     except Exception:
         pass
     return jsonify({"ok": True})
+
+# ── Presets ───────────────────────────────────────────────────────────────────
+def _preset_path(name):
+    # Sanitize: keep only alphanumeric, spaces, hyphens, underscores
+    safe = "".join(c for c in name if c.isalnum() or c in (" ", "-", "_")).strip()
+    if not safe:
+        raise ValueError("Invalid preset name")
+    return os.path.join(PRESETS_DIR, safe + ".yml")
+
+@app.route("/api/cpuload", methods=["GET"])
+def get_cpu_load():
+    try:
+        out = subprocess.check_output(
+            "top -bn1 | awk '/Cpu/ {print 100 - $8}'",
+            shell=True, text=True, timeout=3
+        ).strip()
+        return jsonify({"ok": True, "cpu": out + "%"})
+    except Exception as e:
+        return jsonify({"ok": False, "cpu": "—"})
+
+@app.route("/api/presets", methods=["GET"])
+def list_presets():
+    try:
+        files = sorted(
+            f[:-4] for f in os.listdir(PRESETS_DIR)
+            if f.endswith(".yml")
+        )
+        return jsonify({"ok": True, "presets": files})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "presets": []})
+
+@app.route("/api/presets/save", methods=["POST"])
+def save_preset():
+    try:
+        name = request.json.get("name", "").strip()
+        cfg  = request.json.get("config")
+        if not name or not cfg:
+            return jsonify({"ok": False, "error": "Missing name or config"}), 400
+        path = _preset_path(name)
+        if HAS_YAML:
+            with open(path, "w") as f:
+                yaml.dump(cfg, f, default_flow_style=False, sort_keys=False, allow_unicode=True)
+        else:
+            with open(path, "w") as f:
+                json.dump(cfg, f)
+        return jsonify({"ok": True, "name": os.path.basename(path)[:-4]})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/presets/load", methods=["POST"])
+def load_preset():
+    try:
+        name = request.json.get("name", "").strip()
+        if not name:
+            return jsonify({"ok": False, "error": "Missing name"}), 400
+        path = _preset_path(name)
+        if not os.path.exists(path):
+            return jsonify({"ok": False, "error": "Preset not found"}), 404
+        if HAS_YAML:
+            with open(path, "r") as f:
+                cfg = yaml.safe_load(f) or {}
+        else:
+            with open(path, "r") as f:
+                cfg = json.load(f)
+        # Apply to DSP
+        cdsp("SetConfigJson", json.dumps(cfg))
+        save_yaml_config(cfg)
+        return jsonify({"ok": True, "config": cfg})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/api/presets/delete", methods=["POST"])
+def delete_preset():
+    try:
+        name = request.json.get("name", "").strip()
+        if not name:
+            return jsonify({"ok": False, "error": "Missing name"}), 400
+        path = _preset_path(name)
+        if os.path.exists(path):
+            os.remove(path)
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
     print(f"CamillaDSP Web GUI → http://0.0.0.0:{WEB_PORT}")

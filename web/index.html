@@ -105,6 +105,7 @@ table.ftable select{background:#222;color:#fff;border:1px solid #444;padding:2px
 table.ftable tr:hover td{background:#1a1a1a}
 
 /* Mixer */
+#mixer-main{display:flex;flex:1;overflow:hidden;min-height:0}
 #mixer-scroll{flex:1;overflow:auto}
 #mixer-canvas{display:block;cursor:pointer}
 #device-panel{flex-shrink:0;padding:6px 8px;background:#0a0a0a;border-top:1px solid #222}
@@ -116,6 +117,23 @@ table.ftable tr:hover td{background:#1a1a1a}
 .device-apply-btn:hover{background:#222;border-color:#0ff}
 .device-restart-btn{height:24px;padding:0 10px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:3px;background:linear-gradient(180deg,#1a3a1a,#0a1a0a);color:#0f0;cursor:pointer;white-space:nowrap}
 .device-restart-btn:hover{background:linear-gradient(180deg,#2a5a2a,#0a2a0a);border-color:#0f0}
+/* Presets panel */
+#presets-panel{width:160px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid #222;background:#0a0a0a;padding:6px;gap:5px}
+#presets-panel .pset-title{font-size:11px;color:#0ff;font-weight:bold;text-align:center;letter-spacing:1px;padding-bottom:4px;border-bottom:1px solid #222}
+#presets-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px;min-height:0;-webkit-overflow-scrolling:touch}
+.pset-item{display:flex;align-items:center;gap:3px;padding:3px 5px;border-radius:3px;background:#111;border:1px solid #2a2a2a;cursor:pointer;transition:background .1s}
+.pset-item:hover,.pset-item.selected{background:#1a2a3a;border-color:#0ff}
+.pset-item.selected{border-color:#0af}
+.pset-item-name{flex:1;font-size:11px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pset-item.selected .pset-item-name{color:#0ff}
+.pset-del{background:none;border:none;color:#555;font-size:12px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}
+.pset-del:hover{color:#f44}
+.pset-btn{height:26px;width:100%;font-size:10px;font-weight:bold;border-radius:3px;cursor:pointer;border:1px solid #555;white-space:nowrap}
+#pset-save-btn{background:linear-gradient(180deg,#1a3a1a,#0a1a0a);color:#0f0;border-color:#0a5a0a}
+#pset-save-btn:hover{background:linear-gradient(180deg,#2a5a2a,#0a2a0a);border-color:#0f0}
+#pset-load-btn{background:linear-gradient(180deg,#1a2a4a,#0a1020);color:#4af;border-color:#1a4a8a}
+#pset-load-btn:hover{background:linear-gradient(180deg,#1a3a6a,#0a1a30);border-color:#4af}
+#pset-load-btn:disabled{opacity:.4;cursor:default}
 
 /* Fader */
 .strip{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
@@ -196,16 +214,14 @@ table.ftable tr:hover td{background:#1a1a1a}
 <div id="topbar">
   <div id="status-dot"></div>
   <h1>CAMILLADSP CONSOLE</h1>
-  <span id="status-txt">Conectando...</span>
   <div id="dsp-stats">
     <span class="dsp-stat">State: <span id="dsp-state">—</span></span>
     <span class="dsp-stat">Buffer: <span id="dsp-buf">—</span></span>
     <span class="dsp-stat">DSP load: <span id="dsp-load">—</span></span>
+    <span class="dsp-stat">CPU: <span id="cpu-load">—</span></span>
   </div>
   <div style="flex:1"></div>
   <button class="top-btn web" onclick="window.open('http://'+location.hostname+':5005','_blank')">WEB 5005</button>
-  <button class="top-btn" onclick="importConfig()">Imp Cfg</button>
-  <button class="top-btn" onclick="exportConfig()">Exp Cfg</button>
   <button class="top-btn" onclick="importEQ()">Imp EQ</button>
   <button class="top-btn" onclick="exportEQ()">Exp EQ</button>
   <button class="top-btn danger" onclick="resetConfig()">Reset</button>
@@ -301,8 +317,17 @@ table.ftable tr:hover td{background:#1a1a1a}
   </div>
 
   <!-- MIXER TAB -->
-  <div class="tab-page" id="page-4">
-    <div id="mixer-scroll"><canvas id="mixer-canvas"></canvas></div>
+  <div class="tab-page" id="page-4" style="flex-direction:column">
+    <div id="mixer-main">
+      <div id="mixer-scroll"><canvas id="mixer-canvas"></canvas></div>
+      <!-- Presets panel -->
+      <div id="presets-panel">
+        <div class="pset-title">PRESETS</div>
+        <div id="presets-list"></div>
+        <button id="pset-save-btn" class="pset-btn" onclick="presetSave()">&#x1F4BE; Guardar</button>
+        <button id="pset-load-btn" class="pset-btn" onclick="presetLoad()" disabled>&#x23EF; Cargar</button>
+      </div>
+    </div>
     <div id="device-panel">
       <div class="device-row">
         <span class="device-lbl">IN:</span>
@@ -336,7 +361,7 @@ table.ftable tr:hover td{background:#1a1a1a}
       <div id="help-es">
 
         <h3>¿Qué es esta aplicación?</h3>
-        <p>CamillaDSP Console es una interfaz web para controlar en tiempo real el procesador de audio digital <b>CamillaDSP</b> que corre en un dispositivo embebido (TV-box, RPi, etc.). Permite ajustar ecualización gráfica y paramétrica, crossovers, mezcla de canales, compresores y dispositivos de audio sin editar archivos de configuración manualmente.</p>
+        <p>CamillaDSP Console es una interfaz web para controlar en tiempo real el procesador de audio digital <b>CamillaDSP</b> que corre en un dispositivo embebido (TV-box, RPi, etc.). Permite ajustar ecualización gráfica y paramétrica, crossovers, mezcla de canales, compresores y dispositivos de audio sin editar archivos de configuración manualmente. Funciona desde cualquier navegador de la red local, incluyendo tablets y teléfonos.</p>
 
         <h3>Barra superior</h3>
         <ul>
@@ -345,18 +370,29 @@ table.ftable tr:hover td{background:#1a1a1a}
           <li><b>WEB 5005:</b> abre la interfaz nativa de CamillaDSP en otra pestaña.</li>
           <li><b>Imp Cfg / Exp Cfg:</b> importa o exporta la configuración completa en formato YAML/JSON.</li>
           <li><b>Imp EQ / Exp EQ:</b> importa filtros paramétricos desde un archivo de texto (REW, Equalizer APO o genérico) o exporta los filtros actuales.</li>
-          <li><b>Reset:</b> restablece la configuración a los valores por defecto guardados en el servidor. <span style="color:#f88">¡Operación irreversible!</span></li>
-          <li><b>ES/EN:</b> cambia el idioma de la interfaz entre español e inglés. El idioma se guarda y se restaura al recargar.</li>
-          <li><b>? AYUDA:</b> abre este panel de ayuda.</li>
+          <li><b>Reset:</b> restablece la configuración a los valores por defecto. <span style="color:#f88">¡Operación irreversible!</span></li>
+          <li><b>ES/EN:</b> cambia el idioma entre español e inglés. Se guarda entre sesiones.</li>
+          <li><b>⛶:</b> activa o desactiva la pantalla completa (solo en dispositivos táctiles). También se activa automáticamente al primer toque.</li>
+          <li><b>? AYUDA:</b> abre este panel.</li>
+        </ul>
+
+        <h3>Uso en dispositivos táctiles (tablet / teléfono)</h3>
+        <ul>
+          <li><b>Tap:</b> equivale al clic del ratón (seleccionar, activar, etc.).</li>
+          <li><b>Mantener apretado (400 ms):</b> equivale al clic derecho (bypass de canal, eliminar filtro, resetear fader a 0 dB, etc.).</li>
+          <li><b>Doble tap:</b> equivale al doble clic (añadir filtro EQ, resetear banda GEQ).</li>
+          <li><b>Arrastrar:</b> mueve filtros en el gráfico EQ/Crossover y ajusta faders.</li>
+          <li>Los campos de texto (renombrar canales, Reset) abren un teclado sin salir de pantalla completa.</li>
         </ul>
 
         <h3>Pestaña VÚMETROS</h3>
         <p>Monitoreo en tiempo real de todos los canales con control completo de ganancia.</p>
-        <h4>Botones de vista</h4>
+        <h4>Botones de canal</h4>
         <ul>
           <li><b>TODO / ENTRADAS / SALIDAS:</b> filtra qué canales se muestran.</li>
           <li><b>MUTE ALL:</b> silencia todos los canales de salida de una vez (rojo = activo).</li>
-          <li><b>VOL: X dB:</b> nivel de volumen maestro aplicado por CamillaDSP.</li>
+          <li><b>Botón de canal (tap):</b> activa o desactiva la visibilidad del canal en el gráfico EQ.</li>
+          <li><b>Botón de canal (mantener):</b> pone ese canal en bypass (el EQ se desactiva temporalmente). El botón muestra 🔴 cuando está en bypass. Mantener de nuevo para desactivar el bypass.</li>
         </ul>
         <h4>Vúmetros (canvas superior)</h4>
         <ul>
@@ -368,20 +404,22 @@ table.ftable tr:hover td{background:#1a1a1a}
         </ul>
         <h4>Faders (sección inferior)</h4>
         <ul>
-          <li><b>Fader (canvas):</b> haz clic y arrastra arriba/abajo para ajustar la ganancia del canal (−∞ a +6 dB). El valor en dB se muestra en tiempo real durante el arrastre.</li>
+          <li><b>Fader MAIN:</b> volumen maestro (−∞ a +10 dB). Es más largo que los demás para facilitar el control.</li>
+          <li><b>Fader de canal:</b> arrastra arriba/abajo para ajustar la ganancia (−∞ a +10 dB). El valor en dB se muestra en tiempo real. En táctil, mantener apretado resetea a 0 dB.</li>
+          <li><b>MUTE ALL:</b> aparece al fondo de la columna MAIN. Silencia todos los canales de salida.</li>
           <li><b>MUTE:</b> silencia el canal individualmente (rojo = muteado).</li>
           <li><b>Ø (Polaridad):</b> invierte la fase del canal (morado = invertido).</li>
-          <li><b>Delay (ms):</b> campo de texto para introducir retardo de tiempo en milisegundos.</li>
+          <li><b>Delay (ms):</b> retardo de tiempo en milisegundos. En táctil, mantener apretado resetea a 0.</li>
         </ul>
         <h4>Tabla de compresores</h4>
-        <p>Muestra y permite editar los parámetros de los compresores de dinámica por canal de salida:</p>
+        <p>Parámetros de los compresores dinámicos por canal de salida:</p>
         <ul>
           <li><b>Attack / Release:</b> tiempos de ataque y liberación en segundos.</li>
           <li><b>Threshold:</b> umbral de activación en dBFS.</li>
           <li><b>Ratio:</b> relación de compresión (ej. 4 = 4:1).</li>
           <li><b>Makeup:</b> ganancia de compensación post-compresión en dB.</li>
           <li><b>ClipLim:</b> activa limitador de clip a 0 dBFS.</li>
-          <li><b>Auto:</b> activa autoajuste del tiempo de release según el programa.</li>
+          <li><b>Auto:</b> autoajuste del tiempo de release según el programa.</li>
         </ul>
 
         <h3>Pestaña GRAPHIC EQ</h3>
@@ -389,93 +427,93 @@ table.ftable tr:hover td{background:#1a1a1a}
         <h4>Selector de canales</h4>
         <ul>
           <li><b>ALL:</b> selecciona o deselecciona todos los canales de entrada a la vez.</li>
-          <li><b>Botones por canal (🎤 Nombre):</b> toggle individual. Se pueden activar uno o varios canales simultáneamente. Siempre queda al menos uno seleccionado.</li>
-          <li>Al mover un fader, la ganancia se aplica a <b>todos los canales seleccionados</b> al mismo tiempo.</li>
-          <li>Solo se pueden asignar canales de <b>entrada</b> (no salidas).</li>
+          <li><b>Botones por canal:</b> toggle individual. Se pueden activar varios simultáneamente. La ganancia se aplica a todos los seleccionados al mismo tiempo.</li>
+          <li>Solo se pueden asignar canales de <b>entrada</b>.</li>
         </ul>
         <h4>Faders de banda</h4>
         <ul>
-          <li><b>31 bandas</b> de 20 Hz a 18 kHz siguiendo el patrón ×1.25 por banda: 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
-          <li><b>Rango:</b> ±9 dB, escala lineal. Marcas de referencia en 0, ±3, ±6, ±9 dB.</li>
-          <li><b>Arrastre:</b> haz clic y arrastra hacia arriba (boost) o hacia abajo (cut). El valor exacto en dB aparece en un tooltip sobre el cursor durante el arrastre.</li>
-          <li><b>Doble clic:</b> resetea esa banda a 0 dB.</li>
-          <li>Relleno <b style="color:#0af">azul</b> = boost (ganancia positiva), relleno <b style="color:#f64">naranja/rojo</b> = cut (ganancia negativa).</li>
+          <li><b>31 bandas</b> de 20 Hz a 18 kHz (patrón ×1.25/banda): 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
+          <li><b>Rango:</b> ±9 dB, escala lineal. Marcas en 0, ±3, ±6, ±9 dB.</li>
+          <li><b>Arrastre:</b> arriba = boost, abajo = cut. El valor exacto en dB aparece en un tooltip durante el arrastre.</li>
+          <li><b>Doble clic / Doble tap:</b> resetea esa banda a 0 dB.</li>
+          <li>Relleno <b style="color:#0af">azul</b> = boost, relleno <b style="color:#f64">naranja</b> = cut.</li>
         </ul>
         <h4>Botones del toolbar</h4>
         <ul>
-          <li><b>Flat:</b> pone todas las bandas de los canales seleccionados a 0 dB.</li>
-          <li><b>Reset canal:</b> elimina completamente el filtro GEQ de los canales seleccionados del pipeline de CamillaDSP.</li>
+          <li><b>Flat:</b> todas las bandas de los canales seleccionados a 0 dB.</li>
+          <li><b>Reset canal:</b> elimina completamente el filtro GEQ del pipeline.</li>
         </ul>
-        <div class="tip">El ecualizador gráfico aplica un filtro tipo BiquadCombo/GraphicEqualizer en CamillaDSP. El filtro se crea automáticamente en el pipeline la primera vez que se mueve un fader.</div>
+        <div class="tip">El GEQ aplica un filtro BiquadCombo/GraphicEqualizer en CamillaDSP. Se crea automáticamente la primera vez que se mueve un fader.</div>
 
         <h3>Pestaña PARAMETRIC EQ</h3>
         <p>Ecualizador paramétrico de precisión por canal (entradas y salidas).</p>
         <h4>Selector de canal</h4>
-        <p>La barra bajo las pestañas muestra los canales de entrada (fila superior) y de salida (fila inferior). Haz clic en un canal para ver y editar sus filtros. El botón <b>ALL IN</b> / <b>ALL OUT</b> muestra todos los filtros superpuestos en el gráfico.</p>
-        <h4>Gráfico de respuesta en frecuencia</h4>
+        <p>Fila superior = canales de entrada, fila inferior = canales de salida. <b>ALL IN / ALL OUT</b> muestra todos los filtros superpuestos. El bypass de canal (mantener apretado el botón) desactiva el EQ de ese canal temporalmente sin eliminar los filtros.</p>
+        <h4>Gráfico de respuesta</h4>
         <ul>
-          <li>Eje X: frecuencia 20 Hz – 20 kHz (escala logarítmica).</li>
-          <li>Eje Y: ganancia en dB (±18 dB).</li>
-          <li><b>Clic en el gráfico:</b> añade un nuevo filtro Peaking en la frecuencia y ganancia indicadas.</li>
-          <li>Cada filtro tiene su propio color; el marcador circular indica su frecuencia y ganancia.</li>
-          <li>La curva blanca = suma total de todos los filtros del canal seleccionado.</li>
+          <li>Eje X: 20 Hz – 20 kHz (logarítmico). Eje Y: ±18 dB.</li>
+          <li><b>Clic / Doble tap en zona vacía:</b> añade un filtro Peaking en esa frecuencia y ganancia.</li>
+          <li><b>Arrastrar un punto:</b> mueve el filtro en frecuencia y ganancia.</li>
+          <li><b>Clic derecho / Mantener apretado sobre un punto:</b> elimina ese filtro.</li>
+          <li>La curva blanca = respuesta total del canal seleccionado.</li>
         </ul>
+        <h4>Botones Q (solo táctil)</h4>
+        <p>Al tocar un filtro en el gráfico aparece un recuadro con la información del filtro y dos botones <b>[−]</b> y <b>[+]</b> a los lados para ajustar el factor Q en pasos de 0.1. Tocar fuera del recuadro lo cierra.</p>
         <h4>Tabla de filtros</h4>
         <ul>
           <li><b>Tipo:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
-          <li><b>Freq (Hz):</b> frecuencia central (Peaking/Shelf) o de corte (HP/LP).</li>
-          <li><b>Gain (dB):</b> ganancia del filtro (no aplica en Highpass/Lowpass).</li>
+          <li><b>Freq (Hz):</b> frecuencia central o de corte.</li>
+          <li><b>Gain (dB):</b> ganancia (no aplica en HP/LP).</li>
           <li><b>Q:</b> factor de calidad / anchura de banda.</li>
-          <li><b>Canal:</b> canal de entrada o salida al que pertenece el filtro.</li>
-          <li><b>✕:</b> elimina el filtro permanentemente.</li>
+          <li><b>Canal:</b> canal al que pertenece el filtro.</li>
+          <li><b>✕:</b> elimina el filtro. La tabla tiene scroll cuando no entran todos los filtros.</li>
         </ul>
-        <div class="tip">Q = 0.707 → filtro Butterworth (máxima planicidad). Q alto → pico estrecho y preciso; Q bajo → curva ancha y suave.</div>
+        <div class="tip">Q = 0.707 → Butterworth (máxima planicidad). Q alto → pico estrecho; Q bajo → curva ancha.</div>
         <h4>Importación de filtros (Imp EQ)</h4>
-        <p>Soporta archivos exportados desde REW (Room EQ Wizard) y Equalizer APO:</p>
+        <p>Soporta REW (Room EQ Wizard) y Equalizer APO:</p>
         <ul>
-          <li><b>REW Generic:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
-          <li><b>Equalizer APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
-          <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span> (Gain no requerido)</li>
-          <li><b>BW Oct:</b> <span class="kbd">Filter: ON PK Fc 500 Hz Gain -2 dB BW Oct 0.5</span></li>
+          <li><b>REW:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
           <li>Tipos: PK/PEQ→Peaking, LS/LSC→Lowshelf, HS/HSC→Highshelf, HP/HPQ→Highpass, LP/LPQ→Lowpass.</li>
-          <li>Ignorados: NO (Notch), AP (Allpass), None.</li>
-          <li>Formato genérico: <span class="kbd">1000  3.0  1.41  PK</span></li>
         </ul>
-        <div class="warn">Los filtros importados se asignan al canal activo en la pestaña Parametric EQ al momento de la importación. Selecciona primero el canal destino.</div>
+        <div class="warn">Los filtros importados se asignan al canal activo al momento de la importación. Selecciona primero el canal destino.</div>
 
         <h3>Pestaña CROSSOVERS</h3>
         <p>Filtros de división de frecuencia para sistemas multiamplificados (activos).</p>
         <ul>
-          <li><b>Tipos:</b> Butterworth Lowpass/Highpass y Linkwitz-Riley Lowpass/Highpass.</li>
-          <li><b>Orden:</b> Orden 2 = 12 dB/oct, Orden 4 = 24 dB/oct, Orden 8 = 48 dB/oct.</li>
-          <li>Linkwitz-Riley (LR) es el estándar para divisores activos: las respuestas de LP y HP suman 0 dB a la frecuencia de corte y son de fase coincidente.</li>
-          <li>El gráfico muestra la curva de cada filtro en el color de su canal.</li>
-          <li>Los crossovers se asignan a canales de <b>salida</b>.</li>
+          <li><b>Tipos:</b> Butterworth LP/HP y Linkwitz-Riley LP/HP.</li>
+          <li><b>Orden:</b> 2 = 12 dB/oct, 4 = 24 dB/oct, 8 = 48 dB/oct.</li>
+          <li>Linkwitz-Riley (LR): LP y HP suman 0 dB a la frecuencia de corte, fase coincidente. Estándar para divisores activos.</li>
+          <li>Se asignan a canales de <b>salida</b>. La tabla inferior tiene scroll cuando no entran todos.</li>
+          <li><b>Arrastrar punto / Mantener apretado:</b> mover o eliminar un crossover.</li>
         </ul>
-        <div class="tip">Para un sistema de 2 vías: asignar LP al canal del woofer y HP al canal del tweeter, con la misma frecuencia de corte en ambos.</div>
+        <div class="tip">Sistema 2 vías: LP al woofer y HP al tweeter, misma frecuencia de corte en ambos.</div>
 
         <h3>Pestaña MIXER</h3>
-        <p>Matriz de mezcla que enruta y combina los canales de entrada hacia los de salida.</p>
+        <p>Matriz de mezcla que enruta canales de entrada hacia canales de salida.</p>
         <h4>Canvas del mixer</h4>
         <ul>
-          <li>Filas = canales de entrada, columnas = canales de salida.</li>
-          <li><b>Clic en una celda:</b> activa o desactiva la conexión entre ese par entrada/salida.</li>
-          <li>Celda iluminada = conexión activa; la señal de esa entrada llega a esa salida.</li>
+          <li>Columnas = entradas, filas = salidas.</li>
+          <li><b>Tap en una celda:</b> activa/desactiva esa conexión. Celda iluminada = activa.</li>
+          <li><b>Doble tap en etiqueta de entrada:</b> renombra ese canal de entrada (el nombre se actualiza en vúmetros, faders y botones de canal inmediatamente).</li>
+          <li><b>Doble tap en etiqueta de salida:</b> renombra ese canal de salida.</li>
+          <li>El renombrado abre un cuadro de texto sobre la misma pantalla, sin salir de pantalla completa.</li>
         </ul>
         <h4>Panel de dispositivos</h4>
         <ul>
-          <li><b>IN:</b> selector de tarjeta de sonido de captura (entrada de audio).</li>
-          <li><b>OUT:</b> selector de tarjeta de sonido de reproducción (salida de audio).</li>
-          <li><b>Chunk:</b> tamaño del buffer de procesado en muestras (128 – 4096). Menor valor = menor latencia pero mayor riesgo de cortes; mayor valor = mayor estabilidad.</li>
-          <li><b>↺ Actualizar:</b> recarga la lista de dispositivos ALSA disponibles en el sistema.</li>
-          <li><b>⟳ Motor:</b> detiene y reinicia el proceso CamillaDSP. Útil tras cambiar dispositivos o configuración.</li>
+          <li><b>IN:</b> tarjeta de sonido de captura (entrada de audio).</li>
+          <li><b>OUT:</b> tarjeta de sonido de reproducción (salida de audio).</li>
+          <li><b>Chunk:</b> tamaño del buffer en muestras (128 – 4096). Menor = menor latencia; mayor = más estabilidad.</li>
+          <li><b>↺ Actualizar:</b> recarga la lista de dispositivos ALSA del sistema.</li>
+          <li><b>⟳ Motor:</b> reinicia el proceso CamillaDSP. Usar tras cambiar dispositivos.</li>
         </ul>
 
         <h3>Configuración: importar / exportar</h3>
         <ul>
-          <li><b>Exp Cfg:</b> descarga el archivo YAML completo (dispositivos, pipeline, filtros GEQ y paramétricos, crossovers, mezcla).</li>
-          <li><b>Imp Cfg:</b> carga un archivo YAML o JSON previamente guardado y lo aplica al DSP en tiempo real.</li>
-          <li><b>Exp EQ:</b> exporta los filtros paramétricos (biquad) actuales en formato texto compatible con REW.</li>
+          <li><b>Exp Cfg:</b> descarga el YAML completo (dispositivos, pipeline, filtros, mezcla).</li>
+          <li><b>Imp Cfg:</b> carga un YAML o JSON y lo aplica al DSP en tiempo real.</li>
+          <li><b>Exp EQ:</b> exporta los filtros paramétricos en formato texto compatible con REW.</li>
         </ul>
 
       </div><!-- /help-es -->
@@ -484,7 +522,7 @@ table.ftable tr:hover td{background:#1a1a1a}
       <div id="help-en" style="display:none">
 
         <h3>What is this application?</h3>
-        <p>CamillaDSP Console is a web interface to control the <b>CamillaDSP</b> digital audio processor in real time on an embedded device (TV-box, RPi, etc.). It lets you adjust graphic and parametric equalization, crossovers, channel mixing, compressors, and audio devices without manually editing configuration files.</p>
+        <p>CamillaDSP Console is a web interface to control the <b>CamillaDSP</b> digital audio processor in real time on an embedded device (TV-box, RPi, etc.). It lets you adjust graphic and parametric equalization, crossovers, channel mixing, compressors, and audio devices without manually editing configuration files. Works from any browser on the local network, including tablets and phones.</p>
 
         <h3>Top bar</h3>
         <ul>
@@ -495,16 +533,27 @@ table.ftable tr:hover td{background:#1a1a1a}
           <li><b>Imp EQ / Exp EQ:</b> import parametric filters from a text file (REW, Equalizer APO or generic format) or export current filters.</li>
           <li><b>Reset:</b> restores the configuration to the server-saved defaults. <span style="color:#f88">Irreversible!</span></li>
           <li><b>ES/EN:</b> toggles the interface language between Spanish and English. The choice is saved across reloads.</li>
+          <li><b>⛶:</b> enters or exits fullscreen mode (touch devices). Also activated automatically on the first tap.</li>
           <li><b>? HELP:</b> opens this help panel.</li>
+        </ul>
+
+        <h3>Using on touch devices (tablet / phone)</h3>
+        <ul>
+          <li><b>Tap:</b> equivalent to a mouse click (select, toggle, etc.).</li>
+          <li><b>Long press (400 ms):</b> equivalent to right-click (channel bypass, delete filter, reset fader to 0 dB, etc.).</li>
+          <li><b>Double tap:</b> equivalent to double-click (add EQ filter, reset GEQ band).</li>
+          <li><b>Drag:</b> moves filters on the EQ/Crossover graph and adjusts faders.</li>
+          <li>Text inputs (rename channels, Reset) open a keyboard without exiting fullscreen.</li>
         </ul>
 
         <h3>METERS tab</h3>
         <p>Real-time monitoring of all channels with full gain control.</p>
-        <h4>View buttons</h4>
+        <h4>Channel buttons</h4>
         <ul>
           <li><b>ALL / INPUTS / OUTPUTS:</b> filters which channels are displayed.</li>
-          <li><b>MUTE ALL:</b> mutes all output channels at once (red = active).</li>
-          <li><b>VOL: X dB:</b> master volume level applied by CamillaDSP.</li>
+          <li><b>MUTE ALL:</b> mutes all output channels at once (red = active). Located at the bottom of the MAIN column.</li>
+          <li><b>Channel button (tap):</b> toggles the channel's visibility in the EQ graph.</li>
+          <li><b>Channel button (long press):</b> puts that channel in bypass (EQ is temporarily disabled). Button shows 🔴 when bypassed. Long press again to deactivate.</li>
         </ul>
         <h4>VU Meters (top canvas)</h4>
         <ul>
@@ -516,13 +565,15 @@ table.ftable tr:hover td{background:#1a1a1a}
         </ul>
         <h4>Faders (bottom section)</h4>
         <ul>
-          <li><b>Fader (canvas):</b> click and drag up/down to adjust channel gain (−∞ to +6 dB). The dB value is shown in real time during drag.</li>
+          <li><b>MAIN fader:</b> master volume (−∞ to +10 dB). Taller than channel faders for easier control.</li>
+          <li><b>Channel fader:</b> drag up/down to adjust gain (−∞ to +10 dB). The dB value is shown in real time. On touch, long press resets to 0 dB.</li>
+          <li><b>MUTE ALL:</b> appears at the bottom of the MAIN column. Mutes all output channels.</li>
           <li><b>MUTE:</b> mutes the channel individually (red = muted).</li>
           <li><b>Ø (Polarity):</b> inverts the channel phase (purple = inverted).</li>
-          <li><b>Delay (ms):</b> text field to enter time delay in milliseconds.</li>
+          <li><b>Delay (ms):</b> time delay in milliseconds. On touch, long press resets to 0.</li>
         </ul>
         <h4>Compressor table</h4>
-        <p>Shows and allows editing of dynamic compressor parameters per output channel:</p>
+        <p>Dynamic compressor parameters per output channel:</p>
         <ul>
           <li><b>Attack / Release:</b> attack and release times in seconds.</li>
           <li><b>Threshold:</b> activation threshold in dBFS.</li>
@@ -537,17 +588,16 @@ table.ftable tr:hover td{background:#1a1a1a}
         <h4>Channel selector</h4>
         <ul>
           <li><b>ALL:</b> selects or deselects all input channels at once.</li>
-          <li><b>Per-channel buttons (🎤 Name):</b> individual toggle. One or more channels can be active simultaneously. At least one is always selected.</li>
-          <li>Moving a fader applies the gain to <b>all selected channels</b> at the same time.</li>
-          <li>Only <b>input</b> channels can be assigned (outputs are not available).</li>
+          <li><b>Per-channel buttons:</b> individual toggle. Multiple channels can be active at the same time. Gain changes apply to all selected channels simultaneously.</li>
+          <li>Only <b>input</b> channels can be assigned.</li>
         </ul>
         <h4>Band faders</h4>
         <ul>
-          <li><b>31 bands</b> from 20 Hz to 18 kHz following the ×1.25 per band pattern: 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
+          <li><b>31 bands</b> from 20 Hz to 18 kHz (×1.25 per band pattern): 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
           <li><b>Range:</b> ±9 dB, linear scale. Reference marks at 0, ±3, ±6, ±9 dB.</li>
-          <li><b>Drag:</b> click and drag up (boost) or down (cut). The exact dB value appears in a tooltip above the cursor during drag.</li>
-          <li><b>Double-click:</b> resets that band to 0 dB.</li>
-          <li><b style="color:#0af">Blue</b> fill = boost (positive gain), <b style="color:#f64">orange/red</b> fill = cut (negative gain).</li>
+          <li><b>Drag:</b> up = boost, down = cut. The exact dB value appears in a tooltip during drag.</li>
+          <li><b>Double-click / Double tap:</b> resets that band to 0 dB.</li>
+          <li><b style="color:#0af">Blue</b> fill = boost, <b style="color:#f64">orange</b> fill = cut.</li>
         </ul>
         <h4>Toolbar buttons</h4>
         <ul>
@@ -559,71 +609,72 @@ table.ftable tr:hover td{background:#1a1a1a}
         <h3>PARAMETRIC EQ tab</h3>
         <p>High-precision parametric equalizer per channel (inputs and outputs).</p>
         <h4>Channel selector</h4>
-        <p>The bar below the tabs shows input channels (top row) and output channels (bottom row). Click a channel to view and edit its filters. The <b>ALL IN</b> / <b>ALL OUT</b> button overlays all filters in the graph.</p>
+        <p>Top row = input channels, bottom row = output channels. <b>ALL IN / ALL OUT</b> overlays all filters in the graph. Channel bypass (long press on a channel button) disables that channel's EQ temporarily without deleting the filters.</p>
         <h4>Frequency response graph</h4>
         <ul>
-          <li>X axis: 20 Hz – 20 kHz (logarithmic scale).</li>
-          <li>Y axis: gain in dB (±18 dB).</li>
-          <li><b>Click on the graph:</b> adds a new Peaking filter at the clicked frequency and gain.</li>
-          <li>Each filter has its own color; the circular marker shows its frequency and gain.</li>
-          <li>White curve = total response (sum of all filters for the selected channel).</li>
+          <li>X axis: 20 Hz – 20 kHz (logarithmic). Y axis: ±18 dB.</li>
+          <li><b>Click / Double tap on empty area:</b> adds a Peaking filter at that frequency and gain.</li>
+          <li><b>Drag a point:</b> moves the filter in frequency and gain.</li>
+          <li><b>Right-click / Long press on a point:</b> deletes that filter.</li>
+          <li>White curve = total response of the selected channel.</li>
         </ul>
+        <h4>Q buttons (touch only)</h4>
+        <p>Tapping a filter on the graph shows a tooltip with the filter's information and two <b>[−]</b> and <b>[+]</b> buttons on the sides to adjust the Q factor in steps of 0.1. Tap outside the tooltip to close it.</p>
         <h4>Filter table</h4>
         <ul>
           <li><b>Type:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
-          <li><b>Freq (Hz):</b> center frequency (Peaking/Shelf) or cutoff frequency (HP/LP).</li>
-          <li><b>Gain (dB):</b> filter gain (not applicable to Highpass/Lowpass).</li>
+          <li><b>Freq (Hz):</b> center or cutoff frequency.</li>
+          <li><b>Gain (dB):</b> filter gain (not applicable to HP/LP).</li>
           <li><b>Q:</b> quality factor / bandwidth.</li>
-          <li><b>Channel:</b> input or output channel the filter belongs to.</li>
-          <li><b>✕:</b> permanently deletes the filter.</li>
+          <li><b>Channel:</b> channel the filter belongs to.</li>
+          <li><b>✕:</b> deletes the filter. The table scrolls when there are more filters than fit on screen.</li>
         </ul>
         <div class="tip">Q = 0.707 → Butterworth filter (maximum flatness). High Q → narrow precise peak; low Q → wide gentle curve.</div>
         <h4>Filter import (Imp EQ)</h4>
         <p>Supports files exported from REW (Room EQ Wizard) and Equalizer APO:</p>
         <ul>
-          <li><b>REW Generic:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
-          <li><b>Equalizer APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
-          <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span> (Gain not required)</li>
-          <li><b>BW Oct:</b> <span class="kbd">Filter: ON PK Fc 500 Hz Gain -2 dB BW Oct 0.5</span></li>
+          <li><b>REW:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
           <li>Types: PK/PEQ→Peaking, LS/LSC→Lowshelf, HS/HSC→Highshelf, HP/HPQ→Highpass, LP/LPQ→Lowpass.</li>
-          <li>Ignored: NO (Notch), AP (Allpass), None.</li>
-          <li>Generic format: <span class="kbd">1000  3.0  1.41  PK</span></li>
         </ul>
         <div class="warn">Imported filters are assigned to the channel active in the Parametric EQ tab at the time of import. Select the target channel first.</div>
 
         <h3>CROSSOVERS tab</h3>
         <p>Frequency crossover filters for multi-amplified (active) speaker systems.</p>
         <ul>
-          <li><b>Types:</b> Butterworth Lowpass/Highpass and Linkwitz-Riley Lowpass/Highpass.</li>
-          <li><b>Order:</b> Order 2 = 12 dB/oct, Order 4 = 24 dB/oct, Order 8 = 48 dB/oct.</li>
-          <li>Linkwitz-Riley (LR) is the industry standard for active crossovers: LP and HP responses sum to 0 dB at the crossover frequency and are phase-coincident.</li>
-          <li>The graph shows each filter's curve in its channel color.</li>
-          <li>Crossover filters are assigned to <b>output</b> channels.</li>
+          <li><b>Types:</b> Butterworth LP/HP and Linkwitz-Riley LP/HP.</li>
+          <li><b>Order:</b> 2 = 12 dB/oct, 4 = 24 dB/oct, 8 = 48 dB/oct.</li>
+          <li>Linkwitz-Riley (LR): LP and HP sum to 0 dB at the crossover frequency, phase-coincident. Industry standard for active crossovers.</li>
+          <li>Assigned to <b>output</b> channels. The filter table scrolls when there are more filters than fit on screen.</li>
+          <li><b>Drag a point / Long press:</b> move or delete a crossover filter.</li>
         </ul>
-        <div class="tip">For a 2-way system: assign LP to the woofer output channel and HP to the tweeter output channel, both at the same crossover frequency.</div>
+        <div class="tip">For a 2-way system: assign LP to the woofer and HP to the tweeter, both at the same crossover frequency.</div>
 
         <h3>MIXER tab</h3>
-        <p>Routing matrix that combines input channels into output channels.</p>
+        <p>Routing matrix that routes input channels to output channels.</p>
         <h4>Mixer canvas</h4>
         <ul>
-          <li>Rows = input channels, columns = output channels.</li>
-          <li><b>Click on a cell:</b> toggles the connection between that input/output pair.</li>
-          <li>Lit cell = active connection; that input's signal reaches that output.</li>
+          <li>Columns = inputs, rows = outputs.</li>
+          <li><b>Tap a cell:</b> toggles that input/output connection. Lit cell = active.</li>
+          <li><b>Double tap on an input label:</b> renames that input channel (the name updates instantly in VU meters, faders, and channel buttons).</li>
+          <li><b>Double tap on an output label:</b> renames that output channel.</li>
+          <li>Renaming opens a text box on the same screen without exiting fullscreen.</li>
         </ul>
         <h4>Device panel</h4>
         <ul>
           <li><b>IN:</b> capture sound card selector (audio input device).</li>
           <li><b>OUT:</b> playback sound card selector (audio output device).</li>
-          <li><b>Chunk:</b> processing buffer size in samples (128 – 4096). Lower = less latency but higher dropout risk; higher = more stability.</li>
+          <li><b>Chunk:</b> processing buffer size in samples (128 – 4096). Lower = less latency; higher = more stability.</li>
           <li><b>↺ Refresh:</b> reloads the list of available ALSA devices from the system.</li>
           <li><b>⟳ Engine:</b> stops and restarts the CamillaDSP process. Use after changing devices or configuration.</li>
         </ul>
 
         <h3>Configuration: import / export</h3>
         <ul>
-          <li><b>Exp Cfg:</b> downloads the full YAML file (devices, pipeline, GEQ and parametric filters, crossovers, mixing).</li>
+          <li><b>Exp Cfg:</b> downloads the full YAML file (devices, pipeline, filters, mixing).</li>
           <li><b>Imp Cfg:</b> loads a previously saved YAML or JSON file and applies it to the DSP in real time.</li>
-          <li><b>Exp EQ:</b> exports current parametric (biquad) filters as a text file compatible with REW.</li>
+          <li><b>Exp EQ:</b> exports current parametric filters as a text file compatible with REW.</li>
         </ul>
 
       </div><!-- /help-en -->
@@ -712,6 +763,13 @@ async function fetchStatus(){
                   (st==='Error'||st==='Stalled')?'dsp-state-err':'';
   buEl.textContent= r.buffer!=null ? String(r.buffer) : '—';
   ldEl.textContent= r.load!=null   ? r.load.toFixed(1)+'%' : '—';
+  // CPU cada ~1s (20 × 50ms)
+  if(_statusTick % 20 === 0){
+    apiGet('/api/cpuload').then(rc=>{
+      const el=document.getElementById('cpu-load');
+      if(el) el.textContent = rc.cpu||'—';
+    }).catch(()=>{});
+  }
 }
 async function setVolume(db){
   await apiPost('/api/volume',{volume:db});
@@ -824,11 +882,9 @@ function ensureMixer(){
 }
 
 async function init(){
-  document.getElementById('status-txt').textContent='Conectando...';
   const ok = await fetchConfig();
-  if(!ok){ document.getElementById('status-txt').textContent='Error de conexión'; return; }
+  if(!ok){ return; }
   document.getElementById('status-dot').className='ok';
-  document.getElementById('status-txt').textContent='Conectado';
   sampleRate = config.devices?.samplerate||48000;
   inLabels  = getLabels('capture');
   outLabels = getLabels('playback');
@@ -861,7 +917,7 @@ function switchTab(i){
   if(i===1) geqSyncChannel();
   if(i===2) renderEQGraph();
   if(i===3) renderCrossGraph();
-  if(i===4){ renderMixer(); loadDevices(); }
+  if(i===4){ renderMixer(); loadDevices(); presetRefresh(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2431,6 +2487,82 @@ function importConfig(){
   fi.click();
 }
 function exportConfig(){ window.open('/api/export','_blank'); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRESETS
+// ═══════════════════════════════════════════════════════════════════════════
+let _selectedPreset = null;
+
+async function presetRefresh(){
+  const r = await apiGet('/api/presets').catch(()=>null);
+  const list = document.getElementById('presets-list');
+  if(!list) return;
+  const presets = r?.presets || [];
+  list.innerHTML = '';
+  presets.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'pset-item' + (name === _selectedPreset ? ' selected' : '');
+    row.dataset.name = name;
+    row.innerHTML = `<span class="pset-item-name" title="${name}">${name}</span><button class="pset-del" title="Eliminar" onclick="presetDelete('${name.replace(/'/g,"\\'")}',event)">✕</button>`;
+    row.addEventListener('click', (e)=>{ if(e.target.classList.contains('pset-del')) return; presetSelect(name); });
+    list.appendChild(row);
+  });
+  _updateLoadBtn();
+}
+
+function presetSelect(name){
+  _selectedPreset = name;
+  document.querySelectorAll('.pset-item').forEach(el=>{
+    el.classList.toggle('selected', el.dataset.name === name);
+  });
+  _updateLoadBtn();
+}
+
+function _updateLoadBtn(){
+  const btn = document.getElementById('pset-load-btn');
+  if(btn) btn.disabled = !_selectedPreset;
+}
+
+async function presetSave(){
+  const name = await inlinePrompt('Nombre del preset:', '');
+  if(!name) return;
+  const r = await apiGet('/api/config');
+  if(!r.ok){ toast('Error leyendo config'); return; }
+  const res = await apiPost('/api/presets/save', { name, config: r.config });
+  if(res.ok){
+    _selectedPreset = res.name;
+    await presetRefresh();
+    presetSelect(res.name);
+    toast(`Preset "${res.name}" guardado`);
+  } else {
+    toast('Error guardando: ' + (res.error||''));
+  }
+}
+
+async function presetLoad(){
+  if(!_selectedPreset) return;
+  const res = await apiPost('/api/presets/load', { name: _selectedPreset });
+  if(res.ok){
+    config = res.config;
+    await init();
+    toast(`Preset "${_selectedPreset}" cargado`);
+  } else {
+    toast('Error cargando: ' + (res.error||''));
+  }
+}
+
+async function presetDelete(name, e){
+  e.stopPropagation();
+  const res = await apiPost('/api/presets/delete', { name });
+  if(res.ok){
+    if(_selectedPreset === name) _selectedPreset = null;
+    await presetRefresh();
+    toast(`Preset "${name}" eliminado`);
+  } else {
+    toast('Error eliminando');
+  }
+}
+
 // BW en octavas → Q (fórmula estándar)
 function bwOctToQ(bw){ return 1/(2*Math.sinh(Math.log(2)/2*bw)); }
 
@@ -3112,12 +3244,6 @@ function applyLang(){
   // Help button
   const helpBtn = document.querySelector('[onclick="showHelp()"]');
   if(helpBtn) helpBtn.innerHTML = isEs ? '?&nbsp;AYUDA' : '?&nbsp;HELP';
-  // Status text (only if still connecting)
-  const stTxt = document.getElementById('status-txt');
-  if(stTxt && (stTxt.textContent==='Conectando...'||stTxt.textContent==='Connecting...'))
-    stTxt.textContent = isEs ? 'Conectando...' : 'Connecting...';
-  if(stTxt && (stTxt.textContent==='Conectado'||stTxt.textContent==='Connected'))
-    stTxt.textContent = isEs ? 'Conectado' : 'Connected';
   // Vista label
   const vistaLbl = document.querySelector('#vu-top span[style*="color:#888"]');
   if(vistaLbl) vistaLbl.textContent = isEs ? 'VISTA:' : 'VIEW:';
