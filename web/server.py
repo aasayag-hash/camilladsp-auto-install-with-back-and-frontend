@@ -164,19 +164,26 @@ def _cdsp_gui_get(path):
 import re
 
 def _get_alsa_hw(mode):
-    cmd = "arecord -l" if mode == "capture" else "aplay -l"
+    cmd = "arecord -L" if mode == "capture" else "aplay -L"
     devs = []
     try:
         out = subprocess.check_output(cmd, shell=True, text=True)
+        current_id = None
+        current_desc = []
         for line in out.splitlines():
-            if line.startswith("card "):
-                m = re.search(r"card (\d+):([^,]+),\s*device (\d+):\s*(.*)", line)
-                if m:
-                    hw_val = f"hw:{m.group(1)},{m.group(3)}"
-                    c_name = m.group(2).strip()
-                    d_name = m.group(4).strip()
-                    desc = f"{c_name} - {d_name}"
-                    devs.append([hw_val, desc])
+            if not line:
+                continue
+            if line[0] not in ' \t':
+                if current_id and current_id != "null":
+                    desc_str = " - ".join([d.strip(" ,") for d in current_desc if d.strip(" ,")])
+                    devs.append([current_id, desc_str])
+                current_id = line.strip()
+                current_desc = []
+            else:
+                current_desc.append(line.strip())
+        if current_id and current_id != "null":
+            desc_str = " - ".join([d.strip(" ,") for d in current_desc if d.strip(" ,")])
+            devs.append([current_id, desc_str])
     except Exception:
         pass
     return devs
