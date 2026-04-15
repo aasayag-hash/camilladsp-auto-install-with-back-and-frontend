@@ -161,17 +161,25 @@ def _cdsp_gui_get(path):
     with urllib.request.urlopen(f"{CDSP_GUI}{path}", timeout=5) as r:
         return json.loads(r.read())
 
+import re
+
 def _get_alsa_hw(mode):
-    cmd = "arecord -L" if mode == "capture" else "aplay -L"
+    cmd = "arecord -l" if mode == "capture" else "aplay -l"
     devs = []
     try:
         out = subprocess.check_output(cmd, shell=True, text=True)
         for line in out.splitlines():
-            if line and not line.startswith(" ") and not line.startswith("null") and not line.startswith("default"):
-                devs.append(line.strip())
+            if line.startswith("card "):
+                m = re.search(r"card (\d+):([^,]+),\s*device (\d+):\s*(.*)", line)
+                if m:
+                    hw_val = f"hw:{m.group(1)},{m.group(3)}"
+                    c_name = m.group(2).strip()
+                    d_name = m.group(4).strip()
+                    desc = f"{c_name} - {d_name}"
+                    devs.append([hw_val, desc])
     except Exception:
         pass
-    return sorted(list(set(devs)))
+    return devs
 
 @app.route("/api/capturedevices")
 def get_capture_devices():
