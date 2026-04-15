@@ -399,12 +399,14 @@ unmute_alsa() {
   if command -v amixer >/dev/null 2>&1; then
     for card in $(aplay -l 2>/dev/null | grep '^card' | awk '{print $2}' | sed 's/://g' | sort -u); do
       amixer -c $card sset Master playback 100% unmute >/dev/null 2>&1 || true
-      amixer -c $card sset Line playback 100% unmute >/dev/null 2>&1 || true
       amixer -c $card sset PCM playback 100% unmute >/dev/null 2>&1 || true
       amixer -c $card sset Speaker playback 100% unmute >/dev/null 2>&1 || true
       amixer -c $card sset Front playback 100% unmute >/dev/null 2>&1 || true
+      # Activar captura de Linea pero silenciar la reproducción (anula el hardware loopback/monitoring)
+      amixer -c $card sset Line capture 100% unmute >/dev/null 2>&1 || true
+      amixer -c $card sset Line playback 0% mute >/dev/null 2>&1 || true
     done
-    log_ok "Tarjetas desmuteadas."
+    log_ok "Tarjetas desmuteadas y loopback deshabilitado."
   else
     log_warn "Comando amixer no encontrado. ALSA podría seguir en silencio."
   fi
