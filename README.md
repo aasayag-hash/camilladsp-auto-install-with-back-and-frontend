@@ -1,129 +1,33 @@
-# CamillaDSP Web Console
+# CamillaDSP Web Console & Auto-Installer
 
-Instalador automático para **CamillaDSP** con interfaz web completa para ecualización gráfica y paramétrica, crossovers, compresión dinámica y control de dispositivos de audio. Funciona desde cualquier navegador de la red local, incluyendo tablets y teléfonos táctiles.
-
----
-
-## Descripción
-
-Esta herramienta instala y configura automáticamente el ecosistema CamillaDSP en un dispositivo embebido (TV-box, Raspberry Pi, servidor Linux, etc.) y despliega una consola web accesible desde cualquier navegador de la red local.
-
-### Componentes instalados
-
-| Componente | Descripción | Puerto |
-|---|---|---|
-| **CamillaDSP Engine** | Motor DSP de alto rendimiento, procesamiento en tiempo real | WS `0.0.0.0:1234` |
-| **CamillaGUI Backend** | API REST/WebSocket oficial de CamillaGUI | HTTP `0.0.0.0:5005` |
-| **Web Console** | Interfaz web personalizada (este proyecto) | HTTP `0.0.0.0:5000` |
+Una solución completa, robusta y desatendida para automatizar el despliegue del ecosistema **CamillaDSP** en cualquier dispositivo (TV-Box, Raspberry Pi, servidor Linux). Incluye la instalación del motor DSP, el backend de la GUI oficial y una **interfaz web front-end personalizada** de diseño premium accesible desde cualquier navegador.
 
 ---
 
-## Interfaz Web — Funciones
+## 🚀 Características Principales
 
-La consola web (`http://IP-DISPOSITIVO:5000`) cuenta con 5 pestañas:
-
-### VÚMETROS
-- Vúmetros RMS en tiempo real de todos los canales de entrada y salida
-- Indicador de reducción de ganancia del compresor (GR) por canal
-- Peak hold con retención de 2 segundos
-- Indicador visual del umbral del compresor
-- **Fader MAIN** más largo, con botón **MUTE ALL** al fondo de su columna
-- Faders de ganancia por canal (−∞ a +10 dB), arrastre con valor en tiempo real
-- Longpress sobre un fader: resetea a 0 dB (en dispositivos táctiles)
-- Control de polaridad (inversión de fase) por canal
-- Retardo (delay) configurable en milisegundos por canal
-- Mute individual por canal y MUTE ALL global
-- **Bypass de canal por longpress** (400 ms): desactiva el EQ del canal sin eliminar filtros; el botón muestra 🔴; longpress de nuevo para desactivar
-- Tabla de compresores: Attack, Release, Threshold, Ratio, Makeup, ClipLimiter, Auto-release
-
-### GRAPHIC EQ
-- Ecualizador gráfico de **31 bandas** de fase lineal
-- Rango **±9 dB**, escala lineal, marcas de referencia en 0 / ±3 / ±6 / ±9 dB
-- Frecuencias de banda (patrón ×1.25/banda):
-  `20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz`
-- **Multiselección de canales**: aplicar a uno o varios canales de entrada simultáneamente (botón ALL o toggle individual)
-- Tooltip con valor exacto en dB durante el arrastre
-- Doble clic / doble tap sobre una banda para resetearla a 0 dB
-- Botones **Flat** (todas las bandas a 0) y **Reset canal** (elimina el filtro del pipeline)
-- Solo aplicable a canales de **entrada**
-- Filtro generado en CamillaDSP: `BiquadCombo / GraphicEqualizer`
-
-### PARAMETRIC EQ
-- Ecualizador paramétrico de precisión por canal (entradas y salidas)
-- Gráfico de respuesta en frecuencia interactivo (20 Hz – 20 kHz, ±18 dB)
-- Clic / doble tap en el gráfico para añadir filtros; curva total en blanco
-- Arrastrar un punto para mover el filtro en frecuencia y ganancia
-- Clic derecho / longpress sobre un punto para eliminar ese filtro
-- **Botones Q táctiles**: al tocar un filtro aparece un tooltip con botones [−] y [+] para ajustar el factor Q en pasos de 0.1
-- Tipos de filtro: Peaking, Highshelf, Lowshelf, Highpass, Lowpass
-- Parámetros editables: Frecuencia, Ganancia, Q
-- **Tabla de filtros con scroll** cuando no entran todos en pantalla
-- **Bypass de canal**: longpress sobre el botón de canal desactiva el EQ temporalmente sin eliminar filtros
-- **Importación de filtros REW / Equalizer APO**:
-  - Formato REW Generic: `Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41`
-  - Formato Equalizer APO: `Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41`
-  - HP/LP sin Gain, BW Oct para ancho de banda en octavas
-  - Tipos soportados: PK, PEQ, LS, LSC, HS, HSC, HP, HPQ, LP, LPQ
-
-### CROSSOVERS
-- Filtros de división de frecuencia para sistemas multiamplificados
-- Tipos: Butterworth LP/HP y Linkwitz-Riley LP/HP
-- Órdenes: 2 (12 dB/oct), 4 (24 dB/oct), 8 (48 dB/oct)
-- Gráfico de respuesta por canal; asignables a canales de salida
-- **Tabla de crossovers con scroll** cuando no entran todos en pantalla
-
-### MIXER
-- Matriz de mezcla: enruta y combina entradas hacia salidas
-- **Renombrado de canales inline**: doble tap sobre la etiqueta abre un cuadro de texto en pantalla sin salir de pantalla completa; el nombre se actualiza instantáneamente en vúmetros, faders y botones de canal
-- Selector de tarjeta de sonido de captura (IN) y reproducción (OUT) con dispositivos ALSA en tiempo real
-- Selector de Chunksize: 128 / 256 / 512 / 1024 / 2048 / 4096 muestras
-- Botón de reinicio del motor de audio (⟳ Motor)
-
-### Barra superior
-- Indicador de conexión al DSP (verde/rojo)
-- Estado en tiempo real: **State**, **Buffer level**, **DSP load** (actualización cada 200 ms)
-- Botones: Imp Cfg / Exp Cfg (YAML completo), Imp EQ / Exp EQ (filtros paramétricos), Reset
-- **Cambio de idioma ES/EN** (persiste entre sesiones)
-- **Botón de pantalla completa (⛶)**: activa/desactiva fullscreen en dispositivos táctiles; también se activa automáticamente al primer toque
-- **Panel de ayuda** completo integrado en la interfaz (ES/EN)
-
-### Soporte táctil completo
-- Tap = clic, longpress (400 ms) = clic derecho, doble tap = doble clic
-- Bypass de canal por longpress sobre el botón de canal
-- Ajuste de Q por botones táctiles en el tooltip del EQ paramétrico
-- Renombrado de canales sin salir de pantalla completa
-- Scroll en tablas de filtros (EQ y crossovers) en pantallas pequeñas
-- Fader MAIN de mayor longitud para control ergonómico
+* **Instalación "Zero-Headache"**: El instalador ahora resuelve automáticamente sus propias dependencias (`curl`, `wget`, `python3-pip`, `jq`). Simplemente ejecuta el script en un entorno basado en Debian/Armbian/Ubuntu y él se encargará del resto.
+* **Limpieza Profunda Inteligente**: Si detecta una instalación corrupta o previa de CamillaDSP, te ofrecerá deshabilitar servicios pasados, liberar los puertos obstruidos y eliminar archivos viejos antes de realizar un despliegue impecable.
+* **Inmune a Errores de Formato**: Configurado nativamente con `.gitattributes` para evitar incompatibilidades de saltos de línea (CRLF/LF) al clonar desde entornos Windows a Linux.
+* **Arranque Automático**: Configura el sistema operativo para levantar el ecosistema automáticamente tras los reinicios mediante `systemd`, `rc.local`, o `cron`.
 
 ---
 
-## Puertos de red
+## 🎛️ Interfaz Web Personalizada — Capacidades
 
-| Servicio | Puerto | Acceso | Descripción |
-|---|---|---|---|
-| CamillaDSP WebSocket | `1234` | LAN (`0.0.0.0`) | API de control del motor DSP |
-| CamillaGUI API | `5005` | LAN (`0.0.0.0`) | Backend REST para configuración avanzada |
-| Web Console | `5000` | LAN (`0.0.0.0`) | Interfaz web principal (este proyecto) |
+La consola web (puerto `5000`) cuenta con panel táctil y diseño inmersivo:
 
-> El motor CamillaDSP arranca con `-a 0.0.0.0 -w` para exponer el WebSocket a toda la red local. Esto permite conectar herramientas externas (otras instancias de GUI, scripts, etc.) directamente al puerto 1234 desde cualquier dispositivo de la LAN.
-
----
-
-## Requisitos
-
-| Requisito | Detalle |
-|---|---|
-| Sistema operativo | Linux (ARM/x86), macOS, Windows (WSL) |
-| Herramientas | `curl` o `wget`, `tar` / `unzip` |
-| Python | Python 3 con `pip` (para el servidor web) |
-| Paquetes Python | `flask`, `websocket-client`, `pyyaml` (instalados automáticamente) |
-| Red | Acceso a internet durante la instalación |
+* **Vúmetros Universales**: Mediciones RMS en tiempo real, histórico de picos e indicadores visuales de atenuación para el compresor, junto con Faders independientes y fase invertida por canal.
+* **Ecualizador Gráfico de 31 Bandas**: Rango visual continuo de ±9 dB con fase lineal, función de enlazado global y control por doble-clic para reiniciar frecuencias puntuales.
+* **Ecualizador Paramétrico (PEQ)**: Gráfico de rango completo (20 Hz - 20 kHz) interactivo (drag-and-drop). Ajuste de ganancia, frecuencia y factor de banda "Q" con soporte táctil. Importación directa de filtros nativos, REW Generic, o Equalizer APO.
+* **Gestor de Crossovers**: Enrutamiento de alta fidelidad empleando filtros progresivos de Butterworth y Linkwitz-Riley (hasta 48 dB/octava).
+* **Mixer en Tiempo Real**: Ruteo entre tarjetas de sonido físicas ALSA, selector dinámico de tamaño de búfer (Chunksize), y soporte completo para renombra miento custom de los canales sobre la marcha.
 
 ---
 
-## Instalación
+## 🛠️ Instalación Rápida
 
-### Instalación rápida
+Asegúrate de contar con internet en tu TV Box o Raspberry Pi y simplemente ejecuta:
 
 ```bash
 git clone https://github.com/aasayag-hash/camilladsp-auto-install-with-back-and-frontend.git
@@ -131,177 +35,57 @@ cd camilladsp-auto-install-with-back-and-frontend
 bash install_camilladsp.sh
 ```
 
-Al finalizar, el instalador muestra las URLs de acceso con la IP real del dispositivo.
-
-### Opciones del instalador
-
-```
+### Opciones de Instalación
+```bash
 bash install_camilladsp.sh [opciones]
 
   (sin opciones)    Instalación completa interactiva
   --update          Actualizar engine y GUI a la última versión
-  --check           Verificar estado de la instalación actual
-  --uninstall       Desinstalar completamente
-  --dir=/ruta       Directorio de instalación personalizado (por defecto: ~/camilladsp)
-  --no-service      Instalar sin iniciar servicios
-  -h, --help        Mostrar ayuda
+  --check           Verificar el estado general de los procesos
+  --uninstall       Desinstalar todo el entorno Camilla
+  --no-service      Instalar archivos pero no iniciar los servicios
 ```
 
 ---
 
-## Acceso después de instalar
+## 🌐 Servicios y Puertos Ocupados
 
-```
-Web Console:    http://IP-DISPOSITIVO:5000   ← interfaz principal
-CamillaGUI:     http://IP-DISPOSITIVO:5005   ← GUI oficial (avanzado)
-WebSocket DSP:  ws://IP-DISPOSITIVO:1234     ← API directa del engine
-```
+Por defecto, los servidores escucharán en las IPs correspondientes a tu red local (LAN) bajo los puertos:
 
----
-
-## Scripts de control
-
-```bash
-~/camilladsp/scripts/start_all.sh   # Iniciar todos los servicios
-~/camilladsp/scripts/stop_all.sh    # Detener todos los servicios
-~/camilladsp/scripts/status.sh      # Ver estado de servicios y puertos
-```
+| Componente | Protocolo | Puerto | Descripción |
+|---|---|---|---|
+| **Consola Web Custom** | HTTP | `5000` | Interfaz Front-end amigable (Este proyecto) |
+| **CamillaGUI Oficial** | HTTP | `5005` | Backend avanzado/GUI de HEnquist |
+| **CamillaDSP Engine** | WebSocket | `1234` | Motor de alto rendimiento y API de control |
 
 ---
 
-## Estructura de directorios
+## 📂 Directorio y Configuración (Backend)
 
-```
+La ejecución inicial asienta toda la carpeta de trabajo bajo la ubicación nativa del usuario principal (ejemplo `$HOME/camilladsp` o `/root/camilladsp` en TV-box).
+
+```text
 ~/camilladsp/
-├── engine/
-│   └── camilladsp          # Binario del motor DSP
-├── gui/                    # Backend CamillaGUI
-│   └── config/
-│       └── camillagui.yml
-├── web/
-│   ├── index.html          # Interfaz Web Console
-│   └── server.py           # Servidor Flask (proxy al engine)
-├── config/
-│   └── camilladsp.yml      # Configuración del pipeline de audio
-├── coeffs/                 # Coeficientes de filtros FIR/IIR
-├── logs/
-│   ├── engine.log
-│   ├── gui.log
-│   └── web.log
-├── pids/                   # PIDs de procesos activos
-└── scripts/
-    ├── start_all.sh        # Arranque (engine + GUI + web)
-    ├── stop_all.sh         # Parada completa
-    └── status.sh           # Estado de servicios
+├── engine/             # Binario del software
+├── gui/                # Core de configuración Backend
+├── web/                # Interfaz de usuario (Consola Web)
+├── config/             # Tuberías, filtros y yaml del pipeline
+├── coeffs/             # Archivos FIR y coeficientes
+├── scripts/            # Comandos: start_all.sh | stop_all.sh
+└── logs/               # Monitoreo del motor y el front-end
 ```
 
 ---
 
-## Inicio automático al arranque
+## 🔧 Resolución de Problemas
 
-El instalador configura el arranque automático de forma automática, con este orden de prioridad:
-
-1. **systemd (modo usuario)** — si está disponible (Debian, Ubuntu, Armbian, etc.)
-2. **rc.local** — fallback para sistemas sin systemd (OpenWrt, algunos TV-box)
-3. **cron @reboot** — último recurso si no hay systemd ni rc.local
-
-### Gestión manual (systemd)
-
-```bash
-# Ver estado del servicio unificado
-systemctl --user status camilladsp.service
-
-# Deshabilitar arranque automático
-systemctl --user disable camilladsp.service
-
-# Habilitar arranque automático (si se instaló con --no-service)
-systemctl --user enable camilladsp.service
-loginctl enable-linger $USER
-
-# Ver logs en vivo
-journalctl --user -u camilladsp.service -f
-```
-
-> En sistemas headless (sin sesión de usuario al arrancar), el instalador habilita automáticamente `loginctl enable-linger` para que el servicio arranque sin login.
+1. **La Interfaz Web no muestra ningún dispositivo de audio ALSA:**
+   El demonio central debe estar operando. Ejecuta `~/camilladsp/scripts/status.sh` y asegúrate de que tanto el engine (1234) como la GUI (5005) estén "ON". Verifica tus logs en `~/camilladsp/logs/`.
+2. **Audio saturado o caídas repentinas (Dropouts):**
+   Accede a la pestaña `MIXER`, incrementa el valor de Chunksize en cascada (e.g., 512 → 1024 → 2048) y luego haz clic en `⟳ Motor`.
+3. **El instalador se queda bloqueado o "Congelado":**
+   Presiona `CTRL+C`, y vuelva a lanzar `bash install_camilladsp.sh`. La consola detectará vestigios de la instalación corrupta y te preguntará si quieres realizar un saneamiento ("Limpieza profunda"). Presiona la tecla `S` para aprobarlo y continuar.
 
 ---
 
-## Troubleshooting
-
-### La Web Console no carga (puerto 5000)
-
-```bash
-~/camilladsp/scripts/status.sh
-cat ~/camilladsp/logs/web.log
-ss -tlnp | grep 5000
-```
-
-### El engine no es accesible desde la LAN (puerto 1234)
-
-El engine debe escuchar en `0.0.0.0:1234`, no en `127.0.0.1:1234`.
-
-```bash
-# Verificar (debe mostrar 0.0.0.0:1234)
-ss -tlnp | grep 1234
-
-# Si muestra 127.0.0.1:1234, corregir el script de arranque:
-sed -i 's|start_svc engine.*-p 1234.*|start_svc engine $ENGINE $CONFIG -p 1234 -a 0.0.0.0 -w|' \
-  ~/camilladsp/scripts/start_all.sh
-
-# Reiniciar
-~/camilladsp/scripts/stop_all.sh && ~/camilladsp/scripts/start_all.sh
-```
-
-### No hay sonido / error de dispositivo ALSA
-
-```bash
-# Listar dispositivos disponibles
-aplay -l && arecord -l
-
-# Ver errores del engine
-tail -30 ~/camilladsp/logs/engine.log
-```
-
-Causas frecuentes:
-- Nombre de dispositivo incorrecto → usar selector IN/OUT en la pestaña MIXER
-- PulseAudio/PipeWire bloqueando el dispositivo → detener con `pulseaudio --kill` o `systemctl --user stop pipewire`
-- Chunksize muy bajo → aumentar en el selector Chunk del MIXER (512 → 1024)
-
-### Los selectores IN/OUT del Mixer aparecen vacíos
-
-El listado de dispositivos viene de CamillaGUI (puerto 5005):
-
-```bash
-ss -tlnp | grep 5005
-cat ~/camilladsp/logs/gui.log
-```
-
-### Alto consumo de CPU / dropouts
-
-1. Aumentar Chunksize en la pestaña MIXER (512 → 1024 → 2048)
-2. Revisar **DSP load** en la barra superior de la consola web
-3. Reducir el número de filtros activos si supera el 80%
-
-### Actualizar a la última versión
-
-```bash
-# Detener servicios primero
-~/camilladsp/scripts/stop_all.sh
-
-# Actualizar engine y GUI backend
-bash install_camilladsp.sh --update
-```
-
----
-
-## Referencias
-
-- [CamillaDSP — Repositorio oficial](https://github.com/HEnquist/camilladsp)
-- [CamillaGUI Backend](https://github.com/HEnquist/camillagui-backend)
-- [Documentación de CamillaDSP](https://henquist.github.io/camilladsp/)
-
----
-
-## Licencia
-
-MIT License
+> Desplegado, probado y configurado bajo entornos Linux embebidos, TV-Boxes modificados (Armbian Debian Trixie/Ubuntu) y equipos de capa general.
