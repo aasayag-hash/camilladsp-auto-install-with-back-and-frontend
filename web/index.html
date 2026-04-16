@@ -2390,10 +2390,35 @@ async function applyDevice(domain,val){
 }
 async function restartEngine(){
   try{
+    const stEl = document.getElementById('dsp-state');
+    const isRunning = stEl && stEl.textContent === 'Running';
+    if(isRunning){
+      await fetch('/api/restart',{method:'POST'});
+      toast('Motor reiniciado');
+      return;
+    }
+    toast('Intentando reiniciar motor...');
     await fetch('/api/restart',{method:'POST'});
-    toast('Motor reiniciado');
+    await new Promise(r => setTimeout(r, 2000));
+    let statusResp = await apiGet('/api/status').catch(()=>null);
+    let state = statusResp ? statusResp.state : 'Error';
+    if(state === 'Running'){
+      toast('Motor reiniciado con éxito');
+      return;
+    }
+    toast('Falla al reiniciar. Aplicando config de recup...');
+    await fetch('/api/recovery', {method: 'POST'});
+    await new Promise(r => setTimeout(r, 2500));
+    statusResp = await apiGet('/api/status').catch(()=>null);
+    state = statusResp ? statusResp.state : 'Error';
+    if(state === 'Running'){
+      toast('servicio activo por defecto');
+      setTimeout(() => location.reload(), 2000);
+    } else {
+      toast('Fallo crítico: Motor no inicia');
+    }
   }catch(e){
-    toast('Error al reiniciar motor');
+    toast('Error en proceso de reinicio');
   }
 }
 
