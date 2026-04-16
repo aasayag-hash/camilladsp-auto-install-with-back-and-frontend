@@ -228,60 +228,53 @@ def restart_engine():
 @app.route("/api/recovery", methods=["POST"])
 def recover_engine():
     try:
-        cfg = {
-            "title": "default",
-            "description": "default",
-            "devices": {
-                "adjust_period": None,
-                "capture": {
-                    "channels": 4,
-                    "device": "null",
-                    "format": None,
-                    "labels": None,
-                    "link_mute_control": None,
-                    "link_volume_control": None,
-                    "stop_on_inactive": None,
-                    "type": "Alsa"
-                },
-                "capture_samplerate": 48000,
-                "chunksize": 1024,
-                "enable_rate_adjust": None,
-                "multithreaded": None,
-                "playback": {
-                    "channels": 4,
-                    "device": "null",
-                    "format": None,
-                    "type": "Alsa"
-                },
-                "queuelimit": None,
-                "rate_measure_interval": None,
-                "resampler": None,
-                "samplerate": 48000,
-                "silence_threshold": None,
-                "silence_timeout": None,
-                "stop_on_rate_change": None,
-                "target_level": None,
-                "volume_limit": None,
-                "volume_ramp_time": None,
-                "worker_threads": None
-            },
-            "filters": {},
-            "mixers": {
-                "Unnamed Mixer 1": {
-                    "channels": {
-                        "in": 4,
-                        "out": 4
-                    },
-                    "description": None,
-                    "labels": None,
-                    "mapping": []
-                }
-            },
-            "pipeline": [],
-            "processors": {}
-        }
+        yaml_content = """description: default
+devices:
+  adjust_period: null
+  capture:
+    channels: 4
+    device: "null"
+    format: null
+    labels: null
+    link_mute_control: null
+    link_volume_control: null
+    stop_on_inactive: null
+    type: Alsa
+  capture_samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: null
+  multithreaded: null
+  playback:
+    channels: 4
+    device: "null"
+    format: null
+    type: Alsa
+  queuelimit: null
+  rate_measure_interval: null
+  resampler: null
+  samplerate: 48000
+  silence_threshold: null
+  silence_timeout: null
+  stop_on_rate_change: null
+  target_level: null
+  volume_limit: null
+  volume_ramp_time: null
+  worker_threads: null
+filters: {}
+mixers:
+  Unnamed Mixer 1:
+    channels:
+      in: 4
+      out: 4
+    description: null
+    labels: null
+    mapping: []
+pipeline: []
+processors: {}
+title: default"""
         
-        save_yaml_config(cfg)
+        with open(CFG_FILE, "w", encoding="utf-8") as f:
+            f.write(yaml_content)
         
         try:
             r1 = urllib.request.Request(f"{CDSP_GUI}/api/stopcamilladsp", method="GET")
