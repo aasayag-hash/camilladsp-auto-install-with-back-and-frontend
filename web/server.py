@@ -4,6 +4,9 @@ import json, threading, os, subprocess
 from flask import Flask, jsonify, request, send_file, Response
 import websocket, urllib.request
 
+app = Flask(__name__)
+app.config['JSON_SORT_KEYS'] = False
+
 # Configurable — el instalador reemplaza este path
 INSTALL_BASE  = "/root/camilladsp"
 CDSP_WS       = "ws://127.0.0.1:1234"
@@ -14,7 +17,8 @@ WEB_PORT      = 5000
 
 os.makedirs(PRESETS_DIR, exist_ok=True)
 
-app = Flask(__name__)
+app.config['JSON_SORT_KEYS'] = False
+
 _lock = threading.Lock()
 _ws   = None
 
@@ -90,7 +94,10 @@ def get_config():
 @app.route("/api/config", methods=["POST"])
 def set_config():
     try:
-        data = json.loads(request.data) if request.data else {}
+        try:
+            data = request.get_json(force=True) or {}
+        except:
+            data = json.loads(request.data) if request.data else {}
         cfg = data.get("config")
         cdsp("SetConfigJson", json.dumps(cfg))
         save_yaml_config(cfg)
@@ -101,7 +108,10 @@ def set_config():
 @app.route("/api/patch", methods=["POST"])
 def patch_config():
     try:
-        data = json.loads(request.data) if request.data else {}
+        try:
+            data = request.get_json(force=True) or {}
+        except:
+            data = json.loads(request.data) if request.data else {}
         cdsp("PatchConfig", data.get("patch"))
         try:
             v = cdsp("GetConfigJson")
@@ -135,7 +145,10 @@ def get_levels():
 @app.route("/api/volume", methods=["POST"])
 def set_volume():
     try:
-        data = json.loads(request.data) if request.data else {}
+        try:
+            data = request.get_json(force=True) or {}
+        except:
+            data = json.loads(request.data) if request.data else {}
         cdsp("SetVolume", float(data.get("volume", 0.0)))
         return jsonify({"ok": True})
     except Exception as e:
