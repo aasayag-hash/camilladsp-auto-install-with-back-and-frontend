@@ -2575,7 +2575,8 @@ function _updateLoadBtn(){
 }
 
 async function presetSave(){
-  const name = await inlinePrompt('Nombre del preset:', '');
+  const defaultName = _selectedPreset || '';
+  const name = await inlinePrompt('Nombre del preset:', defaultName);
   if(!name) return;
   const r = await apiGet('/api/config');
   if(!r.ok){ toast('Error leyendo config'); return; }
@@ -2594,9 +2595,8 @@ async function presetLoad(){
   if(!_selectedPreset) return;
   const res = await apiPost('/api/presets/load', { name: _selectedPreset });
   if(res.ok){
-    config = res.config;
-    await init();
-    toast(`Preset "${_selectedPreset}" cargado`);
+    toast(`Preset "${_selectedPreset}" cargado, recargando página...`);
+    setTimeout(() => location.reload(), 500);
   } else {
     toast('Error cargando: ' + (res.error||''));
   }
