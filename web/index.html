@@ -2731,7 +2731,7 @@ async function resetConfig(){
   if(outStr===null) return;
   const inCh=parseInt(inStr)||2;
   const outCh=parseInt(outStr)||2;
-  const def={description:'default',devices:{samplerate:48000,chunksize:1024,queuelimit:null,silence_threshold:null,silence_timeout:null,capture:{type:'Alsa',channels:inCh,device:'null',format:null,stop_on_inactive:null,link_volume_control:null,link_mute_control:null,labels:null},playback:{type:'Alsa',channels:outCh,device:'null',format:null},enable_rate_adjust:null,target_level:null,adjust_period:null,resampler:null,capture_samplerate:48000,stop_on_rate_change:null,rate_measure_interval:null,volume_ramp_time:null,volume_limit:null,multithreaded:null,worker_threads:null},filters:{},mixers:{Mixer:{channels:{in:inCh,out:outCh},description:null,labels:null,mapping:[]}},pipeline:[{type:'Mixer',name:'Mixer',description:null}],processors:{},title:'default'};
+  const def={description:'default',devices:{samplerate:48000,chunksize:1024,queuelimit:null,silence_threshold:null,silence_timeout:null,capture:{type:'Dummy',channels:inCh,format:'S16LE'},playback:{type:'Dummy',channels:outCh,format:'S16LE'},enable_rate_adjust:null,target_level:null,adjust_period:null,resampler:null,capture_samplerate:48000,stop_on_rate_change:null,rate_measure_interval:null,volume_ramp_time:null,volume_limit:null,multithreaded:null,worker_threads:null},filters:{},mixers:{Mixer:{channels:{in:inCh,out:outCh},description:null,labels:null,mapping:[]}},pipeline:[{type:'Mixer',name:'Mixer',description:null}],processors:{},title:'default'};
   await setFullConfig(def); await init(); toast('Reset aplicado');
 }
 

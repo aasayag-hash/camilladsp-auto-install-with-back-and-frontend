@@ -237,19 +237,13 @@ devices:
   silence_threshold: null
   silence_timeout: null
   capture:
-    type: Alsa
+    type: Dummy
     channels: 4
-    device: "null"
-    format: null
-    stop_on_inactive: null
-    link_volume_control: null
-    link_mute_control: null
-    labels: null
+    format: S16LE
   playback:
-    type: Alsa
+    type: Dummy
     channels: 4
-    device: "null"
-    format: null
+    format: S16LE
   enable_rate_adjust: null
   target_level: null
   adjust_period: null
