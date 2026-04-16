@@ -209,6 +209,93 @@ def get_playback_devices():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "devices": []})
 
+def _get_alsa_hw_only(mode):
+    cmd = "arecord -L" if mode == "capture" else "aplay -L"
+    devs = []
+    try:
+        out = subprocess.check_output(cmd, shell=True, text=True, timeout=5)
+        current_id = None
+        current_desc = []
+        for line in out.splitlines():
+            if not line:
+                continue
+            if line[0] not in ' \t':
+                if current_id:
+                    desc_str = " - ".join([d.strip(" ,") for d in current_desc if d.strip(" ,")])
+                    devs.append({"id": current_id, "desc": desc_str})
+                current_id = line.strip()
+                current_desc = []
+            else:
+                current_desc.append(line.strip())
+        if current_id:
+            desc_str = " - ".join([d.strip(" ,") for d in current_desc if d.strip(" ,")])
+            devs.append({"id": current_id, "desc": desc_str})
+    except Exception:
+        pass
+    hw_devs = [d for d in devs if d["id"].startswith("hw:")]
+    for d in hw_devs:
+        try:
+            parts = d["id"].split(",")
+            card_num = parts[0].replace("hw:", "")
+            with open(f"/proc/asound/card{card_num}/id", "r") as f:
+                d["card_name"] = f.read().strip()
+        except Exception:
+            d["card_name"] = ""
+    return hw_devs
+
+def _probe_alsa_hw(device_id, mode):
+    cmd_base = "aplay" if mode == "playback" else "arecord"
+    try:
+        result = subprocess.run(
+            [cmd_base, "--dump-hw-params", "-D", device_id] +
+            (["-d", "1", "/dev/null"] if mode == "capture" else ["/dev/zero"]),
+            capture_output=True, text=True, timeout=8
+        )
+        output = result.stderr + "\n" + result.stdout
+        info = {"device": device_id, "mode": mode, "channels": None, "rate": None, "format": None, "raw": output}
+        for line in output.splitlines():
+            line = line.strip()
+            if line.startswith("CHANNELS:"):
+                info["channels"] = int(line.split(":")[1].strip().split()[0])
+            elif line.startswith("RATE:"):
+                val = line.split(":")[1].strip().split()[0]
+                try:
+                    info["rate"] = int(val)
+                except ValueError:
+                    info["rate"] = val
+            elif line.startswith("FORMAT:"):
+                info["format"] = line.split(":")[1].strip().split()[0]
+        return info
+    except Exception as e:
+        return {"device": device_id, "mode": mode, "error": str(e)}
+
+@app.route("/api/alsa-hw-capture")
+def alsa_hw_capture():
+    try:
+        devs = _get_alsa_hw_only("capture")
+        return jsonify({"ok": True, "devices": devs})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "devices": []})
+
+@app.route("/api/alsa-hw-playback")
+def alsa_hw_playback():
+    try:
+        devs = _get_alsa_hw_only("playback")
+        return jsonify({"ok": True, "devices": devs})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e), "devices": []})
+
+@app.route("/api/alsa-probe")
+def alsa_probe():
+    device = request.args.get("device", "")
+    mode = request.args.get("mode", "playback")
+    if not device:
+        return jsonify({"ok": False, "error": "Missing device parameter"}), 400
+    info = _probe_alsa_hw(device, mode)
+    if "error" in info:
+        return jsonify({"ok": False, "error": info["error"]})
+    return jsonify({"ok": True, "probe": info})
+
 @app.route("/api/restart", methods=["POST"])
 def restart_engine():
     try:
