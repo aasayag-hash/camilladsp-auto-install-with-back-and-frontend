@@ -402,24 +402,45 @@ def alsa_hw_capture():
 def alsa_hw_playback():
     return jsonify({"ok": True, "devices": _list_hw_devices("playback")})
 
+CDSP_FORMATS = {'S16_LE', 'S24_3LE', 'S24_4LE', 'S32_LE', 'F32_LE', 'F64_LE'}
+
+ALSACTL_MAP = {
+    'S16_LE': 'S16_LE', 'S24_3LE': 'S24_3LE', 'S24_LE': 'S24_4LE',
+    'S32_LE': 'S32_LE', 'FLOAT_LE': 'F32_LE', 'FLOAT64_LE': 'F64_LE',
+    'S24_4LE': 'S24_4LE', 'F32_LE': 'F32_LE', 'F64_LE': 'F64_LE',
+}
+
+def _to_cdsp_fmt(fmt_list):
+    for f in fmt_list:
+        mapped = ALSACTL_MAP.get(f)
+        if mapped:
+            return mapped
+    return None
+
 @app.route("/api/alsa-probe")
 def alsa_probe():
     device = request.args.get("device", "")
     mode = request.args.get("mode", "capture")
     if not device:
         return jsonify({"ok": False, "error": "Missing device parameter"}), 400
-    result = {"device": device}
+    result = {"device": device, "formats": []}
     try:
         cmd = ["aplay", "--dump-hw-params", "-D", device, "/dev/zero"] if mode == "playback" else ["arecord", "--dump-hw-params", "-D", device, "/dev/null"]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         output = proc.stderr + proc.stdout
+        formats_raw = []
         for line in output.splitlines():
             if "CHANNELS:" in line:
-                result["channels"] = line.split(":", 1)[1].strip()
+                vals = line.split(":", 1)[1].strip()
+                result["channels"] = vals
             elif "RATE:" in line:
-                result["rate"] = line.split(":", 1)[1].strip()
-            elif "FORMAT:" in line:
-                result["format"] = line.split(":", 1)[1].strip().split()[0]
+                vals = line.split(":", 1)[1].strip()
+                result["rate"] = vals
+            elif line.startswith("FORMAT:"):
+                vals = line.split(":", 1)[1].strip()
+                formats_raw = [v.strip() for v in vals.split()]
+        result["formats"] = formats_raw
+        result["format"] = _to_cdsp_fmt(formats_raw)
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
     return jsonify({"ok": True, "probe": result})

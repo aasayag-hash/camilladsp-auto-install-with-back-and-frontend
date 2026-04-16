@@ -3399,7 +3399,8 @@ async function probeDevice(mode,deviceId){
     const rateVal=String(p.rate||'?').replace(/[\[\]]/g,'');
     const chVal=String(p.channels||'?').replace(/[\[\]]/g,'');
     box.innerHTML=`<b>${mode==='capture'?'Captura':'Reproducción'}:</b> ${p.device}<br>`+
-      `Canales: <b>${chVal}</b> &nbsp; Frecuencia: <b>${rateVal}</b> Hz &nbsp; Formato: <b>${p.format||'?'}</b>`;
+      `Canales: <b>${chVal}</b> &nbsp; Frecuencia: <b>${rateVal}</b> Hz<br>`+
+      `Formato: <b>${p.format||'default'}</b>${p.formats?.length?'<br><small>Disponibles: '+p.formats.join(', ')+'</small>':''}`;
     updateSummary();
   }catch(e){
     box.className='probe-box err'; box.textContent='Error: '+e.message;
