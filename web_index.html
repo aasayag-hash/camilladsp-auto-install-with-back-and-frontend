@@ -759,16 +759,32 @@ const COLORS = ["#00ff96","#0096ff","#ff6464","#ffc800","#c800ff","#00ffff","#ff
 // API
 // ═══════════════════════════════════════════════════════════════════════════
 async function apiGet(path){ const r=await fetch(path); return r.json(); }
-async function apiPost(path,body){ const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); return r.json(); }
+async function apiPost(path,body){ const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const j=await r.json(); if(!r.ok&&j.error) console.error('POST '+path+' error:',j.error); return j; }
 
 async function fetchConfig(){
   const r = await apiGet('/api/config');
   if(r.ok && r.config){ config = r.config; return true; }
   return false;
 }
+function stripNulls(obj){
+  if(obj===null||obj===undefined) return undefined;
+  if(Array.isArray(obj)) return obj.map(stripNulls).filter(v=>v!==undefined);
+  if(typeof obj==='object'){
+    const out={};
+    for(const [k,v] of Object.entries(obj)){
+      if(v!==null&&v!==undefined) out[k]=stripNulls(v);
+    }
+    return out;
+  }
+  return obj;
+}
+
 async function setFullConfig(cfg){
-  config = cfg;
-  await apiPost('/api/config',{config:cfg});
+  const clean=stripNulls(cfg);
+  config=clean;
+  const r=await apiPost('/api/config',{config:clean});
+  if(!r.ok){toast('Error al enviar config: '+(r.error||'desconocido'));return false;}
+  return true;
 }
 async function patchCfg(patch){
   await apiPost('/api/patch',{patch});
@@ -3418,28 +3434,35 @@ async function createConfigFromProbes(){
   const playCh=parseInt(String(resetPlayInfo?.channels||2).replace(/[\[\]]/g,''))||2;
   const capFmt=resetCapInfo?.format||null;
   const playFmt=resetPlayInfo?.format||null;
+  if(!resetCapDev&&!resetPlayDev){toast('Seleccione al menos un dispositivo');return;}
+  const capObj={type:'Alsa',channels:capCh,device:resetCapDev};
+  if(capFmt)capObj.format=capFmt;
+  const playObj={type:'Alsa',channels:playCh,device:resetPlayDev};
+  if(playFmt)playObj.format=playFmt;
+  const mixMap=[];
+  const inCh=Math.min(capCh,playCh);
+  for(let ch=0;ch<inCh;ch++) mixMap.push({dest:ch,sources:[{channel:ch,gain:0,mute:false,inverted:false}]});
   const def={
-    description:'default',
     devices:{
       samplerate:sr,
       chunksize:1024,
-      queuelimit:null,silence_threshold:null,silence_timeout:null,
-      capture:{type:'Alsa',channels:capCh,device:resetCapDev||'null',format:capFmt,stop_on_inactive:null,link_volume_control:null,link_mute_control:null,labels:null},
-      playback:{type:'Alsa',channels:playCh,device:resetPlayDev||'null',format:playFmt},
-      enable_rate_adjust:null,target_level:null,adjust_period:null,resampler:null,
-      capture_samplerate:sr,stop_on_rate_change:null,rate_measure_interval:null,
-      volume_ramp_time:null,volume_limit:null,multithreaded:null,worker_threads:null
+      capture:capObj,
+      playback:playObj
     },
     filters:{},
-    mixers:{Mixer:{channels:{in:capCh,out:playCh},description:null,labels:null,mapping:[]}},
-    pipeline:[{type:'Mixer',name:'Mixer',description:null,bypassed:null}],
-    processors:{},
-    title:'default'
+    mixers:{Mixer:{channels:{in:capCh,out:playCh},mapping:mixMap}},
+    pipeline:[{type:'Mixer',name:'Mixer'}],
+    processors:{}
   };
   closeResetModal();
-  await setFullConfig(def);
-  await init();
-  toast('Configuración creada con dispositivos de audio');
+  const btn=document.getElementById('reset-create-btn');
+  if(btn){btn.disabled=true;btn.textContent='Enviando...';}
+  const ok=await setFullConfig(def);
+  if(btn){btn.disabled=false;btn.textContent='Crear Config';}
+  if(ok){
+    await init();
+    toast('Configuración creada con dispositivos de audio');
+  }
 }
 </script>
 

@@ -90,11 +90,27 @@ def get_config():
 @app.route("/api/config", methods=["POST"])
 def set_config():
     try:
-        cfg = request.json.get("config")
-        cdsp("SetConfigJson", json.dumps(cfg))
+        data = request.get_json(force=True)
+        if data is None:
+            try: data = json.loads(request.data)
+            except: return jsonify({"ok": False, "error": "No JSON body"}), 400
+        cfg = data.get("config")
+        if cfg is None:
+            return jsonify({"ok": False, "error": "Missing 'config' key"}), 400
+        def strip_nulls(obj):
+            if isinstance(obj, dict):
+                return {k: strip_nulls(v) for k, v in obj.items() if v is not None}
+            if isinstance(obj, list):
+                return [strip_nulls(v) for v in obj]
+            return obj
+        cfg = strip_nulls(cfg)
+        print(f"[set_config] Sending config to CamillaDSP: {json.dumps(cfg)[:200]}...")
+        result = cdsp("SetConfigJson", json.dumps(cfg))
+        print(f"[set_config] CamillaDSP result: {result}")
         save_yaml_config(cfg)
         return jsonify({"ok": True})
     except Exception as e:
+        print(f"[set_config] ERROR: {e}")
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/api/patch", methods=["POST"])
