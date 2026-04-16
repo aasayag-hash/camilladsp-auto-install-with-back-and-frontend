@@ -417,6 +417,35 @@ def _to_cdsp_fmt(fmt_list):
             return mapped
     return None
 
+import re as _re
+
+def _parse_hw_params_proc(device, mode):
+    m = _re.match(r'hw:(\d+),(\d+)', device)
+    if not m:
+        return None
+    card, dev = m.group(1), m.group(2)
+    stream = "c" if mode == "capture" else "p"
+    path = f"/proc/asound/card{card}/pcm{dev}{stream}/sub0/hw_params"
+    try:
+        with open(path) as f:
+            text = f.read()
+        if "closed" in text.lower():
+            return None
+        info = {}
+        for line in text.strip().splitlines():
+            k, _, v = line.partition(":")
+            k, v = k.strip().lower(), v.strip()
+            if k == "format":
+                info["format"] = v
+            elif k == "channels":
+                info["channels"] = v
+            elif k == "rate":
+                nums = _re.findall(r'\d+', v)
+                info["rate"] = str(max(map(int, nums))) if nums else v
+        return info
+    except:
+        return None
+
 @app.route("/api/alsa-probe")
 def alsa_probe():
     device = request.args.get("device", "")
@@ -428,19 +457,35 @@ def alsa_probe():
         cmd = ["aplay", "--dump-hw-params", "-D", device, "/dev/zero"] if mode == "playback" else ["arecord", "--dump-hw-params", "-D", device, "/dev/null"]
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         output = proc.stderr + proc.stdout
+        print(f"[alsa_probe] cmd={' '.join(cmd)}, rc={proc.returncode}, output={output[:300]}")
         formats_raw = []
+        found = False
         for line in output.splitlines():
             if "CHANNELS:" in line:
                 vals = line.split(":", 1)[1].strip()
                 result["channels"] = vals
-            elif "RATE:" in line:
+                found = True
+            elif line.startswith("RATE:"):
                 vals = line.split(":", 1)[1].strip()
-                result["rate"] = vals
+                result["rate_raw"] = vals
+                nums = [int(x) for x in _re.findall(r'\d+', vals)]
+                result["rate"] = max(nums) if nums else 48000
+                found = True
             elif line.startswith("FORMAT:"):
                 vals = line.split(":", 1)[1].strip()
                 formats_raw = [v.strip() for v in vals.split()]
+                found = True
         result["formats"] = formats_raw
         result["format"] = _to_cdsp_fmt(formats_raw)
+        if not found:
+            proc_info = _parse_hw_params_proc(device, mode)
+            if proc_info:
+                result.update(proc_info)
+                if "format" in proc_info:
+                    fmt = proc_info["format"]
+                    mapped = ALSACTL_MAP.get(fmt)
+                    result["format"] = mapped if mapped else fmt
+                    result["formats"] = [fmt]
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
     return jsonify({"ok": True, "probe": result})
