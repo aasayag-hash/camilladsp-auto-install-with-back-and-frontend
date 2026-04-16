@@ -327,6 +327,7 @@ table.ftable tr:hover td{background:#1a1a1a}
         <div id="presets-list"></div>
         <button id="pset-save-btn" class="pset-btn" onclick="presetSave()">&#x1F4BE; Guardar</button>
         <button id="pset-load-btn" class="pset-btn" onclick="presetLoad()" disabled>&#x23EF; Cargar</button>
+        <button id="pset-export-btn" class="pset-btn" onclick="presetExport()">&#x1F4E4; Exportar</button>
       </div>
     </div>
     <div id="device-panel">
@@ -2589,6 +2590,11 @@ async function presetLoad(){
   } else {
     toast('Error cargando: ' + (res.error||''));
   }
+}
+
+function presetExport(){
+  window.location.href = '/api/export';
+  toast('Descargando configuración activa...');
 }
 
 async function presetDelete(name, e){
