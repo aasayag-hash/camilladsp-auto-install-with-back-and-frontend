@@ -353,6 +353,63 @@ def delete_preset():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+# ── ALSA hw device probe ──────────────────────────────────────────────────────
+def _parse_proc_cards():
+    cards = {}
+    try:
+        with open("/proc/asound/cards", "r") as f:
+            for line in f:
+                m = __import__("re").match(r"\s*(\d+)\s+\[(\w+)\s*\]:\s+(.+)", line)
+                if m:
+                    cards[int(m.group(1))] = {"id": m.group(2), "name": m.group(3).strip()}
+    except: pass
+    return cards
+
+def _list_hw_devices(mode):
+    devices = []
+    cards = _parse_proc_cards()
+    try:
+        out = subprocess.check_output(["aplay", "-l"], text=True, timeout=5) if mode == "playback" else subprocess.check_output(["arecord", "-l"], text=True, timeout=5)
+        for line in out.splitlines():
+            m = __import__("re").match(r"card (\d+): (\w+).*device (\d+):.*\[(.+?)\]", line)
+            if m:
+                cnum, cid, dnum, desc = int(m.group(1)), m.group(2), int(m.group(3)), m.group(4)
+                dev_id = f"hw:{cnum},{dnum}"
+                card_name = cards.get(cnum, {}).get("name", cid)
+                devices.append({"id": dev_id, "card_name": card_name, "desc": desc})
+    except: pass
+    return devices
+
+@app.route("/api/alsa-hw-capture")
+def alsa_hw_capture():
+    return jsonify({"ok": True, "devices": _list_hw_devices("capture")})
+
+@app.route("/api/alsa-hw-playback")
+def alsa_hw_playback():
+    return jsonify({"ok": True, "devices": _list_hw_devices("playback")})
+
+@app.route("/api/alsa-probe")
+def alsa_probe():
+    device = request.args.get("device", "")
+    mode = request.args.get("mode", "capture")
+    if not device:
+        return jsonify({"ok": False, "error": "Missing device parameter"}), 400
+    result = {"device": device}
+    try:
+        cmd = ["aplay", "--dump-hw-params", "-D", device, "/dev/zero"] if mode == "playback" else ["arecord", "--dump-hw-params", "-D", device, "/dev/null"]
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        output = proc.stderr + proc.stdout
+        for line in output.splitlines():
+            if "CHANNELS:" in line:
+                result["channels"] = line.split(":", 1)[1].strip()
+            elif "RATE:" in line:
+                result["rate"] = line.split(":", 1)[1].strip()
+            elif "FORMAT:" in line:
+                result["format"] = line.split(":", 1)[1].strip().split()[0]
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+    return jsonify({"ok": True, "probe": result})
+
 if __name__ == "__main__":
     print(f"CamillaDSP Web GUI → http://0.0.0.0:{WEB_PORT}")
     app.run(host="0.0.0.0", port=WEB_PORT, threaded=True)
