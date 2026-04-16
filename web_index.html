@@ -2,10 +2,19 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
 <title>CamillaDSP Web Console</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
+/* Pantalla completa en dispositivos táctiles */
+@media (pointer:coarse){
+  html,body{width:100%;height:100%;overflow:hidden;background:#000}
+  body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
+}
 body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;overflow:hidden;height:100vh;display:flex;flex-direction:column}
 #topbar{display:flex;align-items:center;gap:6px;padding:4px 8px;background:#111;border-bottom:1px solid #333;flex-shrink:0}
 #topbar h1{font-size:14px;color:#0ff;font-weight:bold;margin-right:8px}
@@ -17,6 +26,11 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 #status-dot{width:10px;height:10px;border-radius:50%;background:#f00;flex-shrink:0}
 #status-dot.ok{background:#0f0}
 #status-txt{font-size:11px;color:#888}
+#dsp-stats{display:flex;align-items:center;gap:10px;margin-left:4px}
+.dsp-stat{font-size:12px;color:#888;white-space:nowrap}
+.dsp-stat span{font-weight:bold;color:#0ff;font-size:13px}
+.dsp-state-run{color:#0f0!important}
+.dsp-state-err{color:#f55!important}
 
 /* Tabs */
 #tabs{display:flex;border-bottom:1px solid #333;flex-shrink:0;background:#111}
@@ -29,7 +43,7 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 #ch-panel.show{display:block}
 .ch-row{display:flex;gap:3px;overflow-x:auto;padding:1px 0}
 .ch-row::-webkit-scrollbar{height:4px}.ch-row::-webkit-scrollbar-thumb{background:#444}
-.ch-btn{height:20px;padding:0 8px;border:1px solid #444;border-radius:2px;background:#2a2a2a;color:#999;cursor:pointer;font-size:11px;font-weight:bold;white-space:nowrap;flex-shrink:0}
+.ch-btn{height:20px;padding:0 8px;border:1px solid #444;border-radius:2px;background:#2a2a2a;color:#999;cursor:pointer;font-size:11px;font-weight:bold;white-space:nowrap;flex-shrink:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
 .ch-btn.active{background:#00aaaa;color:#000;border-color:#fff}
 .ch-btn.out.active{background:var(--col);color:#000;border-color:#fff}
 .ch-btn.all{background:#2a2a2a}.ch-btn.all.active{background:#007bff;color:#fff;border-color:#0ff}
@@ -43,9 +57,15 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 #vu-top{display:flex;align-items:center;gap:8px;padding:4px 8px;flex-shrink:0;border-bottom:1px solid #222}
 .view-btn{height:24px;padding:0 12px;border:1px solid #444;border-radius:3px;background:#222;color:#ccc;cursor:pointer;font-weight:bold;font-size:11px}
 .view-btn.active{background:#007bff;color:#fff;border-color:#0ff}
-#vu-scroll{flex:1;overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-end;padding:8px;gap:4px;background:#050505}
-#vu-scroll::-webkit-scrollbar{height:8px}.#vu-scroll::-webkit-scrollbar-thumb{background:#444}
-#comp-area{flex-shrink:0;max-height:160px;overflow-y:auto;padding:0 4px 4px}
+#vu-meters-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-end;padding:4px 8px;gap:2px;background:#050505;flex-shrink:0;height:190px}
+#vu-meters-row::-webkit-scrollbar{height:6px}#vu-meters-row::-webkit-scrollbar-thumb{background:#444}
+#vu-faders-row{overflow-x:auto;overflow-y:hidden;display:flex;align-items:flex-start;padding:4px 8px;gap:3px;background:#080808;border-top:1px solid #222;flex-shrink:0;height:215px}
+#vu-faders-row::-webkit-scrollbar{height:6px}#vu-faders-row::-webkit-scrollbar-thumb{background:#444}
+#comp-area{flex:1;min-height:50px;overflow-y:auto;padding:0 4px 4px}
+.fader-area{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
+.fader-name{font-size:10px;color:#fff;font-weight:bold;text-align:center;white-space:nowrap;overflow:hidden;max-width:70px}
+.fader-ctrl-row{display:flex;gap:3px;flex-wrap:nowrap}
+.fader-dly-row{display:flex;align-items:center;gap:3px}
 
 /* Compressor table */
 .comp-table{width:100%;border-collapse:collapse;font-size:11px}
@@ -57,10 +77,26 @@ body{background:#050505;color:#fff;font-family:Arial,sans-serif;font-size:13px;o
 .auto-btn{background:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;padding:2px 8px;font-weight:bold}
 .auto-btn:hover{background:#0056b3}
 
-/* EQ / Cross tab */
-.eq-wrap{flex:1;overflow:hidden;display:flex;flex-direction:column}
-canvas.graph{width:100%;flex:1;min-height:180px;display:block;cursor:crosshair}
-.filter-table-wrap{flex-shrink:0;max-height:160px;overflow-y:auto}
+/* EQ / Cross tab — canvas flexible arriba, planilla fija 40% abajo */
+.eq-wrap{flex:1;overflow:clip;display:flex;flex-direction:column;position:relative}
+canvas.graph{width:100%;flex:1;min-height:100px;display:block;cursor:crosshair}
+.filter-table-wrap{flex-shrink:0;height:40%;min-height:110px;max-height:280px;overflow-y:auto;border-top:1px solid #222;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}
+/* Barra Q-buttons HTML — oculta; los botones Q se dibujan dentro del tooltip del canvas */
+#eq-q-bar{display:none!important}
+.eq-q-btn{display:none}
+#eq-q-info{display:none}
+#eq-q-overlay{display:none}
+/* Táctil: controles más grandes */
+@media (pointer:coarse){
+  canvas.graph{min-height:160px}
+  table.ftable td input{min-height:32px;font-size:13px}
+  table.ftable select{min-height:32px;font-size:13px}
+  .del-btn{min-height:32px;padding:4px 12px}
+  .geq-strip{min-width:32px}
+  .geq-track{width:18px}
+  .ch-btn{height:28px;font-size:12px;padding:0 10px}
+  .geq-ch-btn{height:28px;font-size:11px;padding:0 10px}
+}
 table.ftable{width:100%;border-collapse:collapse;font-size:11px}
 table.ftable th{background:#1a1a1a;color:#0ff;padding:4px 6px;border:1px solid #333;position:sticky;top:0;z-index:1}
 table.ftable td{padding:3px 5px;border:1px solid #222;background:#111}
@@ -69,20 +105,52 @@ table.ftable select{background:#222;color:#fff;border:1px solid #444;padding:2px
 table.ftable tr:hover td{background:#1a1a1a}
 
 /* Mixer */
+#mixer-main{display:flex;flex:1;overflow:hidden;min-height:0}
 #mixer-scroll{flex:1;overflow:auto}
 #mixer-canvas{display:block;cursor:pointer}
+#device-panel{flex-shrink:0;padding:6px 8px;background:#0a0a0a;border-top:1px solid #222}
+.device-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.device-lbl{font-size:12px;color:#0ff;font-weight:bold;white-space:nowrap}
+.device-sel{flex:1;min-width:160px;background:#111;color:#fff;border:1px solid #444;border-radius:3px;padding:3px 5px;font-size:12px}
+.device-sel:focus{outline:none;border-color:#0ff}
+.device-apply-btn{height:24px;padding:0 10px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:3px;background:#1a1a1a;color:#0ff;cursor:pointer;white-space:nowrap}
+.device-apply-btn:hover{background:#222;border-color:#0ff}
+.device-restart-btn{height:24px;padding:0 10px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:3px;background:linear-gradient(180deg,#1a3a1a,#0a1a0a);color:#0f0;cursor:pointer;white-space:nowrap}
+.device-restart-btn:hover{background:linear-gradient(180deg,#2a5a2a,#0a2a0a);border-color:#0f0}
+/* Presets panel */
+#presets-panel{width:160px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid #222;background:#0a0a0a;padding:6px;gap:5px}
+#presets-panel .pset-title{font-size:11px;color:#0ff;font-weight:bold;text-align:center;letter-spacing:1px;padding-bottom:4px;border-bottom:1px solid #222}
+#presets-list{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:3px;min-height:0;-webkit-overflow-scrolling:touch}
+.pset-item{display:flex;align-items:center;gap:3px;padding:3px 5px;border-radius:3px;background:#111;border:1px solid #2a2a2a;cursor:pointer;transition:background .1s}
+.pset-item:hover,.pset-item.selected{background:#1a2a3a;border-color:#0ff}
+.pset-item.selected{border-color:#0af}
+.pset-item-name{flex:1;font-size:11px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pset-item.selected .pset-item-name{color:#0ff}
+.pset-del{background:none;border:none;color:#555;font-size:12px;cursor:pointer;padding:0 2px;line-height:1;flex-shrink:0}
+.pset-del:hover{color:#f44}
+.pset-btn{height:26px;width:100%;font-size:10px;font-weight:bold;border-radius:3px;cursor:pointer;border:1px solid #555;white-space:nowrap}
+#pset-save-btn{background:linear-gradient(180deg,#1a3a1a,#0a1a0a);color:#0f0;border-color:#0a5a0a}
+#pset-save-btn:hover{background:linear-gradient(180deg,#2a5a2a,#0a2a0a);border-color:#0f0}
+#pset-load-btn{background:linear-gradient(180deg,#1a2a4a,#0a1020);color:#4af;border-color:#1a4a8a}
+#pset-load-btn:hover{background:linear-gradient(180deg,#1a3a6a,#0a1a30);border-color:#4af}
+#pset-load-btn:disabled{opacity:.4;cursor:default}
 
 /* Fader */
 .strip{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
 .strip canvas{display:block}
 .strip .sname{font-size:9px;color:#aaa;text-align:center;max-width:50px;overflow:hidden;white-space:nowrap}
 .strip .db-val{font-size:9px;color:#0ff;font-weight:bold}
-.strip .mute-btn{height:18px;width:44px;font-size:9px;font-weight:bold;border:1px solid #555;border-radius:2px;cursor:pointer;background:#222;color:#ccc}
-.strip .mute-btn.muted{background:#d32f2f;color:#fff;border-color:#f00}
-.strip .pol-btn{height:18px;width:30px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:2px;cursor:pointer;background:#222;color:#ccc}
-.strip .pol-btn.inv{background:#d32f2f;color:#fff}
-.strip .dly-inp{width:44px;height:18px;background:#111;color:#0ff;border:1px solid #444;border-radius:2px;text-align:center;font-size:9px}
-.strip .dly-lbl{font-size:8px;color:#666}
+.mute-btn{height:22px;padding:0 7px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:4px;cursor:pointer;background:linear-gradient(180deg,#3a3a3a,#1a1a1a);color:#bbb;transition:background .1s,border-color .1s}
+.mute-btn:hover{border-color:#888;color:#fff;background:linear-gradient(180deg,#4a4a4a,#2a2a2a)}
+.mute-btn.muted{background:linear-gradient(180deg,#e53935,#7b0000);color:#fff;border-color:#ff5252;box-shadow:0 0 5px rgba(255,0,0,0.3)}
+.pol-btn{height:22px;width:34px;font-size:13px;font-weight:bold;border:1px solid #555;border-radius:4px;cursor:pointer;background:linear-gradient(180deg,#3a3a3a,#1a1a1a);color:#bbb;transition:background .1s}
+.pol-btn:hover{border-color:#888;color:#fff}
+.pol-btn.inv{background:linear-gradient(180deg,#7b1fa2,#4a0080);color:#fff;border-color:#ce93d8;box-shadow:0 0 5px rgba(180,0,255,0.3)}
+.dly-inp{width:44px;height:20px;background:#111;color:#0ff;border:1px solid #444;border-radius:3px;text-align:center;font-size:9px}
+.dly-lbl{font-size:9px;color:#fff;font-weight:bold}
+.fader-mute-all{height:22px;padding:0 6px;font-size:10px;font-weight:bold;border:1px solid #666;border-radius:4px;cursor:pointer;background:linear-gradient(180deg,#3a3a3a,#1a1a1a);color:#ccc;white-space:nowrap;width:100%;margin-top:2px}
+.fader-mute-all:hover{border-color:#aaa;color:#fff}
+.fader-mute-all.muted{background:linear-gradient(180deg,#e53935,#7b0000);color:#fff;border-color:#ff5252}
 .vu-sep{width:1px;background:#333;align-self:stretch;margin:0 4px;flex-shrink:0}
 #mute-all-btn{height:24px;padding:0 10px;border:none;border-radius:3px;background:#666;color:#fff;font-weight:bold;font-size:11px;cursor:pointer}
 #mute-all-btn.muted{background:#d32f2f}
@@ -91,14 +159,14 @@ table.ftable tr:hover td{background:#1a1a1a}
 #toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 18px;border-radius:6px;font-size:13px;pointer-events:none;opacity:0;transition:opacity .3s;z-index:9999}
 #toast.show{opacity:1}
 /* Reset Modal */
-#reset-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);z-index:9000;align-items:center;justify-content:center}
+#reset-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;align-items:center;justify-content:center}
 #reset-overlay.show{display:flex}
-#reset-modal{background:#111;border:1px solid #0ff;border-radius:8px;width:620px;max-height:90vh;overflow-y:auto;padding:20px;color:#fff;font-size:13px}
+#reset-modal{background:#0d0d0d;border:1px solid #0ff;border-radius:8px;width:min(620px,96vw);max-height:88vh;overflow-y:auto;padding:20px;color:#fff;font-size:13px}
 #reset-modal h2{color:#0ff;margin:0 0 14px 0;font-size:16px;text-align:center}
 #reset-modal label{display:block;margin-top:10px;color:#aaa;font-weight:bold;font-size:11px}
-#reset-modal select{width:100%;padding:8px;background:#222;color:#fff;border:1px solid #555;border-radius:4px;font-size:13px;margin-top:4px}
+#reset-modal select{width:100%;padding:8px;background:#000;color:#0ff;border:1px solid #333;border-radius:4px;font-size:13px;margin-top:4px}
 #reset-modal select:focus{outline:none;border-color:#0ff}
-.probe-box{background:#0a0a0a;border:1px solid #333;border-radius:4px;padding:10px;margin-top:6px;font-size:12px;color:#0f0;min-height:40px}
+.probe-box{background:#050505;border:1px solid #333;border-radius:4px;padding:10px;margin-top:6px;font-size:12px;color:#0f0;min-height:40px}
 .probe-box.err{color:#f55}
 #reset-modal .btn-row{display:flex;gap:10px;margin-top:18px;justify-content:center}
 #reset-modal .btn{padding:10px 24px;border:none;border-radius:4px;font-weight:bold;font-size:13px;cursor:pointer}
@@ -107,6 +175,54 @@ table.ftable tr:hover td{background:#1a1a1a}
 #reset-modal .btn-create:disabled{background:#333;color:#666;cursor:not-allowed}
 #reset-modal .btn-cancel{background:#333;color:#ccc}
 #reset-modal .btn-cancel:hover{background:#555}
+
+/* Help modal */
+#help-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:10000;align-items:center;justify-content:center}
+#help-overlay.show{display:flex}
+#help-box{background:#0d0d0d;border:1px solid #0ff;border-radius:8px;width:min(820px,96vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 0 30px rgba(0,255,255,.15)}
+#help-header{display:flex;align-items:center;padding:10px 16px;border-bottom:1px solid #222;flex-shrink:0}
+#help-header h2{color:#0ff;font-size:15px;flex:1;margin:0}
+#help-close{background:none;border:1px solid #555;border-radius:4px;color:#aaa;font-size:16px;cursor:pointer;padding:2px 10px;line-height:1}
+#help-close:hover{background:#333;color:#fff}
+#help-body{overflow-y:auto;padding:16px 20px;flex:1;font-size:12.5px;line-height:1.65;color:#ccc}
+#help-body::-webkit-scrollbar{width:6px}#help-body::-webkit-scrollbar-thumb{background:#333}
+#help-body h3{color:#0ff;font-size:13px;margin:18px 0 6px;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #1a3a3a;padding-bottom:4px}
+#help-body h3:first-child{margin-top:0}
+#help-body h4{color:#7df;font-size:12px;margin:12px 0 4px}
+#help-body ul{padding-left:18px;margin:4px 0 8px}
+#help-body li{margin:3px 0}
+#help-body b{color:#fff}
+#help-body .kbd{display:inline-block;background:#222;border:1px solid #555;border-radius:3px;padding:0 5px;font-family:monospace;font-size:11px;color:#0ff}
+#help-body .tip{background:#0a1f0a;border-left:3px solid #0f0;padding:6px 10px;border-radius:0 4px 4px 0;margin:8px 0;color:#afc;font-size:12px}
+#help-body .warn{background:#1f0a0a;border-left:3px solid #f44;padding:6px 10px;border-radius:0 4px 4px 0;margin:8px 0;color:#faa;font-size:12px}
+.top-btn.lang{background:#1a2a1a;border-color:#0a0;color:#0f0;font-size:10px;padding:0 7px}
+.top-btn.lang:hover{background:#0a3a0a}
+
+/* ── Graphic EQ ───────────────────────────────────────────────── */
+#geq-wrap{display:flex;flex-direction:column;flex:1;overflow:hidden;background:#050505;padding:0 6px 4px}
+#geq-toolbar{display:flex;align-items:center;gap:6px;padding:5px 4px;flex-shrink:0;border-bottom:1px solid #1a1a1a;flex-wrap:wrap}
+#geq-ch-btns{display:flex;gap:3px;flex-wrap:wrap}
+.geq-lbl{font-size:11px;color:#888;white-space:nowrap}
+.geq-range-lbl{font-size:11px;color:#0ff;white-space:nowrap;margin-left:6px}
+.geq-btn{height:22px;padding:0 10px;border:1px solid #444;border-radius:3px;background:#222;color:#ccc;cursor:pointer;font-size:11px;font-weight:bold}
+.geq-btn:hover{background:#007bff;color:#fff;border-color:#0af}
+.geq-ch-btn{height:20px;padding:0 8px;border:1px solid #444;border-radius:2px;background:#1a1a1a;color:#888;cursor:pointer;font-size:10px;font-weight:bold;white-space:nowrap}
+.geq-ch-btn.active{background:#007bff;color:#fff;border-color:#0ff}
+#geq-range{width:70px;vertical-align:middle;accent-color:#0ff}
+#geq-body{display:flex;flex:1;overflow:hidden;margin-top:4px;min-height:0}
+#geq-scale{width:30px;flex-shrink:0;position:relative;padding:20px 0 22px;font-size:9px;color:#fff;text-align:right}
+#geq-faders{display:flex;flex:1;gap:2px;overflow-x:auto;overflow-y:hidden;align-items:stretch;padding:0 2px}
+#geq-faders::-webkit-scrollbar{height:5px}#geq-faders::-webkit-scrollbar-thumb{background:#333}
+#geq-labels{width:0;overflow:visible;position:relative}
+.geq-strip{display:flex;flex-direction:column;align-items:center;min-width:28px;flex:1;max-width:52px;cursor:ns-resize;user-select:none}
+.geq-strip-top{font-size:8px;color:#0ff;font-weight:bold;text-align:center;height:20px;line-height:20px;white-space:nowrap}
+.geq-track{flex:1;position:relative;width:14px;background:#111;border-radius:3px;border:1px solid #2a2a2a;overflow:hidden}
+.geq-fill-pos{position:absolute;bottom:50%;left:0;right:0;background:linear-gradient(180deg,#00d4ff,#007bff);border-radius:2px 2px 0 0}
+.geq-fill-neg{position:absolute;top:50%;left:0;right:0;background:linear-gradient(180deg,#ff6b35,#c0392b);border-radius:0 0 2px 2px}
+.geq-zero{position:absolute;top:50%;left:0;right:0;height:1px;background:#444;pointer-events:none}
+.geq-strip-bot{font-size:7px;color:#fff;text-align:center;height:22px;line-height:22px;white-space:nowrap;overflow:hidden;width:100%}
+/* GEQ drag tooltip */
+#geq-tooltip{position:fixed;background:#000;border:1px solid #0ff;color:#0ff;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:4px;pointer-events:none;z-index:9998;display:none;white-space:nowrap;transform:translate(-50%,-130%);box-shadow:0 0 8px rgba(0,255,255,.3)}
 </style>
 </head>
 <body>
@@ -115,22 +231,30 @@ table.ftable tr:hover td{background:#1a1a1a}
 <div id="topbar">
   <div id="status-dot"></div>
   <h1>CAMILLADSP CONSOLE</h1>
-  <span id="status-txt">Conectando...</span>
+  <div id="dsp-stats">
+    <span class="dsp-stat">State: <span id="dsp-state">—</span></span>
+    <button class="top-btn danger" id="recovery-btn" onclick="recoverEngine()" style="display:none;padding:0 5px;font-size:10px;height:20px;border-color:#f00;margin-left:5px" title="Fuerza una configuración segura de fábrica para destrabar el motor">Recovery Config</button>
+    <span class="dsp-stat">Buffer: <span id="dsp-buf">—</span></span>
+    <span class="dsp-stat">DSP load: <span id="dsp-load">—</span></span>
+    <span class="dsp-stat">CPU: <span id="cpu-load">—</span></span>
+  </div>
   <div style="flex:1"></div>
   <button class="top-btn web" onclick="window.open('http://'+location.hostname+':5005','_blank')">WEB 5005</button>
-  <button class="top-btn" onclick="importConfig()">Imp Cfg</button>
-  <button class="top-btn" onclick="exportConfig()">Exp Cfg</button>
   <button class="top-btn" onclick="importEQ()">Imp EQ</button>
   <button class="top-btn" onclick="exportEQ()">Exp EQ</button>
   <button class="top-btn danger" onclick="resetConfig()">Reset</button>
+  <button class="top-btn lang" id="lang-btn" onclick="toggleLang()" title="Switch language / Cambiar idioma">ES/EN</button>
+  <button class="top-btn" id="fs-btn" onclick="toggleFullscreen()" title="Pantalla completa" style="display:none;font-size:15px;padding:0 8px">⛶</button>
+  <button class="top-btn" onclick="showHelp()" title="Ayuda / Help" style="background:#0a1a2a;border-color:#0af;color:#0af">?&nbsp;AYUDA</button>
 </div>
 
 <!-- TABS -->
 <div id="tabs">
   <div class="tab active" onclick="switchTab(0)">VÚMETROS</div>
-  <div class="tab" onclick="switchTab(1)">EQ &amp; FILTROS</div>
-  <div class="tab" onclick="switchTab(2)">CROSSOVERS</div>
-  <div class="tab" onclick="switchTab(3)">MIXER</div>
+  <div class="tab" onclick="switchTab(1)">GRAPHIC EQ</div>
+  <div class="tab" onclick="switchTab(2)">PARAMETRIC EQ</div>
+  <div class="tab" onclick="switchTab(3)">CROSSOVERS</div>
+  <div class="tab" onclick="switchTab(4)">MIXER</div>
 </div>
 
 <!-- CHANNEL SELECTOR (shown on EQ/CROSS tabs) -->
@@ -153,7 +277,8 @@ table.ftable tr:hover td{background:#1a1a1a}
       <div style="flex:1"></div>
       <span style="font-size:10px;color:#0f0" id="master-db-lbl">VOL: 0.0 dB</span>
     </div>
-    <div id="vu-scroll"></div>
+    <div id="vu-meters-row"></div>
+    <div id="vu-faders-row"></div>
     <div id="comp-area">
       <table class="comp-table" id="comp-table">
         <thead><tr><th>ID</th><th>Attack(s)</th><th>Release(s)</th><th>Threshold(dB)</th><th>Ratio</th><th>Makeup(dB)</th><th>ClipLim</th><th>Auto</th><th></th></tr></thead>
@@ -162,10 +287,35 @@ table.ftable tr:hover td{background:#1a1a1a}
     </div>
   </div>
 
-  <!-- EQ TAB -->
+  <!-- GRAPHIC EQ TAB -->
   <div class="tab-page" id="page-1">
+    <div id="geq-wrap">
+      <div id="geq-toolbar">
+        <span class="geq-lbl">Canal:</span>
+        <div id="geq-ch-btns"></div>
+        <button class="geq-btn" onclick="geqFlatAll()">Flat</button>
+        <button class="geq-btn" onclick="geqResetChannel()">Reset canal</button>
+        <span class="geq-range-lbl">± 9 dB</span>
+      </div>
+      <div id="geq-body">
+        <div id="geq-scale"></div>
+        <div id="geq-faders"></div>
+        <div id="geq-labels"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PARAMETRIC EQ TAB -->
+  <div class="tab-page" id="page-2">
     <div class="eq-wrap">
       <canvas class="graph" id="eq-canvas"></canvas>
+      <!-- Barra Q: botón −Q | info filtro | botón +Q (entre canvas y tabla) -->
+      <div id="eq-q-bar">
+        <button class="eq-q-btn" id="eq-q-minus" title="-Q">−</button>
+        <div id="eq-q-info">Toca un filtro</div>
+        <button class="eq-q-btn" id="eq-q-plus" title="+Q">+</button>
+      </div>
+      <div id="eq-q-overlay"></div><!-- compatibilidad con código existente -->
       <div class="filter-table-wrap">
         <table class="ftable"><thead><tr><th>ID</th><th>Tipo</th><th>Freq(Hz)</th><th>Gain(dB)</th><th>Q</th><th>Canal</th><th></th></tr></thead>
         <tbody id="eq-tbody"></tbody></table>
@@ -174,7 +324,7 @@ table.ftable tr:hover td{background:#1a1a1a}
   </div>
 
   <!-- CROSS TAB -->
-  <div class="tab-page" id="page-2">
+  <div class="tab-page" id="page-3">
     <div class="eq-wrap">
       <canvas class="graph" id="cross-canvas"></canvas>
       <div class="filter-table-wrap">
@@ -185,14 +335,397 @@ table.ftable tr:hover td{background:#1a1a1a}
   </div>
 
   <!-- MIXER TAB -->
-  <div class="tab-page" id="page-3">
-    <div id="mixer-scroll"><canvas id="mixer-canvas"></canvas></div>
+  <div class="tab-page" id="page-4" style="flex-direction:column">
+    <div id="mixer-main">
+      <div id="mixer-scroll"><canvas id="mixer-canvas"></canvas></div>
+      <!-- Presets panel -->
+      <div id="presets-panel">
+        <div class="pset-title">PRESETS</div>
+        <div id="presets-list"></div>
+        <button id="pset-save-btn" class="pset-btn" onclick="presetSave()">&#x1F4BE; Guardar</button>
+        <button id="pset-load-btn" class="pset-btn" onclick="presetLoad()" disabled>&#x23EF; Cargar</button>
+      </div>
+    </div>
+    <div id="device-panel">
+      <div class="device-row">
+        <span class="device-lbl">IN:</span>
+        <select id="sel-capture" class="device-sel" onchange="applyDevice('capture',this.value)"><option>Cargando...</option></select>
+        <span class="device-lbl">OUT:</span>
+        <select id="sel-playback" class="device-sel" onchange="applyDevice('playback',this.value)"><option>Cargando...</option></select>
+        <span class="device-lbl">Chunk:</span>
+        <select id="sel-chunk" class="device-sel" style="flex:0;min-width:90px" onchange="applyChunksize(+this.value)">
+          <option value="128">128</option><option value="256">256</option>
+          <option value="512">512</option><option value="1024">1024</option>
+          <option value="2048">2048</option><option value="4096">4096</option>
+        </select>
+        <button class="device-apply-btn" onclick="loadDevices()" title="Recargar lista de dispositivos">↺ Actualizar</button>
+        <button class="device-restart-btn" onclick="restartEngine()" title="Reiniciar motor de audio">⟳ Motor</button>
+      </div>
+    </div>
   </div>
 
 </div>
 
+<!-- ═══════════════════ HELP MODAL ═══════════════════ -->
+<div id="help-overlay" onclick="closeHelp(event)">
+  <div id="help-box">
+    <div id="help-header">
+      <h2 id="help-title">CAMILLADSP CONSOLE — Ayuda</h2>
+      <button id="help-close" onclick="closeHelp(null)">✕</button>
+    </div>
+    <div id="help-body">
+
+      <!-- ─── ESPAÑOL ─── -->
+      <div id="help-es">
+
+        <h3>¿Qué es esta aplicación?</h3>
+        <p>CamillaDSP Console es una interfaz web para controlar en tiempo real el procesador de audio digital <b>CamillaDSP</b> instalado en un dispositivo embebido (TV-box, Raspberry Pi, etc.). Permite ajustar ecualización gráfica y paramétrica, crossovers, mezcla de canales, compresores y dispositivos de audio sin editar archivos de configuración manualmente. Funciona desde cualquier navegador de la red local, incluyendo tablets y teléfonos.</p>
+
+        <h3>Barra superior</h3>
+        <ul>
+          <li><b>● (punto de color):</b> verde = conectado al DSP, rojo = sin conexión.</li>
+          <li><b>State:</b> estado del motor — Running / Idle / Error.</li>
+          <li><b>Buffer:</b> nivel del buffer de audio en muestras.</li>
+          <li><b>DSP load:</b> carga de procesamiento del motor DSP en %.</li>
+          <li><b>CPU:</b> carga total del procesador del dispositivo, actualizada cada segundo.</li>
+          <li><b>WEB 5005:</b> abre la interfaz nativa de CamillaDSP en otra pestaña.</li>
+          <li><b>Imp EQ / Exp EQ:</b> importa filtros paramétricos desde archivo (REW / Equalizer APO) o exporta los filtros actuales.</li>
+          <li><b>Reset:</b> restablece la configuración a los valores por defecto. <span style="color:#f88">¡Operación irreversible!</span></li>
+          <li><b>ES/EN:</b> cambia el idioma entre español e inglés. Se guarda entre sesiones.</li>
+          <li><b>⛶:</b> activa o desactiva la pantalla completa. En dispositivos táctiles también se activa automáticamente al primer toque.</li>
+          <li><b>? AYUDA:</b> abre este panel.</li>
+        </ul>
+
+        <h3>Uso en dispositivos táctiles (tablet / teléfono)</h3>
+        <ul>
+          <li><b>Tap:</b> equivale al clic del ratón.</li>
+          <li><b>Mantener apretado (400 ms):</b> equivale al clic derecho — bypass de canal, eliminar filtro, resetear fader a 0 dB.</li>
+          <li><b>Doble tap:</b> equivale al doble clic — añadir filtro EQ, resetear banda GEQ.</li>
+          <li><b>Arrastrar:</b> mueve filtros en el gráfico y ajusta faders.</li>
+          <li>Los cuadros de texto (renombrar canales, Reset, guardar preset) se abren en pantalla sin salir del modo fullscreen.</li>
+        </ul>
+
+        <h3>Pestaña VÚMETROS</h3>
+        <p>Monitoreo en tiempo real de todos los canales con control completo de ganancia.</p>
+        <h4>Botones de vista y canal</h4>
+        <ul>
+          <li><b>TODO / ENTRADAS / SALIDAS:</b> filtra qué canales se muestran.</li>
+          <li><b>Botón de canal (tap):</b> activa o desactiva la visibilidad de ese canal en el gráfico EQ paramétrico.</li>
+          <li><b>Botón de canal (mantener):</b> pone ese canal en bypass — el EQ se desactiva sin eliminar los filtros. El botón muestra 🔴. Mantener de nuevo para desactivar.</li>
+        </ul>
+        <h4>Vúmetros</h4>
+        <ul>
+          <li>Barra <b style="color:#0f0">verde</b> = nivel RMS en tiempo real.</li>
+          <li>Barra <b style="color:#f44">roja</b> (arriba) = reducción de ganancia del compresor (GR).</li>
+          <li>Línea <b style="color:#ff0">amarilla</b> = pico retenido (peak hold, 2 s).</li>
+          <li>Línea <b style="color:#88f">azul</b> punteada = umbral del compresor.</li>
+          <li>Escala: 0 dB arriba → −80 dB abajo.</li>
+        </ul>
+        <h4>Faders</h4>
+        <ul>
+          <li><b>Fader MAIN:</b> volumen maestro (−∞ a +10 dB). Es más largo para facilitar el ajuste fino.</li>
+          <li><b>MUTE ALL:</b> al fondo de la columna MAIN — silencia todos los canales de salida (rojo = activo).</li>
+          <li><b>Fader de canal:</b> arrastra arriba/abajo para ajustar la ganancia individual (−∞ a +10 dB). En táctil, mantener apretado resetea a 0 dB.</li>
+          <li><b>MUTE:</b> silencia el canal individualmente (rojo = muteado).</li>
+          <li><b>Ø (Polaridad):</b> invierte la fase del canal (morado = invertido).</li>
+          <li><b>Delay (ms):</b> retardo en milisegundos. En táctil, mantener apretado resetea a 0.</li>
+        </ul>
+        <h4>Tabla de compresores</h4>
+        <p>Parámetros del compresor dinámico por canal de salida:</p>
+        <ul>
+          <li><b>Attack / Release:</b> tiempos de ataque y liberación en segundos.</li>
+          <li><b>Threshold:</b> umbral de activación en dBFS.</li>
+          <li><b>Ratio:</b> relación de compresión (ej. 4 = 4:1).</li>
+          <li><b>Makeup:</b> ganancia de compensación post-compresión en dB.</li>
+          <li><b>ClipLim:</b> activa limitador de clip a 0 dBFS.</li>
+          <li><b>Auto:</b> autoajuste del tiempo de release según el programa.</li>
+        </ul>
+
+        <h3>Pestaña GRAPHIC EQ</h3>
+        <p>Ecualizador gráfico de <b>31 bandas</b> de fase lineal, aplicable a canales de entrada.</p>
+        <h4>Selector de canales</h4>
+        <ul>
+          <li><b>ALL:</b> selecciona o deselecciona todos los canales de entrada.</li>
+          <li><b>Botones por canal:</b> toggle individual — se pueden seleccionar varios a la vez. El ajuste de ganancia se aplica a todos los seleccionados simultáneamente.</li>
+          <li>Solo disponible para canales de <b>entrada</b>.</li>
+        </ul>
+        <h4>Faders de banda</h4>
+        <ul>
+          <li><b>31 bandas</b> de 20 Hz a 18 kHz (patrón ×1.25): 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
+          <li><b>Rango:</b> ±9 dB, escala lineal. Marcas en 0, ±3, ±6, ±9 dB.</li>
+          <li><b>Arrastre:</b> arriba = boost, abajo = cut. El valor exacto en dB aparece en tooltip durante el arrastre.</li>
+          <li><b>Doble clic / Doble tap:</b> resetea esa banda a 0 dB.</li>
+          <li>Relleno <b style="color:#0af">azul</b> = boost, <b style="color:#f64">naranja</b> = cut.</li>
+        </ul>
+        <h4>Botones</h4>
+        <ul>
+          <li><b>Flat:</b> pone todas las bandas a 0 dB en los canales seleccionados.</li>
+          <li><b>Reset canal:</b> elimina completamente el filtro GEQ del pipeline.</li>
+        </ul>
+        <div class="tip">El GEQ usa un filtro BiquadCombo/GraphicEqualizer en CamillaDSP, creado automáticamente la primera vez que se mueve un fader.</div>
+
+        <h3>Pestaña PARAMETRIC EQ</h3>
+        <p>Ecualizador paramétrico de precisión por canal (entradas y salidas).</p>
+        <h4>Selector de canal</h4>
+        <p>Fila superior = entradas, fila inferior = salidas. <b>ALL IN / ALL OUT</b> superpone todos los filtros en el gráfico. El bypass de canal (mantener apretado el botón de canal) desactiva el EQ temporalmente sin borrar los filtros.</p>
+        <h4>Gráfico de respuesta</h4>
+        <ul>
+          <li>Eje X: 20 Hz – 20 kHz (logarítmico). Eje Y: ±18 dB.</li>
+          <li><b>Clic / Doble tap en zona vacía:</b> añade un filtro Peaking.</li>
+          <li><b>Arrastrar un punto:</b> mueve el filtro en frecuencia y ganancia.</li>
+          <li><b>Clic derecho / Mantener apretado sobre un punto:</b> elimina ese filtro.</li>
+          <li>Curva blanca = respuesta total del canal seleccionado.</li>
+        </ul>
+        <h4>Botones Q (solo táctil)</h4>
+        <p>Al tocar un filtro aparece un recuadro con su información y botones <b>[−]</b> / <b>[+]</b> para ajustar el factor Q en pasos de 0.1. Tocar fuera del recuadro lo cierra.</p>
+        <h4>Tabla de filtros</h4>
+        <ul>
+          <li><b>Tipo:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
+          <li><b>Freq (Hz):</b> frecuencia central o de corte.</li>
+          <li><b>Gain (dB):</b> ganancia (no aplica en HP/LP).</li>
+          <li><b>Q:</b> factor de calidad / anchura de banda.</li>
+          <li><b>Canal:</b> canal al que pertenece el filtro.</li>
+          <li><b>✕:</b> elimina el filtro. La tabla tiene scroll cuando hay más filtros de los que caben en pantalla.</li>
+        </ul>
+        <div class="tip">Q = 0.707 → Butterworth (máxima planicidad). Q alto → pico estrecho; Q bajo → curva ancha.</div>
+        <h4>Importación de filtros (Imp EQ)</h4>
+        <p>Soporta REW (Room EQ Wizard) y Equalizer APO:</p>
+        <ul>
+          <li><b>REW:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
+          <li>Tipos: PK/PEQ→Peaking, LS/LSC→Lowshelf, HS/HSC→Highshelf, HP/HPQ→Highpass, LP/LPQ→Lowpass.</li>
+        </ul>
+        <div class="warn">Los filtros importados se asignan al canal activo en ese momento. Seleccioná primero el canal destino.</div>
+
+        <h3>Pestaña CROSSOVERS</h3>
+        <p>Filtros de división de frecuencia para sistemas multiamplificados (activos).</p>
+        <ul>
+          <li><b>Tipos:</b> Butterworth LP/HP y Linkwitz-Riley LP/HP.</li>
+          <li><b>Orden:</b> 2 = 12 dB/oct, 4 = 24 dB/oct, 8 = 48 dB/oct.</li>
+          <li>Linkwitz-Riley (LR): LP y HP suman 0 dB a la frecuencia de corte, con fase coincidente — estándar para divisores activos.</li>
+          <li>Se asignan a canales de <b>salida</b>. La tabla tiene scroll cuando hay más filtros de los que caben.</li>
+          <li><b>Arrastrar punto / Mantener apretado:</b> mover o eliminar un crossover.</li>
+        </ul>
+        <div class="tip">Sistema 2 vías: LP al woofer y HP al tweeter, misma frecuencia de corte en ambos.</div>
+
+        <h3>Pestaña MIXER</h3>
+        <p>Matriz de mezcla que enruta canales de entrada hacia canales de salida, con gestión de presets y dispositivos de audio.</p>
+        <h4>Matriz de mezcla</h4>
+        <ul>
+          <li>Columnas = entradas, filas = salidas.</li>
+          <li><b>Tap en una celda:</b> activa/desactiva esa conexión. Celda iluminada = activa.</li>
+          <li><b>Doble tap en etiqueta de entrada o salida:</b> renombra ese canal. El nombre se actualiza inmediatamente en vúmetros, faders y botones. Se abre un cuadro de texto en pantalla sin salir de fullscreen.</li>
+        </ul>
+        <h4>Presets</h4>
+        <p>Panel a la derecha de la matriz para guardar y recuperar configuraciones completas del DSP:</p>
+        <ul>
+          <li><b>💾 Guardar:</b> pide un nombre y guarda la configuración actual completa (EQ, crossovers, mixer, dispositivos) como preset en el dispositivo.</li>
+          <li><b>⏯ Cargar:</b> aplica el preset seleccionado al DSP en tiempo real. Se activa al seleccionar un preset de la lista.</li>
+          <li><b>✕:</b> elimina el preset de la lista.</li>
+        </ul>
+        <h4>Panel de dispositivos</h4>
+        <ul>
+          <li><b>IN:</b> tarjeta de sonido de captura (entrada de audio).</li>
+          <li><b>OUT:</b> tarjeta de sonido de reproducción (salida de audio).</li>
+          <li><b>Chunk:</b> tamaño del buffer en muestras (128 – 4096). Menor = menor latencia; mayor = más estabilidad.</li>
+          <li><b>↺ Actualizar:</b> recarga la lista de dispositivos ALSA del sistema.</li>
+          <li><b>⟳ Motor:</b> reinicia el proceso CamillaDSP. Usar tras cambiar dispositivos o configuración.</li>
+        </ul>
+
+        <h3>EQ: importar / exportar</h3>
+        <ul>
+          <li><b>Exp EQ:</b> exporta los filtros paramétricos actuales en formato texto compatible con REW.</li>
+          <li><b>Imp EQ:</b> importa filtros desde archivo REW o Equalizer APO y los añade al canal activo.</li>
+        </ul>
+
+      </div><!-- /help-es -->
+
+      <!-- ─── ENGLISH ─── -->
+      <div id="help-en" style="display:none">
+
+        <h3>What is this application?</h3>
+        <p>CamillaDSP Console is a web interface to control the <b>CamillaDSP</b> digital audio processor installed on an embedded device (TV-box, Raspberry Pi, etc.) in real time. It lets you adjust graphic and parametric equalization, crossovers, channel mixing, compressors, and audio devices without editing configuration files manually. Works from any browser on the local network, including tablets and phones.</p>
+
+        <h3>Top bar</h3>
+        <ul>
+          <li><b>● (colored dot):</b> green = connected to DSP, red = no connection.</li>
+          <li><b>State:</b> engine state — Running / Idle / Error.</li>
+          <li><b>Buffer:</b> audio buffer level in samples.</li>
+          <li><b>DSP load:</b> DSP processing load in %.</li>
+          <li><b>CPU:</b> total CPU load of the device, updated every second.</li>
+          <li><b>WEB 5005:</b> opens the native CamillaDSP interface in a new tab.</li>
+          <li><b>Imp EQ / Exp EQ:</b> import parametric filters from a file (REW / Equalizer APO) or export current filters.</li>
+          <li><b>Reset:</b> restores the configuration to factory defaults. <span style="color:#f88">Irreversible!</span></li>
+          <li><b>ES/EN:</b> toggles the interface language. Saved across reloads.</li>
+          <li><b>⛶:</b> enters or exits fullscreen. On touch devices also activates automatically on the first tap.</li>
+          <li><b>? HELP:</b> opens this panel.</li>
+        </ul>
+
+        <h3>Using on touch devices (tablet / phone)</h3>
+        <ul>
+          <li><b>Tap:</b> equivalent to a mouse click.</li>
+          <li><b>Long press (400 ms):</b> equivalent to right-click — channel bypass, delete filter, reset fader to 0 dB.</li>
+          <li><b>Double tap:</b> equivalent to double-click — add EQ filter, reset GEQ band.</li>
+          <li><b>Drag:</b> moves filters on the graph and adjusts faders.</li>
+          <li>Text inputs (rename channels, Reset, save preset) open on screen without exiting fullscreen.</li>
+        </ul>
+
+        <h3>METERS tab</h3>
+        <p>Real-time monitoring of all channels with full gain control.</p>
+        <h4>View and channel buttons</h4>
+        <ul>
+          <li><b>ALL / INPUTS / OUTPUTS:</b> filters which channels are shown.</li>
+          <li><b>Channel button (tap):</b> toggles that channel's visibility in the parametric EQ graph.</li>
+          <li><b>Channel button (long press):</b> puts the channel in bypass — EQ is disabled without deleting filters. Button shows 🔴. Long press again to deactivate.</li>
+        </ul>
+        <h4>VU Meters</h4>
+        <ul>
+          <li><b style="color:#0f0">Green</b> bar = real-time RMS signal level.</li>
+          <li><b style="color:#f44">Red</b> bar (top) = compressor gain reduction (GR).</li>
+          <li><b style="color:#ff0">Yellow</b> line = peak hold (2 s retention).</li>
+          <li><b style="color:#88f">Blue</b> dashed line = compressor threshold.</li>
+          <li>Scale: 0 dB at top → −80 dB at bottom.</li>
+        </ul>
+        <h4>Faders</h4>
+        <ul>
+          <li><b>MAIN fader:</b> master volume (−∞ to +10 dB). Taller than channel faders for finer control.</li>
+          <li><b>MUTE ALL:</b> at the bottom of the MAIN column — mutes all output channels (red = active).</li>
+          <li><b>Channel fader:</b> drag up/down to adjust individual gain (−∞ to +10 dB). On touch, long press resets to 0 dB.</li>
+          <li><b>MUTE:</b> mutes the channel individually (red = muted).</li>
+          <li><b>Ø (Polarity):</b> inverts the channel phase (purple = inverted).</li>
+          <li><b>Delay (ms):</b> time delay in milliseconds. On touch, long press resets to 0.</li>
+        </ul>
+        <h4>Compressor table</h4>
+        <p>Dynamic compressor parameters per output channel:</p>
+        <ul>
+          <li><b>Attack / Release:</b> attack and release times in seconds.</li>
+          <li><b>Threshold:</b> activation threshold in dBFS.</li>
+          <li><b>Ratio:</b> compression ratio (e.g. 4 = 4:1).</li>
+          <li><b>Makeup:</b> post-compression makeup gain in dB.</li>
+          <li><b>ClipLim:</b> enables clip limiter at 0 dBFS.</li>
+          <li><b>Auto:</b> enables automatic program-dependent release time.</li>
+        </ul>
+
+        <h3>GRAPHIC EQ tab</h3>
+        <p>Linear-phase <b>31-band</b> graphic equalizer, assignable to input channels.</p>
+        <h4>Channel selector</h4>
+        <ul>
+          <li><b>ALL:</b> selects or deselects all input channels.</li>
+          <li><b>Per-channel buttons:</b> individual toggle. Multiple channels can be active at once. Gain changes apply to all selected channels simultaneously.</li>
+          <li>Only <b>input</b> channels are available.</li>
+        </ul>
+        <h4>Band faders</h4>
+        <ul>
+          <li><b>31 bands</b> from 20 Hz to 18 kHz (×1.25 pattern): 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
+          <li><b>Range:</b> ±9 dB, linear scale. Reference marks at 0, ±3, ±6, ±9 dB.</li>
+          <li><b>Drag:</b> up = boost, down = cut. Exact dB value shown in tooltip during drag.</li>
+          <li><b>Double-click / Double tap:</b> resets that band to 0 dB.</li>
+          <li><b style="color:#0af">Blue</b> fill = boost, <b style="color:#f64">orange</b> fill = cut.</li>
+        </ul>
+        <h4>Buttons</h4>
+        <ul>
+          <li><b>Flat:</b> sets all bands to 0 dB on selected channels.</li>
+          <li><b>Reset channel:</b> completely removes the GEQ filter from the pipeline.</li>
+        </ul>
+        <div class="tip">The GEQ uses a BiquadCombo/GraphicEqualizer filter in CamillaDSP, created automatically the first time a fader is moved.</div>
+
+        <h3>PARAMETRIC EQ tab</h3>
+        <p>High-precision parametric equalizer per channel (inputs and outputs).</p>
+        <h4>Channel selector</h4>
+        <p>Top row = inputs, bottom row = outputs. <b>ALL IN / ALL OUT</b> overlays all filters in the graph. Channel bypass (long press on a channel button) disables that channel's EQ temporarily without deleting filters.</p>
+        <h4>Frequency response graph</h4>
+        <ul>
+          <li>X axis: 20 Hz – 20 kHz (logarithmic). Y axis: ±18 dB.</li>
+          <li><b>Click / Double tap on empty area:</b> adds a Peaking filter.</li>
+          <li><b>Drag a point:</b> moves the filter in frequency and gain.</li>
+          <li><b>Right-click / Long press on a point:</b> deletes that filter.</li>
+          <li>White curve = total response of the selected channel.</li>
+        </ul>
+        <h4>Q buttons (touch only)</h4>
+        <p>Tapping a filter shows a tooltip with its information and <b>[−]</b> / <b>[+]</b> buttons to adjust the Q factor in steps of 0.1. Tap outside to close.</p>
+        <h4>Filter table</h4>
+        <ul>
+          <li><b>Type:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
+          <li><b>Freq (Hz):</b> center or cutoff frequency.</li>
+          <li><b>Gain (dB):</b> filter gain (not applicable to HP/LP).</li>
+          <li><b>Q:</b> quality factor / bandwidth.</li>
+          <li><b>Channel:</b> channel the filter belongs to.</li>
+          <li><b>✕:</b> deletes the filter. The table scrolls when more filters than fit on screen.</li>
+        </ul>
+        <div class="tip">Q = 0.707 → Butterworth (maximum flatness). High Q → narrow peak; low Q → wide gentle curve.</div>
+        <h4>Filter import (Imp EQ)</h4>
+        <p>Supports REW (Room EQ Wizard) and Equalizer APO files:</p>
+        <ul>
+          <li><b>REW:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>APO:</b> <span class="kbd">Filter: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
+          <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
+          <li>Types: PK/PEQ→Peaking, LS/LSC→Lowshelf, HS/HSC→Highshelf, HP/HPQ→Highpass, LP/LPQ→Lowpass.</li>
+        </ul>
+        <div class="warn">Imported filters are assigned to the channel active at import time. Select the target channel first.</div>
+
+        <h3>CROSSOVERS tab</h3>
+        <p>Frequency crossover filters for multi-amplified (active) speaker systems.</p>
+        <ul>
+          <li><b>Types:</b> Butterworth LP/HP and Linkwitz-Riley LP/HP.</li>
+          <li><b>Order:</b> 2 = 12 dB/oct, 4 = 24 dB/oct, 8 = 48 dB/oct.</li>
+          <li>Linkwitz-Riley (LR): LP and HP sum to 0 dB at the crossover frequency, phase-coincident — the industry standard for active crossovers.</li>
+          <li>Assigned to <b>output</b> channels. The table scrolls when there are more filters than fit on screen.</li>
+          <li><b>Drag a point / Long press:</b> move or delete a crossover filter.</li>
+        </ul>
+        <div class="tip">For a 2-way system: assign LP to the woofer and HP to the tweeter at the same crossover frequency.</div>
+
+        <h3>MIXER tab</h3>
+        <p>Routing matrix that connects input channels to output channels, with preset management and audio device selection.</p>
+        <h4>Routing matrix</h4>
+        <ul>
+          <li>Columns = inputs, rows = outputs.</li>
+          <li><b>Tap a cell:</b> toggles that connection. Lit cell = active.</li>
+          <li><b>Double tap on an input or output label:</b> renames that channel. The name updates instantly in VU meters, faders, and channel buttons. Opens a text box on screen without exiting fullscreen.</li>
+        </ul>
+        <h4>Presets</h4>
+        <p>Panel to the right of the matrix for saving and recalling complete DSP configurations:</p>
+        <ul>
+          <li><b>💾 Save:</b> prompts for a name and saves the full current configuration (EQ, crossovers, mixer, devices) as a preset on the device.</li>
+          <li><b>⏯ Load:</b> applies the selected preset to the DSP in real time. Enabled when a preset is selected.</li>
+          <li><b>✕:</b> deletes the preset from the list.</li>
+        </ul>
+        <h4>Device panel</h4>
+        <ul>
+          <li><b>IN:</b> capture sound card (audio input device).</li>
+          <li><b>OUT:</b> playback sound card (audio output device).</li>
+          <li><b>Chunk:</b> processing buffer in samples (128 – 4096). Lower = less latency; higher = more stability.</li>
+          <li><b>↺ Refresh:</b> reloads the list of available ALSA devices.</li>
+          <li><b>⟳ Engine:</b> restarts the CamillaDSP process. Use after changing devices or configuration.</li>
+        </ul>
+
+        <h3>EQ: import / export</h3>
+        <ul>
+          <li><b>Exp EQ:</b> exports current parametric filters as a REW-compatible text file.</li>
+          <li><b>Imp EQ:</b> imports filters from a REW or Equalizer APO file and adds them to the active channel.</li>
+        </ul>
+
+      </div><!-- /help-en -->
+
+    </div><!-- /help-body -->
+  </div><!-- /help-box -->
+</div><!-- /help-overlay -->
+
+<div id="geq-tooltip"></div>
 <div id="toast"></div>
 <input type="file" id="file-input" style="display:none" accept=".yml,.yaml,.json,.txt">
+
+<!-- Prompt inline (reemplaza window.prompt para no salir de fullscreen) -->
+<div id="inline-prompt-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;align-items:center;justify-content:center">
+  <div style="background:#1a1a1a;border:1px solid #0ff;border-radius:8px;padding:20px 24px;min-width:280px;max-width:90vw;display:flex;flex-direction:column;gap:12px">
+    <div id="inline-prompt-msg" style="color:#fff;font-size:14px;font-weight:bold"></div>
+    <input id="inline-prompt-input" type="text" style="background:#000;color:#0ff;border:1px solid #333;border-radius:4px;padding:8px 10px;font-size:15px;width:100%;outline:none;border-color:#0ff">
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button id="inline-prompt-cancel" style="padding:8px 18px;border:1px solid #555;border-radius:4px;background:#333;color:#fff;font-size:13px;cursor:pointer">Cancelar</button>
+      <button id="inline-prompt-ok" style="padding:8px 18px;border:1px solid #0ff;border-radius:4px;background:#003;color:#0ff;font-size:13px;font-weight:bold;cursor:pointer">OK</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════════
@@ -243,8 +776,46 @@ async function fetchLevels(){
   const r = await apiGet('/api/levels');
   if(r.ok){ levels = r; updateVU(); }
 }
+let _statusTick=0;
+async function fetchStatus(){
+  if(++_statusTick % 4 !== 0) return; // cada ~200ms (4 × 50ms)
+  const r = await apiGet('/api/status').catch(()=>null);
+  if(!r) return;
+  const stEl=document.getElementById('dsp-state');
+  const buEl=document.getElementById('dsp-buf');
+  const ldEl=document.getElementById('dsp-load');
+  if(!stEl) return;
+  const st=r.state||'—';
+  stEl.textContent=st;
+  stEl.className= st==='Running'?'dsp-state-run':
+                  (st==='Error'||st==='Stalled')?'dsp-state-err':'';
+  
+  const recBtn=document.getElementById('recovery-btn');
+  if(recBtn) recBtn.style.display=(st==='Error')?'inline-block':'none';
+
+  buEl.textContent= r.buffer!=null ? String(r.buffer) : '—';
+  ldEl.textContent= r.load!=null   ? r.load.toFixed(1)+'%' : '—';
+  // CPU cada ~1s (20 × 50ms)
+  if(_statusTick % 20 === 0){
+    apiGet('/api/cpuload').then(rc=>{
+      const el=document.getElementById('cpu-load');
+      if(el) el.textContent = rc.cpu||'—';
+    }).catch(()=>{});
+  }
+}
 async function setVolume(db){
   await apiPost('/api/volume',{volume:db});
+}
+async function recoverEngine(){
+  if(!confirm('¿El motor ALSA colapsó? Esto inyectará una configuración de emergencia (hw:1,0) para destrabarlo. ¿Continuar?')) return;
+  toast('Aplicando Rescue Config...');
+  try {
+    await fetch('/api/recovery', {method: 'POST'});
+    toast('Reiniciando DSP...');
+    setTimeout(() => location.reload(), 3000);
+  } catch(e) {
+    toast('Error en recovery');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -261,15 +832,18 @@ function biquadMag(params, freq){
   else if(t==='Lowpass'){b0=(1-cw)/2;b1=1-cw;b2=(1-cw)/2;a0=1+al;a1=-2*cw;a2=1-al;}
   else if(t==='Highpass'){b0=(1+cw)/2;b1=-(1+cw);b2=(1+cw)/2;a0=1+al;a1=-2*cw;a2=1-al;}
   else if(t==='Highshelf'){b0=A*((A+1)+(A-1)*cw+2*sqA*al);b1=-2*A*((A-1)+(A+1)*cw);b2=A*((A+1)+(A-1)*cw-2*sqA*al);a0=(A+1)-(A-1)*cw+2*sqA*al;a1=2*((A-1)-(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sqA*al;}
-  else if(t==='Lowshelf'){b0=A*((A+1)-(A-1)*cw+2*sqA*al);b1=2*A*((A-1)-(A+1)*cw);b2=A*((A+1)-(A-1)*cw-2*sqA*al);a0=(A+1)+(A-1)*cw+2*sqA*al;a1=-2*((A-1)+(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sqA*al;}
+  else if(t==='Lowshelf'){b0=A*((A+1)-(A-1)*cw+2*sqA*al);b1=2*A*((A-1)-(A+1)*cw);b2=A*((A+1)-(A-1)*cw-2*sqA*al);a0=(A+1)+(A-1)*cw+2*sqA*al;a1=-2*((A-1)+(A+1)*cw);a2=(A+1)+(A-1)*cw-2*sqA*al;}
   else return 0;
   const w=2*Math.PI*freq/sr;
   const z1r=Math.cos(-w),z1i=Math.sin(-w),z2r=Math.cos(-2*w),z2i=Math.sin(-2*w);
   const nr=b0+b1*z1r+b2*z2r,ni=b1*z1i+b2*z2i;
   const dr=a0+a1*z1r+a2*z2r,di=a1*z1i+a2*z2i;
   const mn=Math.hypot(nr,ni),md=Math.hypot(dr,di);
-  if(md===0||mn===0) return -100;
-  return 20*Math.log10(mn/md);
+  if(md<1e-20&&mn<1e-20) return 0;
+  if(mn<1e-20) return -120;
+  if(md<1e-20) return 120;
+  const db=20*Math.log10(mn/md);
+  return isFinite(db)?db:(db>0?120:-120);
 }
 
 function crossMag(params, freq){
@@ -315,6 +889,7 @@ function parseFilters(){
       }
       if(!chs.length) continue;
       const pt = d.parameters?.type||'';
+      if(pt==='GraphicEqualizer') continue; // handled by Graphic EQ tab
       if(t==='Biquad'&&bqTypes.includes(pt)) filtrosBiquad[fid]={data:d,domain,channels:chs};
       else if(t==='BiquadCombo'&&crTypes.includes(pt)) filtrosCross[fid]={data:d,domain,channels:chs};
     }
@@ -350,11 +925,9 @@ function ensureMixer(){
 }
 
 async function init(){
-  document.getElementById('status-txt').textContent='Conectando...';
   const ok = await fetchConfig();
-  if(!ok){ document.getElementById('status-txt').textContent='Error de conexión'; return; }
+  if(!ok){ return; }
   document.getElementById('status-dot').className='ok';
-  document.getElementById('status-txt').textContent='Conectado';
   sampleRate = config.devices?.samplerate||48000;
   inLabels  = getLabels('capture');
   outLabels = getLabels('playback');
@@ -366,9 +939,10 @@ async function init(){
   buildVU();
   renderEQGraph(); renderCrossGraph(); renderMixer();
   buildEQTable(); buildCrossTable(); buildCompTable();
+  geqBuildChannelBtns();
   // Start level polling
   if(levelTimer) clearInterval(levelTimer);
-  levelTimer = setInterval(fetchLevels, 100);
+  levelTimer = setInterval(()=>{ fetchLevels(); fetchStatus(); }, 50);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -376,15 +950,17 @@ async function init(){
 // ═══════════════════════════════════════════════════════════════════════════
 function switchTab(i){
   currentTab=i;
+  eqHideQOverlay();
   document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
   document.querySelectorAll('.tab-page').forEach((p,j)=>p.classList.toggle('active',i===j));
   const chPanel=document.getElementById('ch-panel');
-  chPanel.classList.toggle('show',i===1||i===2);
+  chPanel.classList.toggle('show',i===2||i===3);
   const inRow=document.getElementById('ch-in-row');
-  if(inRow) inRow.style.display=(i===1)?'flex':'none';
-  if(i===1) renderEQGraph();
-  if(i===2) renderCrossGraph();
-  if(i===3) renderMixer();
+  if(inRow) inRow.style.display=(i===2)?'flex':'none';
+  if(i===1) geqSyncChannel();
+  if(i===2) renderEQGraph();
+  if(i===3) renderCrossGraph();
+  if(i===4){ renderMixer(); loadDevices(); presetRefresh(); }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -401,8 +977,9 @@ function buildChannelPanel(){
   inLabels.forEach((n,i)=>{
     const b=document.createElement('button');
     b.className='ch-btn active'; b.textContent=`🔊 ${n}`; b.id=`btn-in-${i}`;
-    b.onclick=()=>toggleInCh(i,!b.classList.contains('active'));
-    b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,false);};
+    addLongPress(b,()=>{ toggleBypass(i,false); });
+    b.addEventListener('click',()=>{ if(b._lpRecentlyFired?.()) return; toggleInCh(i,!b.classList.contains('active')); });
+    b.oncontextmenu=(e)=>e.preventDefault();
     inRow.appendChild(b);
   });
   // OUT row
@@ -416,8 +993,9 @@ function buildChannelPanel(){
     const b=document.createElement('button');
     const col=COLORS[i%COLORS.length];
     b.className='ch-btn out active'; b.style.setProperty('--col',col); b.textContent=`🔊 ${n}`; b.id=`btn-out-${i}`;
-    b.onclick=()=>toggleOutCh(i,!b.classList.contains('active'));
-    b.oncontextmenu=(e)=>{e.preventDefault();toggleBypass(i,true);};
+    addLongPress(b,()=>{ toggleBypass(i,true); });
+    b.addEventListener('click',()=>{ if(b._lpRecentlyFired?.()) return; toggleOutCh(i,!b.classList.contains('active')); });
+    b.oncontextmenu=(e)=>e.preventDefault();
     outRow.appendChild(b);
   });
 }
@@ -504,44 +1082,94 @@ const faderWidgets={}; // {chIdx: {canvas,ctx,db,dragging}}
 const masterFader={canvas:null,ctx:null,db:0,dragging:false};
 
 function buildVU(){
-  const scroll=document.getElementById('vu-scroll');
-  scroll.innerHTML='';
-  // Master fader
-  const ms=makeFaderStrip('MASTER',-1,0,'master');
-  scroll.appendChild(ms.el);
-  // Separator
-  const sep=document.createElement('div'); sep.className='vu-sep'; sep.id='vu-sep-main'; scroll.appendChild(sep);
-  // Inputs
+  const vuRow=document.getElementById('vu-meters-row');
+  const faderRow=document.getElementById('vu-faders-row');
+  vuRow.innerHTML=''; faderRow.innerHTML='';
+
+  // ── VU METERS ROW: entradas | separador | salidas ──
   inLabels.forEach((n,i)=>{
-    const strip=makeVUStrip(n,i,false);
-    strip.el.id=`vu-in-${i}`; scroll.appendChild(strip.el);
-    vuWidgets[`in_${i}`]=strip;
+    const w=makeInVU(n,i);
+    w.el.id=`vu-in-${i}`; vuRow.appendChild(w.el); vuWidgets[`in_${i}`]=w;
   });
-  // Separator in/out
   if(inLabels.length&&outLabels.length){
-    const sep2=document.createElement('div'); sep2.className='vu-sep'; sep2.id='vu-sep-io'; scroll.appendChild(sep2);
+    const sep=document.createElement('div');
+    sep.id='vu-sep-io';
+    sep.style.cssText='width:2px;background:#444;margin:0 3px;height:160px;align-self:center;flex-shrink:0';
+    vuRow.appendChild(sep);
   }
-  // Outputs
   outLabels.forEach((n,i)=>{
-    const strip=makeOutStrip(n,i);
-    strip.el.id=`vu-out-${i}`; scroll.appendChild(strip.el);
-    vuWidgets[`out_${i}`]=strip;
+    const w=makeOutVU(n,i);
+    w.el.id=`vu-out-${i}`; vuRow.appendChild(w.el); vuWidgets[`out_${i}`]=w;
   });
+
+  // ── FADERS ROW: MAIN | separador | canales salida ──
+  const mainArea=document.createElement('div'); mainArea.className='fader-area'; mainArea.id='fader-main';
+  const mainNameDiv=document.createElement('div'); mainNameDiv.className='fader-name';
+  mainNameDiv.style.cssText='color:#ff9900;font-size:11px;font-weight:bold;text-align:center';
+  mainNameDiv.textContent='MAIN'; mainArea.appendChild(mainNameDiv);
+  const ms=makeFaderStrip('MAIN',-1,levels.volume||0,'master');
+  mainArea.appendChild(ms.el);
+  // MUTE ALL va al final del fader-row como elemento separado (al fondo de la fila)
+  const muteAllFaderBtn=document.createElement('button'); muteAllFaderBtn.className='fader-mute-all';
+  muteAllFaderBtn.id='mute-all-btn2'; muteAllFaderBtn.textContent='MUTE ALL';
+  muteAllFaderBtn.onclick=toggleMuteAll;
+  mainArea.style.cssText='display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0;align-self:stretch';
+  muteAllFaderBtn.style.marginTop='auto'; // empuja al fondo
+  mainArea.appendChild(muteAllFaderBtn);
+  faderRow.appendChild(mainArea);
+  if(outLabels.length){
+    const sep=document.createElement('div');
+    sep.style.cssText='width:1px;background:#333;margin:0 4px;align-self:stretch;flex-shrink:0';
+    faderRow.appendChild(sep);
+  }
+  outLabels.forEach((n,i)=>{
+    const vuW=vuWidgets[`out_${i}`];
+    const fa=makeOutFaderArea(n,i,vuW);
+    fa.id=`fader-out-${i}`; faderRow.appendChild(fa);
+  });
+
   filterVU();
   buildCompTable();
 }
 
-function makeVUStrip(name,chIdx,isOut){
+// Tira VU solo entrada
+function makeInVU(name,chIdx){
   const el=document.createElement('div'); el.className='strip';
-  const cv=document.createElement('canvas'); cv.width=52; cv.height=200;
+  const cv=document.createElement('canvas'); cv.width=54; cv.height=180;
   const ctx=cv.getContext('2d');
-  const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut,compTh:null,compRatio:1,compMakeup:0,grLevel:0,el};
+  const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:false,compTh:null,compRatio:1,compMakeup:0,grLevel:0,el};
   el.appendChild(cv);
-  // Name label
-  const lbl=document.createElement('div'); lbl.className='sname'; lbl.textContent=name; el.appendChild(lbl);
   drawVU(w); return w;
 }
-function makeOutStrip(name,chIdx){
+// Tira VU solo salida (sin fader ni controles)
+function makeOutVU(name,chIdx){
+  let compTh=null,compRatio=1,compMakeup=0;
+  for(const [pid,pd] of Object.entries(config.processors||{})){
+    if(pd.type==='Compressor'&&pd.parameters?.process_channels?.[0]===chIdx){
+      compTh=pd.parameters.threshold; compRatio=pd.parameters.factor||1; compMakeup=pd.parameters.makeup_gain||0; break;
+    }
+  }
+  const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+  const m=mixName&&config.mixers?.[mixName];
+  const mapping=m?.mapping?.find(mp=>mp.dest===chIdx);
+  const initMute=(mapping?.mute)||false;
+
+  const el=document.createElement('div'); el.className='strip';
+  const cv=document.createElement('canvas'); cv.width=64; cv.height=180;
+  const ctx=cv.getContext('2d');
+  const w={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:true,compTh,compRatio,compMakeup,grLevel:0,isMuted:initMute,el};
+  cv.addEventListener('dblclick',e=>{
+    const bh=cv.height-22; const y=e.offsetY;
+    if(y<=bh){ const db=Math.max(-80,Math.min(0,-80*(y/bh))); createCompressor(name,chIdx,db,w); }
+  });
+  cv.addEventListener('contextmenu',e=>{e.preventDefault(); deleteCompressorByChannel(chIdx);});
+  // Touch: double-tap = dblclick (handled by browser), longpress = delete compressor
+  addLongPress(cv,()=>{ deleteCompressorByChannel(chIdx); toast('Compresor eliminado'); });
+  el.appendChild(cv);
+  drawVU(w); return w;
+}
+// Area de fader + controles para canal de salida
+function makeOutFaderArea(name,chIdx,vuW){
   const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
   const m=mixName&&config.mixers?.[mixName];
   const mapping=m?.mapping?.find(mp=>mp.dest===chIdx);
@@ -549,44 +1177,31 @@ function makeOutStrip(name,chIdx){
   const initInv=(mapping?.sources?.[0]?.inverted)||false;
   const initMute=(mapping?.mute)||false;
 
-  // Get compressor info
-  let compTh=null,compRatio=1,compMakeup=0;
-  for(const [pid,pd] of Object.entries(config.processors||{})){
-    if(pd.type==='Compressor'&&pd.parameters?.process_channels?.[0]===chIdx){
-      compTh=pd.parameters.threshold; compRatio=pd.parameters.factor||1; compMakeup=pd.parameters.makeup_gain||0; break;
-    }
-  }
+  const area=document.createElement('div'); area.className='fader-area';
+  const nameDiv=document.createElement('div'); nameDiv.className='fader-name'; nameDiv.textContent=name.substring(0,8); area.appendChild(nameDiv);
 
-  const el=document.createElement('div'); el.className='strip';
-  const cv=document.createElement('canvas'); cv.width=52; cv.height=200;
-  const ctx=cv.getContext('2d');
-  const vuW={canvas:cv,ctx,level:-80,peak:-80,peakT:0,name,chIdx,isOut:true,compTh,compRatio,compMakeup,grLevel:0,isMuted:initMute,el};
-  // Double click on canvas = create compressor at threshold
-  cv.addEventListener('dblclick',e=>{
-    const bh=cv.height-45; const y=e.offsetY;
-    if(y<=bh){ const db=Math.max(-80,Math.min(0,-80*(y/bh))); createCompressor(name,chIdx,db,vuW); }
-  });
-  cv.addEventListener('contextmenu',e=>{e.preventDefault(); deleteCompressorByChannel(chIdx);});
-  el.appendChild(cv);
+  const fs=makeFaderStrip(name,chIdx,initDb,'out');
+  area.appendChild(fs.el);
 
-  // Mute button
+  // Mute (fila propia)
+  const muteRow=document.createElement('div'); muteRow.style.cssText='display:flex;justify-content:center;width:100%';
   const muteBtn=document.createElement('button');
-  muteBtn.className='mute-btn'+(initMute?' muted':''); muteBtn.textContent=initMute?'MUTED':'active';
+  muteBtn.className='mute-btn'+(initMute?' muted':''); muteBtn.textContent=initMute?'MUTE':'LIVE';
+  muteBtn.style.width='100%';
   muteBtn.onclick=()=>{ vuW.isMuted=!vuW.isMuted; applyMute(chIdx,vuW.isMuted,muteBtn); };
-  el.appendChild(muteBtn); vuW.muteBtn=muteBtn;
+  muteRow.appendChild(muteBtn); vuW.muteBtn=muteBtn; area.appendChild(muteRow);
 
-  // Fader
-  const faderEl=makeFaderStrip(name,chIdx,initDb,'out');
-  el.appendChild(faderEl.el);
-
-  // Polarity
+  // Polaridad (fila propia)
+  const polRow=document.createElement('div'); polRow.style.cssText='display:flex;justify-content:center;width:100%';
   const polBtn=document.createElement('button');
   polBtn.className='pol-btn'+(initInv?' inv':''); polBtn.textContent='+/-';
+  polBtn.style.width='100%';
   polBtn.onclick=()=>{ polBtn.classList.toggle('inv'); togglePolarity(chIdx,polBtn.classList.contains('inv')); };
-  el.appendChild(polBtn);
+  polRow.appendChild(polBtn); area.appendChild(polRow);
 
-  // Delay
-  const dlyLbl=document.createElement('div'); dlyLbl.className='dly-lbl'; dlyLbl.textContent='DLY(ms)'; el.appendChild(dlyLbl);
+  // Delay (fila propia)
+  const dlyRow=document.createElement('div'); dlyRow.className='fader-dly-row';
+  const dlyLbl=document.createElement('div'); dlyLbl.className='dly-lbl'; dlyLbl.textContent='ms';
   const dlyFname=`Delay_${cleanName(name)}`;
   let initDelay=0;
   const mixerIdx=(config.pipeline||[]).findIndex(s=>s.type==='Mixer');
@@ -601,57 +1216,126 @@ function makeOutStrip(name,chIdx){
   const dlyInp=document.createElement('input'); dlyInp.className='dly-inp'; dlyInp.type='text'; dlyInp.value=initDelay.toFixed(1);
   dlyInp.addEventListener('change',()=>changeDelay(chIdx,dlyFname,dlyInp.value));
   dlyInp.addEventListener('contextmenu',e=>{e.preventDefault();dlyInp.value='0.0';changeDelay(chIdx,dlyFname,'0.0');});
-  el.appendChild(dlyInp);
-
-  drawVU(vuW); return vuW;
+  addLongPress(dlyInp,()=>{dlyInp.value='0.0';changeDelay(chIdx,dlyFname,'0.0');});
+  dlyRow.appendChild(dlyLbl); dlyRow.appendChild(dlyInp); area.appendChild(dlyRow);
+  return area;
 }
 
 function makeFaderStrip(name,chIdx,initDb,mode){
-  const cv=document.createElement('canvas'); cv.width=46; cv.height=120;
+  // Canvas: pista centrada, escala dB a la derecha
+  const cv=document.createElement('canvas'); cv.width=68; cv.height=(mode==='master'?165:110);
   const ctx=cv.getContext('2d');
-  const w={canvas:cv,ctx,db:initDb,dragging:false,name,chIdx,mode};
-  const wrap=document.createElement('div');
+  const w={canvas:cv,ctx,db:Math.max(-60,Math.min(10,initDb)),dragging:false,name,chIdx,mode};
+  const wrap=document.createElement('div'); wrap.style.cssText='display:flex;flex-direction:column;align-items:center';
 
   if(mode==='master'){
-    masterFader.canvas=cv; masterFader.ctx=ctx; masterFader.db=initDb;
+    masterFader.canvas=cv; masterFader.ctx=ctx; masterFader.db=w.db;
   } else {
     faderWidgets[chIdx]=w;
   }
+  // Rango: -60 a +10 dB
   function dbToY(db,h){
-    db=Math.max(-30,Math.min(10,db));
+    db=Math.max(-60,Math.min(10,db));
+    // Parte superior 20% = 0 a +10 dB, resto = -60 a 0 dB
     if(db>=0) return (10-db)/10*(0.2*h);
-    return 0.2*h+(-db/30)*(0.8*h);
+    return 0.2*h+(Math.abs(db)/60)*(0.8*h);
   }
   function yToDb(y,h){
+    y=Math.max(0,Math.min(h,y));
     if(y<=0.2*h) return 10-(y/(0.2*h))*10;
-    return -((y-0.2*h)/(0.8*h))*30;
+    return -((y-0.2*h)/(0.8*h))*60;
   }
   function draw(){
-    const {width:W,height:H}=cv; ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
-    const tx=W/2-2;
-    ctx.fillStyle='#141414'; ctx.fillRect(tx,0,4,H);
-    ctx.strokeStyle='#444'; ctx.lineWidth=1;
-    for(const db of [10,0,-10,-20,-30]){
-      const y=dbToY(db,H);
-      ctx.strokeStyle=db===0?'#f00':'#444'; ctx.beginPath(); ctx.moveTo(tx-5,y); ctx.lineTo(tx+9,y); ctx.stroke();
+    const W=cv.width, H=cv.height;
+    ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
+    const tx=14; // X del centro de la pista
+    const tw=6;  // ancho pista
+    // Pista
+    ctx.fillStyle='#1a1a1a'; ctx.fillRect(tx-tw/2,2,tw,H-14);
+    // Referencias dB con ticks y labels a la derecha
+    const refs=mode==='master'?[10,6,3,0,-6,-12,-20,-40,-60]:[10,0,-10,-20,-40,-60];
+    for(const db of refs){
+      if(db<-60||db>10) continue;
+      const y=dbToY(db,H-14)+0; // offset top
+      const isZero=db===0;
+      ctx.strokeStyle=isZero?'#f66':'#333';
+      ctx.lineWidth=isZero?1.5:1;
+      ctx.beginPath(); ctx.moveTo(tx+tw/2,y); ctx.lineTo(tx+tw/2+6,y); ctx.stroke();
+      ctx.fillStyle=isZero?'#f88':'#fff';
+      ctx.font=isZero?'bold 7px Arial':'6px Arial'; ctx.textAlign='left';
+      const lbl=db>0?'+'+db:String(db);
+      ctx.fillText(lbl, tx+tw/2+8, y+2.5);
     }
-    const fy=dbToY(w.db,H);
-    ctx.fillStyle=w.dragging?'#0096ff':'#888'; ctx.beginPath(); ctx.roundRect(tx-10,fy-5,24,10,3); ctx.fill();
-    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(tx-8,fy); ctx.lineTo(tx+8,fy); ctx.stroke();
-    ctx.fillStyle='#0ff'; ctx.font='8px Arial'; ctx.textAlign='center'; ctx.fillText(w.db.toFixed(1),W/2,H-2);
+    // Knob
+    const fy=dbToY(w.db,H-14);
+    const knobColor=w.dragging?(mode==='master'?'#ff9900':'#0096ff'):(mode==='master'?'#cc7700':'#666');
+    ctx.fillStyle=knobColor;
+    ctx.beginPath(); ctx.roundRect(tx-tw/2-5,fy-5,tw+10,10,3); ctx.fill();
+    ctx.strokeStyle='#ddd'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(tx-tw/2-3,fy); ctx.lineTo(tx+tw/2+3,fy); ctx.stroke();
+    // Valor dB abajo - grande y visible cuando arrastrando
+    if(w.dragging){
+      const valStr=(w.db>=0?'+':'')+w.db.toFixed(1)+' dB';
+      ctx.font='bold 11px Arial'; ctx.textAlign='left';
+      const tw2=ctx.measureText(valStr).width;
+      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,H-14,tw2+4,13);
+      ctx.fillStyle='#ff0'; ctx.fillText(valStr,2,H-3);
+    } else {
+      ctx.fillStyle='#0ff'; ctx.font='bold 9px Arial'; ctx.textAlign='left';
+      ctx.fillText((w.db>=0?'+':'')+w.db.toFixed(1)+' dB',0,H-3);
+    }
   }
   w.draw=draw; draw();
 
-  let dragY=0;
+  // Drag — mouse
   cv.addEventListener('mousedown',e=>{
     if(e.button===2){w.db=0;draw();sendGain(w);return;}
-    w.dragging=true; dragY=e.offsetY; draw();
-    function onMove(e2){ w.db=Math.max(-30,Math.min(10,yToDb(dragY+(e2.clientY-(e.clientY-dragY+e.clientY-e.offsetY)),cv.height))); draw(); }
+    e.preventDefault();
+    w.dragging=true;
+    const startClientY=e.clientY;
+    const startDb=w.db;
+    draw();
+    function onMove(e2){
+      const rect=cv.getBoundingClientRect();
+      const scaleY=(cv.height-14)/rect.height;
+      const startY=dbToY(startDb,cv.height-14);
+      const dy=(e2.clientY-startClientY)*scaleY;
+      w.db=Math.max(-60,Math.min(10,yToDb(startY+dy,cv.height-14)));
+      draw();
+    }
     function onUp(){ w.dragging=false; draw(); sendGain(w); document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); }
     document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
   });
-  cv.addEventListener('mousemove',e=>{if(w.dragging){w.db=Math.max(-30,Math.min(10,yToDb(e.offsetY,cv.height)));draw();}});
   cv.addEventListener('contextmenu',e=>e.preventDefault());
+  // Touch drag
+  let faderLongFired=false;
+  cv.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1) return;
+    e.preventDefault();
+    faderLongFired=false;
+    w.dragging=true;
+    const startClientY=e.touches[0].clientY;
+    const startDb=w.db;
+    draw();
+    function tMove(e2){
+      if(faderLongFired||e2.touches.length!==1) return;
+      const rect=cv.getBoundingClientRect();
+      const scaleY=(cv.height-14)/rect.height;
+      const startY=dbToY(startDb,cv.height-14);
+      const dy=(e2.touches[0].clientY-startClientY)*scaleY;
+      w.db=Math.max(-60,Math.min(10,yToDb(startY+dy,cv.height-14)));
+      draw();
+    }
+    function tEnd(){
+      if(!faderLongFired){ w.dragging=false; draw(); sendGain(w); }
+      cv.removeEventListener('touchmove',tMove);
+      cv.removeEventListener('touchend',tEnd);
+    }
+    cv.addEventListener('touchmove',tMove,{passive:false});
+    cv.addEventListener('touchend',tEnd,{passive:true});
+  },{passive:false});
+  // Longpress → reset to 0 dB (replaces right-click)
+  addLongPress(cv,()=>{ faderLongFired=true; w.dragging=false; w.db=0; draw(); sendGain(w); toast('Ganancia a 0 dB'); });
   wrap.appendChild(cv);
   return {el:wrap,w};
 }
@@ -659,50 +1343,62 @@ function makeFaderStrip(name,chIdx,initDb,mode){
 function drawVU(w){
   const cv=w.canvas; const {width:W,height:H}=cv; const ctx=w.ctx;
   ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
-  const fh=45, bh=H-fh, bx=18, bw=20;
-  ctx.fillStyle='#222'; ctx.fillRect(bx,0,bw,bh);
-  // Scale labels
-  ctx.fillStyle='#888'; ctx.font='7px Arial';
+  const fh=22, topM=8, bh=H-fh-topM, bx=22, bw=18;
+  ctx.fillStyle='#222'; ctx.fillRect(bx,topM,bw,bh);
+  // Scale labels LEFT side of bar — all white
+  ctx.font='7px Arial'; ctx.textAlign='right';
   for(const db of [0,-6,-12,-24,-40,-60,-80]){
-    const y=bh-((db+80)/80*bh);
-    ctx.fillStyle='#555'; ctx.fillRect(bx+bw,~~y,5,1);
-    ctx.fillStyle='#888'; ctx.textAlign='left'; ctx.fillText(String(db),bx+bw+7,y+3);
+    const y=topM+bh-((db+80)/80*bh);
+    ctx.fillStyle='#555'; ctx.fillRect(bx-4,~~y,4,1);
+    ctx.fillStyle=(db===0)?'#0f0':'#fff';
+    ctx.fillText(String(db),bx-6,y+3);
   }
   // Level bar
   const lh=Math.max(0,(Math.max(-80,w.level)+80)/80*bh);
-  const grad=ctx.createLinearGradient(0,bh,0,0);
+  const grad=ctx.createLinearGradient(0,topM+bh,0,topM);
   grad.addColorStop(0,'#00aa00'); grad.addColorStop(0.7,'#aaaa00'); grad.addColorStop(0.9,'#aa0000');
-  ctx.fillStyle=grad; ctx.fillRect(bx,bh-lh,bw,lh);
+  ctx.fillStyle=grad; ctx.fillRect(bx,topM+bh-lh,bw,lh);
 
-  // GR bar (compressor)
+  // GR bar + scale (compressor) RIGHT side, visible only on wider canvas
   if(w.isOut&&w.compTh!==null){
     const gr=w.grLevel||0;
     if(gr>0.1){
       const grH=Math.min(bh,(gr/30)*bh);
-      ctx.fillStyle='rgba(255,130,0,0.85)'; ctx.fillRect(bx-4,0,3,grH);
+      ctx.fillStyle='rgba(255,140,0,0.9)'; ctx.fillRect(bx+bw+2,topM,4,grH);
     }
     // Threshold line
     if(w.compTh!==null&&w.compTh!==0){
-      const thy=bh-((w.compTh+80)/80*bh);
-      ctx.fillStyle='rgba(255,0,0,0.3)'; ctx.fillRect(bx,0,bw,thy);
+      const thy=topM+bh-((w.compTh+80)/80*bh);
+      ctx.fillStyle='rgba(255,0,0,0.25)'; ctx.fillRect(bx,topM,bw,thy-topM);
       ctx.strokeStyle='#f00'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(bx,thy); ctx.lineTo(bx+bw,thy); ctx.stroke();
+    }
+    // GR scale labels (only on wider output canvas)
+    if(W>54){
+      ctx.font='bold 6px Arial'; ctx.fillStyle='#ffa040'; ctx.textAlign='center';
+      ctx.fillText('GR',bx+bw+8,topM+bh+16);
+      ctx.font='6px Arial'; ctx.textAlign='left';
+      for(const [grDb,lbl] of [[0,'0'],[6,'6'],[12,'12'],[20,'20']]){
+        const gy=topM+~~((grDb/30)*bh);
+        ctx.fillStyle='#553'; ctx.fillRect(bx+bw+7,gy,3,1);
+        ctx.fillStyle='#ffa040'; ctx.fillText(lbl,bx+bw+11,Math.max(topM+3,gy+3));
+      }
     }
   }
 
   // Peak hold
-  const py=bh-((Math.max(-80,w.peak)+80)/80*bh);
+  const py=topM+bh-((Math.max(-80,w.peak)+80)/80*bh);
   ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(bx-2,py); ctx.lineTo(bx+bw+2,py); ctx.stroke();
-  ctx.fillStyle='#ff0'; ctx.font='bold 7px Arial'; ctx.textAlign='center'; ctx.fillText(w.peak.toFixed(1),bx+bw/2,Math.max(0,py-3));
+  ctx.fillStyle='#ff0'; ctx.font='bold 7px Arial'; ctx.textAlign='center'; ctx.fillText(w.peak.toFixed(1),bx+bw/2,Math.max(topM+6,py-3));
 
-  // Name
-  const nameY=bh+5;
+  // Name area
+  const nameY=topM+bh+4;
   if(w.isOut){
-    ctx.fillStyle=w.isMuted?'#f00':'#0f0'; ctx.font='bold 8px Arial';
-    ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+8);
-    ctx.fillStyle=w.isMuted?'#f55':'#aaa'; ctx.font='7px Arial';
-    ctx.fillText(w.isMuted?'[MUTE]':'(active)',W/2,nameY+18);
+    ctx.fillStyle=w.isMuted?'#f00':'#0f0'; ctx.font='bold 10px Arial';
+    ctx.textAlign='center'; ctx.fillText(w.name.substring(0,9),W/2,nameY+9);
+    ctx.fillStyle=w.isMuted?'#f55':'#666'; ctx.font='7px Arial';
+    ctx.fillText(w.isMuted?'MUTE':'live',W/2,nameY+17);
   } else {
-    ctx.fillStyle='#fff'; ctx.font='bold 8px Arial'; ctx.textAlign='center'; ctx.fillText(w.name.substring(0,7),W/2,nameY+12);
+    ctx.fillStyle='#ccc'; ctx.font='bold 10px Arial'; ctx.textAlign='center'; ctx.fillText(w.name.substring(0,9),W/2,nameY+9);
   }
 }
 
@@ -754,8 +1450,11 @@ function setView(v){
 }
 function filterVU(){
   inLabels.forEach((_,i)=>{ const el=document.getElementById(`vu-in-${i}`); if(el) el.style.display=(vuView==='out')?'none':'flex'; });
-  outLabels.forEach((_,i)=>{ const el=document.getElementById(`vu-out-${i}`); if(el) el.style.display=(vuView==='in')?'none':'flex'; });
-  const sep=document.getElementById('vu-sep-io'); if(sep) sep.style.display=(vuView==='all')?'block':'none';
+  outLabels.forEach((_,i)=>{
+    const el=document.getElementById(`vu-out-${i}`); if(el) el.style.display=(vuView==='in')?'none':'flex';
+    const fe=document.getElementById(`fader-out-${i}`); if(fe) fe.style.display=(vuView==='in')?'none':'flex';
+  });
+  const sep=document.getElementById('vu-sep-io'); if(sep) sep.style.display=(vuView==='all')?'flex':'none';
 }
 
 async function sendGain(w){
@@ -770,7 +1469,7 @@ async function sendGain(w){
 }
 
 async function applyMute(chIdx,muted,btn){
-  btn.classList.toggle('muted',muted); btn.textContent=muted?'MUTED':'active';
+  btn.classList.toggle('muted',muted); btn.textContent=muted?'MUTE':'LIVE';
   const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
   if(!mixName||!config.mixers?.[mixName]) return;
   const m=config.mixers[mixName];
@@ -791,15 +1490,14 @@ async function toggleMuteAll(){
     if(!mp){mp={dest:i,mute:false,sources:[]};(m.mapping=m.mapping||[]).push(mp);}
     mp.mute=allMuted;
     const w=vuWidgets[`out_${i}`];
-    if(w){w.isMuted=allMuted;if(w.muteBtn){w.muteBtn.classList.toggle('muted',allMuted);w.muteBtn.textContent=allMuted?'MUTED':'active';}}
+    if(w){w.isMuted=allMuted;if(w.muteBtn){w.muteBtn.classList.toggle('muted',allMuted);w.muteBtn.textContent=allMuted?'MUTE':'LIVE';}}
   });
   await patchCfg({mixers:{[mixName]:m}});
   checkMuteAll();
 }
 function checkMuteAll(){
-  const btn=document.getElementById('mute-all-btn');
   allMuted=outLabels.every((_,i)=>vuWidgets[`out_${i}`]?.isMuted);
-  btn.classList.toggle('muted',allMuted);
+  ['mute-all-btn','mute-all-btn2'].forEach(id=>{const b=document.getElementById(id);if(b)b.classList.toggle('muted',allMuted);});
 }
 async function togglePolarity(chIdx,inv){
   const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
@@ -869,6 +1567,8 @@ function removeFilterFromPipeline(fid){
 // ═══════════════════════════════════════════════════════════════════════════
 const eqState={drag:null,hover:null,highlight:null,dragGroup:[]};
 const eqCanvas=()=>document.getElementById('eq-canvas');
+// Hit-rects para botones Q dibujados en el canvas (coordenadas CSS px, relativas al canvas)
+let eqQHitRects={minus:null,plus:null,activeFid:null};
 
 function fToX(f,W){ return W*(Math.log10(Math.max(20,Math.min(20000,f)))-Math.log10(20))/(Math.log10(20000)-Math.log10(20)); }
 function xToF(x,W){ return Math.pow(10,Math.log10(20)+(x/W)*(Math.log10(20000)-Math.log10(20))); }
@@ -932,31 +1632,87 @@ function renderEQGraph(){
     const visChs=info.channels.filter(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
     if(!visChs.length) continue;
     const p=info.data.parameters;
-    const x=fToX(p.freq,W), y=eqDbToY(p.gain||0,H);
+    const noGain=(p.type==='Highpass'||p.type==='Lowpass');
+    const markerDb=noGain?biquadMag(p,p.freq):( p.gain||0);
+    const x=fToX(p.freq,W), y=eqDbToY(markerDb,H);
     const isByp=bypassedFids.has(fid), isSel=fid===eqState.drag||fid===eqState.hover||fid===eqState.highlight;
     const col=COLORS[visChs[0]%COLORS.length];
+    const r=9; // radio del punto — más grande para toque táctil
     ctx.fillStyle=isByp?'#666':(isSel?'#fff':col);
-    ctx.beginPath(); ctx.arc(x,y,5,0,2*Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(x,y,r,0,2*Math.PI); ctx.fill();
+    if(isSel){ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,r+3,0,2*Math.PI); ctx.stroke(); }
     ctx.fillStyle=isByp?'#666':col; ctx.font='bold 7px Arial'; ctx.textAlign='center';
     const chName=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
-    ctx.fillText(`${idx}|${dom.toUpperCase()}:${chName}`,x,y-8);
+    ctx.fillText(`${idx}|${dom.toUpperCase()}:${chName}`,x,y-r-3);
     if(isSel){
-      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
-      const bx=Math.max(0,Math.min(W-155,x-75)),by=Math.max(0,y-45);
-      ctx.beginPath(); ctx.roundRect(bx,by,150,35,5); ctx.fill(); ctx.stroke();
-      ctx.fillStyle='#fff'; ctx.font='bold 7px Arial'; ctx.textAlign='center';
-      ctx.fillText(`F:${p.freq.toFixed(0)}Hz G:${(p.gain||0).toFixed(1)}dB Q:${(p.q||1).toFixed(2)}`,bx+75,by+13);
-      ctx.fillStyle='#bbb'; ctx.font='7px Arial'; ctx.fillText(p.type||'',bx+75,by+26);
+      const touch=isTouch();
+      // En touch: recuadro más ancho para incluir botones [-Q] y [+Q]
+      const BW=touch?296:210, BH=60;
+      const bx=Math.max(0,Math.min(W-BW,x-BW/2)), by=Math.max(0,y-65);
+      ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.roundRect(bx,by,BW,BH,6); ctx.fill(); ctx.stroke();
+      if(touch){
+        // Botón [-Q] a la izquierda
+        ctx.fillStyle='#003'; ctx.strokeStyle='#0ff'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.roundRect(bx+5,by+12,36,36,18); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#0ff'; ctx.font='bold 22px Arial'; ctx.textAlign='center';
+        ctx.fillText('−',bx+23,by+36);
+        // Botón [+Q] a la derecha
+        ctx.fillStyle='#003'; ctx.strokeStyle='#0ff'; ctx.lineWidth=1.5;
+        ctx.beginPath(); ctx.roundRect(bx+BW-41,by+12,36,36,18); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#0ff'; ctx.font='bold 22px Arial'; ctx.textAlign='center';
+        ctx.fillText('+',bx+BW-23,by+36);
+        // Registrar hit-rects (coordenadas canvas == CSS porque cv.width=cv.clientWidth)
+        eqQHitRects={
+          minus:{x:bx+5,   y:by+12, w:36, h:36},
+          plus :{x:bx+BW-41,y:by+12, w:36, h:36},
+          activeFid:fid
+        };
+        // Info en el centro
+        ctx.fillStyle='#fff'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
+        ctx.fillText(`${p.freq.toFixed(0)} Hz`,bx+BW/2,by+18);
+        ctx.fillStyle='#ff0'; ctx.font='bold 10px Arial';
+        ctx.fillText(`${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`,bx+BW/2,by+33);
+        ctx.fillStyle='#8cf'; ctx.font='bold 9px Arial'; ctx.fillText(p.type||'',bx+BW/2,by+48);
+        const chLblEQ=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
+        ctx.fillStyle='#8f8'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(`${dom.toUpperCase()}: ${chLblEQ}`,bx+BW-44,by+58);
+      } else {
+        // Desktop: tooltip normal sin botones
+        eqQHitRects={minus:null,plus:null,activeFid:null};
+        ctx.fillStyle='#fff'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
+        ctx.fillText(`${p.freq.toFixed(0)} Hz`,bx+105,by+18);
+        ctx.fillStyle='#ff0'; ctx.font='bold 11px Arial';
+        ctx.fillText(`${(p.gain||0).toFixed(1)} dB  Q:${(p.q||1).toFixed(2)}`,bx+105,by+34);
+        ctx.fillStyle='#8cf'; ctx.font='bold 9px Arial'; ctx.fillText(p.type||'',bx+105,by+50);
+        const chLblEQ=dom==='in'?(inLabels[visChs[0]]||`IN${visChs[0]}`):(outLabels[visChs[0]]||`OUT${visChs[0]}`);
+        ctx.fillStyle='#8f8'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(`${dom.toUpperCase()}: ${chLblEQ}`,bx+208,by+50);
+      }
+    } else {
+      // Limpiar hit-rects si no hay filtro seleccionado de este fid
     }
   }
+  // Limpiar hit-rects si ningún filtro está seleccionado
+  const hasSel=Object.keys(filtrosBiquad).some(fid=>{
+    return fid===eqState.drag||fid===eqState.hover||fid===eqState.highlight;
+  });
+  if(!hasSel) eqQHitRects={minus:null,plus:null,activeFid:null};
 }
 
 function setupEQInteraction(){
   const cv=eqCanvas(); if(!cv) return;
+
+  // Double-click (desktop) / double-tap (touch via dblclick) → add filter
   cv.addEventListener('dblclick',e=>{
+    // Si el doble-tap cayó sobre un botón Q del tooltip, ignorar (no crear filtro)
+    const ox=e.offsetX, oy=e.offsetY;
+    const hm=eqQHitRects.minus, hp=eqQHitRects.plus;
+    if(hm && ox>=hm.x && ox<=hm.x+hm.w && oy>=hm.y && oy<=hm.y+hm.h) return;
+    if(hp && ox>=hp.x && ox<=hp.x+hp.w && oy>=hp.y && oy<=hp.y+hp.h) return;
     if(!visibleIn.size&&!visibleOut.size){toast('Selecciona al menos un canal');return;}
-    createEQFilters(xToF(e.offsetX,cv.clientWidth),eqYToDb(e.offsetY,cv.clientHeight));
+    createEQFilters(xToF(ox,cv.clientWidth),eqYToDb(oy,cv.clientHeight));
   });
+
+  // Mouse interactions
   cv.addEventListener('mousedown',e=>{
     const cands=findEQNear(e.offsetX,e.offsetY,cv);
     if(!cands.length) return;
@@ -1013,16 +1769,144 @@ function setupEQInteraction(){
     await patchCfg({filters:patch}); buildEQTable(); renderEQGraph();
   },{passive:false});
   cv.addEventListener('contextmenu',e=>e.preventDefault());
+
+  // Touch interactions
+  // Single touch drag → move filter point
+  let eqTouchDragging=false, eqTouchLongFired=false, eqTouchMoved=false, eqTouchQBtn=false;
+  cv.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1) return;
+    eqTouchDragging=false; eqTouchLongFired=false; eqTouchMoved=false; eqTouchQBtn=false;
+    const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
+    // Primero: comprobar si el tap cae sobre un botón Q del tooltip
+    if(eqQHitRects.activeFid){
+      const hm=eqQHitRects.minus, hp=eqQHitRects.plus;
+      if(hm && offsetX>=hm.x && offsetX<=hm.x+hm.w && offsetY>=hm.y && offsetY<=hm.y+hm.h){
+        eqTouchQBtn=true; qStep(-0.1); e.preventDefault(); return;
+      }
+      if(hp && offsetX>=hp.x && offsetX<=hp.x+hp.w && offsetY>=hp.y && offsetY<=hp.y+hp.h){
+        eqTouchQBtn=true; qStep(+0.1); e.preventDefault(); return;
+      }
+    }
+    const cands=findEQNear(offsetX,offsetY,cv);
+    if(cands.length){
+      const [primary]=cands; eqState.drag=primary; eqTouchDragging=true; highlightEQRow(primary);
+      const pp=filtrosBiquad[primary]?.data?.parameters||{};
+      eqState.dragGroup=Object.keys(filtrosBiquad).filter(fid=>{
+        const info=filtrosBiquad[fid]; const dom=info.domain;
+        const vis=info.channels.some(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
+        if(!vis) return false;
+        const p2=info.data.parameters;
+        return Math.abs((p2.freq||0)-(pp.freq||0))<1&&Math.abs((p2.gain||0)-(pp.gain||0))<0.1&&Math.abs((p2.q||1)-(pp.q||1))<0.01;
+      });
+      e.preventDefault();
+    }
+  },{passive:false});
+  cv.addEventListener('touchmove',e=>{
+    if(!eqTouchDragging||e.touches.length!==1) return;
+    eqTouchMoved=true;
+    const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
+    const nf=xToF(offsetX,cv.clientWidth), ng=eqYToDb(offsetY,cv.clientHeight);
+    eqState.dragGroup.forEach(fid=>{
+      if(!filtrosBiquad[fid]) return;
+      const p=filtrosBiquad[fid].data.parameters; p.freq=nf; if('gain' in p) p.gain=ng;
+    });
+    renderEQGraph(); buildEQTable(); e.preventDefault();
+  },{passive:false});
+  cv.addEventListener('touchend',async e=>{
+    // Si el toque fue sobre un botón Q, el tooltip ya se actualizó en touchstart; no hacer nada más
+    if(eqTouchQBtn){ eqTouchQBtn=false; return; }
+    if(eqTouchDragging&&eqState.drag){
+      if(eqTouchMoved){
+        // Arrastrado: guardar nueva posición
+        const patch={};
+        eqState.dragGroup.forEach(fid=>{
+          if(!filtrosBiquad[fid]) return;
+          const p=filtrosBiquad[fid].data.parameters;
+          patch[fid]={parameters:{freq:p.freq,gain:p.gain||0}};
+        });
+        await patchCfg({filters:patch});
+      }
+      // En ambos casos (tap o drag): activar el tooltip con botones Q
+      eqState.highlight=eqState.drag;
+      eqQHitRects.activeFid=eqState.drag;
+      eqState.drag=null; eqTouchDragging=false; eqTouchMoved=false;
+      renderEQGraph();
+    } else {
+      // Tap en zona vacía → cerrar tooltip
+      eqState.highlight=null;
+      eqQHitRects={minus:null,plus:null,activeFid:null};
+      renderEQGraph();
+    }
+  },{passive:true});
+  // Longpress on filter point → delete (replaces right-click)
+  addLongPress(cv,(clientX,clientY)=>{
+    const {offsetX,offsetY}=touchOffset(cv,clientX,clientY);
+    const cands=findEQNear(offsetX,offsetY,cv);
+    if(cands.length){
+      eqTouchLongFired=true;
+      eqState.highlight=null; eqQHitRects={minus:null,plus:null,activeFid:null};
+      deleteEQ(cands[0]); toast('Filtro eliminado');
+    }
+  });
+
+  // Botones Q — usan el fid activo desde eqQHitRects o el estado del EQ
+  async function qStep(delta){
+    const fid=eqQHitRects.activeFid || eqState.highlight || eqState.drag;
+    if(!fid||!filtrosBiquad[fid]) return;
+    const p=filtrosBiquad[fid].data.parameters;
+    const nq=Math.max(0.1,Math.min(20,Math.round(((p.q||1)+delta)*100)/100));
+    const group=Object.keys(filtrosBiquad).filter(f2=>{
+      const p2=filtrosBiquad[f2]?.data?.parameters||{};
+      return Math.abs((p2.freq||0)-(p.freq||0))<1&&Math.abs((p2.gain||0)-(p.gain||0))<0.1;
+    });
+    const patch={};
+    group.forEach(f2=>{ if(filtrosBiquad[f2]) filtrosBiquad[f2].data.parameters.q=nq; patch[f2]={parameters:{q:nq}}; });
+    await patchCfg({filters:patch}); buildEQTable(); renderEQGraph();
+    eqQHitRects.activeFid=fid; // mantener fid activo para próximos taps
+  }
+  // Botones HTML del eq-q-bar (fallback para dispositivos que muestran la barra)
+  document.getElementById('eq-q-plus') ?.addEventListener('click',()=>qStep(+0.1));
+  document.getElementById('eq-q-minus')?.addEventListener('click',()=>qStep(-0.1));
 }
+
+// Estas funciones actualizan el tooltip del canvas (dibujado en renderEQGraph)
+function eqUpdateQLabel(fid){
+  // El tooltip se redibuja con renderEQGraph(); no hay elemento HTML separado
+  renderEQGraph();
+}
+function eqShowQOverlay(fid){
+  if(!isTouch()) return;
+  eqState.highlight=fid;
+  eqQHitRects.activeFid=fid;
+  renderEQGraph();
+}
+function eqHideQOverlay(){
+  eqState.highlight=null;
+  eqQHitRects={minus:null,plus:null,activeFid:null};
+  renderEQGraph();
+}
+
 function findEQNear(ox,oy,cv){
   const W=cv.clientWidth,H=cv.clientHeight,res=[];
+  const hitR=isTouch()?22:14; // mayor área de toque en táctil
   for(const [fid,info] of Object.entries(filtrosBiquad)){
     const dom=info.domain;
     const vis=info.channels.some(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
     if(!vis) continue;
     const p=info.data.parameters;
     const x=fToX(p.freq,W),y=eqDbToY(p.gain||0,H);
-    if(Math.hypot(ox-x,oy-y)<15) res.push(fid);
+    if(Math.hypot(ox-x,oy-y)<hitR) res.push(fid);
+  }
+  return res;
+}
+function findCrossNear(ox,oy,cv){
+  const W=cv.clientWidth,H=cv.clientHeight,res=[];
+  const hitR=isTouch()?22:14;
+  for(const [fid,info] of Object.entries(filtrosCross)){
+    const vis=info.channels.some(c=>visibleOut.has(c)); if(!vis) continue;
+    const p=info.data.parameters; const f=parseFloat(p.freq||1000);
+    const x=fToX(f,W),y=crDbToY(crossMag(p,f),H);
+    if(Math.hypot(ox-x,oy-y)<hitR) res.push(fid);
   }
   return res;
 }
@@ -1030,7 +1914,8 @@ function findEQNear(ox,oy,cv){
 // ═══════════════════════════════════════════════════════════════════════════
 // EQ CRUD
 // ═══════════════════════════════════════════════════════════════════════════
-function makeEQId(domain,ch){ return `EQ_${domain.toUpperCase()}_${cleanName(domain==='in'?inLabels[ch]:outLabels[ch])}_${Date.now()}_${ch}`; }
+let _eqSeq=0;
+function makeEQId(domain,ch){ return `EQ_${domain.toUpperCase()}_${cleanName(domain==='in'?inLabels[ch]:outLabels[ch])}_${Date.now()}_${++_eqSeq}_${ch}`; }
 async function createEQFilters(f,g){
   const pf={};
   [...visibleIn].forEach(ch=>{ const fid=makeEQId('in',ch); const d={type:'Biquad',description:null,parameters:{type:'Peaking',freq:f,gain:g,q:1}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'in',channels:[ch]}; addFilterToPipeline(fid,'in',ch); pf[fid]=d; });
@@ -1148,22 +2033,29 @@ function renderCrossGraph(){
     const x=fToX(f,W), y=crDbToY(crossMag(p,f),H);
     const isSel=fid===crossState.drag||fid===crossState.hover||fid===crossState.highlight;
     const col=COLORS[visChs[0]%COLORS.length];
-    ctx.fillStyle=isSel?'#fff':col; ctx.beginPath(); ctx.arc(x,y,5,0,2*Math.PI); ctx.fill();
+    const r=9;
+    ctx.fillStyle=isSel?'#fff':col; ctx.beginPath(); ctx.arc(x,y,r,0,2*Math.PI); ctx.fill();
+    if(isSel){ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,r+3,0,2*Math.PI); ctx.stroke(); }
     ctx.fillStyle=col; ctx.font='bold 7px Arial'; ctx.textAlign='center';
-    ctx.fillText(`${idx}|${outLabels[visChs[0]]||visChs[0]}`,x,y-8);
+    ctx.fillText(`${idx}|${outLabels[visChs[0]]||visChs[0]}`,x,y-r-3);
     if(isSel){
-      ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
-      const bx=Math.max(0,Math.min(W-155,x-75)),by=Math.max(0,y-45);
-      ctx.beginPath(); ctx.roundRect(bx,by,150,35,5); ctx.fill(); ctx.stroke();
-      ctx.fillStyle='#fff'; ctx.font='bold 7px Arial'; ctx.textAlign='center';
-      ctx.fillText(`F:${f.toFixed(0)}Hz Ord:${p.order||2}`,bx+75,by+13);
-      ctx.fillStyle='#bbb'; ctx.font='7px Arial'; ctx.fillText(p.type||'',bx+75,by+26);
+      ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
+      const bx=Math.max(0,Math.min(W-210,x-105)),by=Math.max(0,y-65);
+      ctx.beginPath(); ctx.roundRect(bx,by,210,60,6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.font='bold 12px Arial'; ctx.textAlign='center';
+      ctx.fillText(`${f.toFixed(0)} Hz`,bx+105,by+18);
+      ctx.fillStyle='#ff0'; ctx.font='bold 11px Arial';
+      ctx.fillText(`Orden: ${p.order||2}`,bx+105,by+34);
+      ctx.fillStyle='#8cf'; ctx.font='bold 9px Arial'; ctx.fillText(p.type||'',bx+105,by+50);
+      const chLblCR=outLabels[visChs[0]]||`OUT${visChs[0]}`;
+      ctx.fillStyle='#8f8'; ctx.font='9px Arial'; ctx.textAlign='right'; ctx.fillText(chLblCR,bx+208,by+50);
     }
   }
 }
 
 function setupCrossInteraction(){
   const cv=crCanvas(); if(!cv) return;
+
   cv.addEventListener('dblclick',e=>{
     if(!visibleOut.size){toast('Selecciona al menos un canal OUT');return;}
     createCrossFilters(xToF(e.offsetX,cv.clientWidth));
@@ -1213,18 +2105,46 @@ function setupCrossInteraction(){
     await patchCfg({filters:patch}); buildCrossTable(); renderCrossGraph();
   },{passive:false});
   cv.addEventListener('contextmenu',e=>e.preventDefault());
-}
-function findCrossNear(ox,oy,cv){
-  const W=cv.clientWidth,H=cv.clientHeight,res=[];
-  for(const [fid,info] of Object.entries(filtrosCross)){
-    const vis=info.channels.some(c=>visibleOut.has(c)); if(!vis) continue;
-    const p=info.data.parameters; const f=parseFloat(p.freq||1000);
-    const x=fToX(f,W),y=crDbToY(crossMag(p,f),H);
-    if(Math.hypot(ox-x,oy-y)<15) res.push(fid);
-  }
-  return res;
-}
 
+  // Touch interactions
+  let crTouchDragging=false;
+  cv.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1) return;
+    crTouchDragging=false;
+    const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
+    const cands=findCrossNear(offsetX,offsetY,cv);
+    if(cands.length){
+      crossState.drag=cands[0]; crTouchDragging=true; highlightCrossRow(cands[0]);
+      const pp=filtrosCross[cands[0]]?.data?.parameters||{};
+      crossState.dragGroup=Object.keys(filtrosCross).filter(fid=>{
+        if(!filtrosCross[fid]) return false;
+        const p2=filtrosCross[fid].data.parameters;
+        return Math.abs((p2.freq||0)-(pp.freq||0))<1&&p2.type===pp.type&&p2.order===pp.order;
+      });
+      e.preventDefault();
+    }
+  },{passive:false});
+  cv.addEventListener('touchmove',e=>{
+    if(!crTouchDragging||e.touches.length!==1) return;
+    const t=e.touches[0]; const {offsetX}=touchOffset(cv,t.clientX,t.clientY);
+    const nf=xToF(offsetX,cv.clientWidth);
+    crossState.dragGroup.forEach(fid=>{ if(filtrosCross[fid]) filtrosCross[fid].data.parameters.freq=nf; });
+    renderCrossGraph(); buildCrossTable(); e.preventDefault();
+  },{passive:false});
+  cv.addEventListener('touchend',async e=>{
+    if(crTouchDragging&&crossState.drag){
+      const patch={};
+      crossState.dragGroup.forEach(fid=>{ if(filtrosCross[fid]) patch[fid]={parameters:{freq:filtrosCross[fid].data.parameters.freq}}; });
+      await patchCfg({filters:patch}); crossState.drag=null; crTouchDragging=false;
+    }
+  },{passive:true});
+  // Longpress → delete filter
+  addLongPress(cv,(clientX,clientY)=>{
+    const {offsetX,offsetY}=touchOffset(cv,clientX,clientY);
+    const cands=findCrossNear(offsetX,offsetY,cv);
+    if(cands.length){ deleteCross(cands[0]); toast('Crossover eliminado'); }
+  });
+}
 // ═══════════════════════════════════════════════════════════════════════════
 // CROSSOVER CRUD
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1296,16 +2216,16 @@ function renderMixer(){
   ctx.fillText('Input',LM+inLabels.length*CW/2,18);
   ctx.save(); ctx.translate(20,TM+outLabels.length*CH/2); ctx.rotate(-Math.PI/2); ctx.fillText('Output',0,0); ctx.restore();
 
-  ctx.font='9px Arial'; ctx.fillStyle='#aaa';
+  ctx.font='bold 10px Arial'; ctx.fillStyle='#fff';
   inLabels.forEach((n,i)=>{
     const x=LM+i*CW+CW/2;
-    ctx.save(); ctx.translate(x,TM-28); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillText(n,0,0); ctx.restore();
-    ctx.textAlign='center'; ctx.fillStyle='#666'; ctx.fillText(i,x,TM-8);
+    ctx.save(); ctx.translate(x,TM-28); ctx.rotate(-Math.PI/2); ctx.textAlign='left'; ctx.fillStyle='#fff'; ctx.fillText(n,0,0); ctx.restore();
+    ctx.textAlign='center'; ctx.fillStyle='#888'; ctx.font='9px Arial'; ctx.fillText(i,x,TM-8); ctx.font='bold 10px Arial';
   });
   outLabels.forEach((n,i)=>{
     const y=TM+i*CH+CH/2;
-    ctx.textAlign='right'; ctx.fillStyle='#aaa'; ctx.fillText(n,LM-35,y+4);
-    ctx.fillStyle='#666'; ctx.textAlign='center'; ctx.fillText(i,LM-12,y+4);
+    ctx.textAlign='right'; ctx.fillStyle='#fff'; ctx.fillText(n,LM-35,y+4);
+    ctx.fillStyle='#888'; ctx.font='9px Arial'; ctx.textAlign='center'; ctx.fillText(i,LM-12,y+4); ctx.font='bold 10px Arial';
   });
 
   // Cells
@@ -1333,8 +2253,8 @@ function renderMixer(){
 function setupMixerInteraction(){
   const cv=document.getElementById('mixer-canvas'); if(!cv) return;
   const CW=44,CH=36,LM=160,TM=120;
-  cv.addEventListener('click',async e=>{
-    const col=Math.floor((e.offsetX-LM)/CW), row=Math.floor((e.offsetY-TM)/CH);
+
+  async function mixerToggleOn(col,row){
     if(col<0||col>=inLabels.length||row<0||row>=outLabels.length) return;
     const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name; if(!mixName) return;
     const m=config.mixers?.[mixName]; if(!m) return;
@@ -1344,17 +2264,154 @@ function setupMixerInteraction(){
     const exists=mp.sources.some(s=>s.channel===col);
     if(!exists) mp.sources.push({channel:col,gain:0,inverted:false,mute:false,scale:'dB'});
     await patchCfg({mixers:{[mixName]:m}}); renderMixer();
-  });
-  cv.addEventListener('contextmenu',async e=>{
-    e.preventDefault();
-    const col=Math.floor((e.offsetX-LM)/CW), row=Math.floor((e.offsetY-TM)/CH);
+  }
+  async function mixerToggleOff(col,row){
     if(col<0||col>=inLabels.length||row<0||row>=outLabels.length) return;
     const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name; if(!mixName) return;
     const m=config.mixers?.[mixName]; if(!m) return;
     const mp=m.mapping?.find(x=>x.dest===row); if(!mp) return;
     mp.sources=mp.sources.filter(s=>s.channel!==col);
     await patchCfg({mixers:{[mixName]:m}}); renderMixer();
+  }
+
+  cv.addEventListener('click',async e=>{
+    const col=Math.floor((e.offsetX-LM)/CW), row=Math.floor((e.offsetY-TM)/CH);
+    await mixerToggleOn(col,row);
   });
+  cv.addEventListener('contextmenu',async e=>{
+    e.preventDefault();
+    const col=Math.floor((e.offsetX-LM)/CW), row=Math.floor((e.offsetY-TM)/CH);
+    await mixerToggleOff(col,row);
+  });
+  // Touch: tap → toggle on; longpress → toggle off
+  let mixerTouchCol=-1, mixerTouchRow=-1, mixerLongFired=false;
+  cv.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1) return;
+    mixerLongFired=false;
+    const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
+    mixerTouchCol=Math.floor((offsetX-LM)/CW);
+    mixerTouchRow=Math.floor((offsetY-TM)/CH);
+  },{passive:true});
+  cv.addEventListener('touchend',async e=>{
+    if(!mixerLongFired && mixerTouchCol>=0 && mixerTouchRow>=0)
+      await mixerToggleOn(mixerTouchCol,mixerTouchRow);
+    mixerTouchCol=-1; mixerTouchRow=-1; mixerLongFired=false;
+  },{passive:true});
+  addLongPress(cv,async(clientX,clientY)=>{
+    const {offsetX,offsetY}=touchOffset(cv,clientX,clientY);
+    const col=Math.floor((offsetX-LM)/CW), row=Math.floor((offsetY-TM)/CH);
+    mixerLongFired=true;
+    await mixerToggleOff(col,row); toast('Conexión eliminada');
+  });
+  cv.addEventListener('dblclick',async e=>{
+    const x=e.offsetX, y=e.offsetY;
+    // Click on input label area (top, above matrix)
+    if(y<TM&&x>=LM){
+      const col=Math.floor((x-LM)/CW);
+      if(col>=0&&col<inLabels.length){
+        const newName=await inlinePrompt(`Nombre entrada ${col}:`,inLabels[col]);
+        if(newName) await renameLabel('in',col,newName);
+      }
+    }
+    // Click on output label area (left, beside matrix)
+    if(x<LM&&y>=TM){
+      const row=Math.floor((y-TM)/CH);
+      if(row>=0&&row<outLabels.length){
+        const newName=await inlinePrompt(`Nombre salida ${row}:`,outLabels[row]);
+        if(newName) await renameLabel('out',row,newName);
+      }
+    }
+  });
+}
+
+async function renameLabel(domain,idx,newName){
+  if(domain==='in'){
+    inLabels[idx]=newName;
+    if(!config.devices) config.devices={};
+    if(!config.devices.capture) config.devices.capture={};
+    const labels=Array.from({length:inLabels.length},(_,i)=>inLabels[i]);
+    config.devices.capture.labels=labels;
+    await patchCfg({devices:{capture:{labels}}});
+  } else {
+    outLabels[idx]=newName;
+    const mixName=(config.pipeline||[]).find(s=>s.type==='Mixer')?.name;
+    if(mixName&&config.mixers?.[mixName]){
+      const labels=Array.from({length:outLabels.length},(_,i)=>outLabels[i]);
+      config.mixers[mixName].labels=labels;
+      await patchCfg({mixers:{[mixName]:{labels}}});
+    }
+  }
+  // Actualizar nombres en los widgets existentes sin reconstruir todo
+  if(domain==='in'){
+    const w=vuWidgets[`in_${idx}`]; if(w){ w.name=newName; drawVU(w); }
+    const b=document.getElementById(`btn-in-${idx}`); if(b) b.textContent=`🔊 ${newName}`;
+  } else {
+    const w=vuWidgets[`out_${idx}`]; if(w){ w.name=newName; drawVU(w); }
+    const nameDiv=document.querySelector(`#fader-out-${idx} .fader-name`); if(nameDiv) nameDiv.textContent=newName.substring(0,8);
+    const b=document.getElementById(`btn-out-${idx}`); if(b) b.textContent=`🔊 ${newName}`;
+  }
+  renderEQGraph(); renderCrossGraph(); renderMixer();
+  buildEQTable(); buildCrossTable();
+  toast(`Renombrado: ${domain.toUpperCase()} ${idx} → "${newName}"`);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DEVICE SELECTOR
+// ═══════════════════════════════════════════════════════════════════════════
+async function loadDevices(){
+  const [capR,playR]=await Promise.all([
+    fetch('/api/capturedevices').then(r=>r.json()).catch(()=>({ok:false,devices:[]})),
+    fetch('/api/playbackdevices').then(r=>r.json()).catch(()=>({ok:false,devices:[]}))
+  ]);
+  fillDeviceSel('sel-capture',  capR.devices||[],  config.devices?.capture?.device||'');
+  fillDeviceSel('sel-playback', playR.devices||[], config.devices?.playback?.device||'');
+  // Pre-seleccionar chunksize actual
+  const curChunk=config.devices?.chunksize||512;
+  const selChunk=document.getElementById('sel-chunk');
+  if(selChunk) selChunk.value=String(curChunk);
+}
+async function applyChunksize(val){
+  if(!val) return;
+  config.devices=config.devices||{};
+  config.devices.chunksize=val;
+  try{
+    await patchCfg({devices:{chunksize:val}});
+    toast(`Chunksize: ${val} samples`);
+  }catch(e){
+    toast(`Error al cambiar chunksize: ${e.message||e}`);
+  }
+}
+function fillDeviceSel(id,devs,current){
+  const sel=document.getElementById(id); if(!sel) return;
+  sel.innerHTML='';
+  if(!devs.length){const o=document.createElement('option');o.textContent='(sin dispositivos)';sel.appendChild(o);return;}
+  for(const [dev,desc] of devs){
+    const o=document.createElement('option');
+    o.value=dev;
+    o.textContent=`${dev}  —  ${desc.split('\n')[0].trim()}`;
+    o.selected=(dev===current);
+    sel.appendChild(o);
+  }
+}
+async function applyDevice(domain,val){
+  if(!val) return;
+  const patch=domain==='capture'?{devices:{capture:{device:val}}}:{devices:{playback:{device:val}}};
+  if(domain==='capture'&&config.devices?.capture) config.devices.capture.device=val;
+  if(domain==='playback'&&config.devices?.playback) config.devices.playback.device=val;
+  try{
+    await patchCfg(patch);
+    toast(`${domain==='capture'?'Captura':'Reproducción'}: ${val}`);
+  }catch(e){
+    toast(`Error al cambiar dispositivo: ${e.message||e}`);
+  }
+}
+async function restartEngine(){
+  try{
+    await fetch('/api/restart',{method:'POST'});
+    toast('Motor reiniciado');
+  }catch(e){
+    toast('Error al reiniciar motor');
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1473,41 +2530,181 @@ function importConfig(){
   fi.click();
 }
 function exportConfig(){ window.open('/api/export','_blank'); }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PRESETS
+// ═══════════════════════════════════════════════════════════════════════════
+let _selectedPreset = null;
+
+async function presetRefresh(){
+  const r = await apiGet('/api/presets').catch(()=>null);
+  const list = document.getElementById('presets-list');
+  if(!list) return;
+  const presets = r?.presets || [];
+  list.innerHTML = '';
+  presets.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'pset-item' + (name === _selectedPreset ? ' selected' : '');
+    row.dataset.name = name;
+    row.innerHTML = `<span class="pset-item-name" title="${name}">${name}</span><button class="pset-del" title="Eliminar" onclick="presetDelete('${name.replace(/'/g,"\\'")}',event)">✕</button>`;
+    row.addEventListener('click', (e)=>{ if(e.target.classList.contains('pset-del')) return; presetSelect(name); });
+    list.appendChild(row);
+  });
+  _updateLoadBtn();
+}
+
+function presetSelect(name){
+  _selectedPreset = name;
+  document.querySelectorAll('.pset-item').forEach(el=>{
+    el.classList.toggle('selected', el.dataset.name === name);
+  });
+  _updateLoadBtn();
+}
+
+function _updateLoadBtn(){
+  const btn = document.getElementById('pset-load-btn');
+  if(btn) btn.disabled = !_selectedPreset;
+}
+
+async function presetSave(){
+  const name = await inlinePrompt('Nombre del preset:', '');
+  if(!name) return;
+  const r = await apiGet('/api/config');
+  if(!r.ok){ toast('Error leyendo config'); return; }
+  const res = await apiPost('/api/presets/save', { name, config: r.config });
+  if(res.ok){
+    _selectedPreset = res.name;
+    await presetRefresh();
+    presetSelect(res.name);
+    toast(`Preset "${res.name}" guardado`);
+  } else {
+    toast('Error guardando: ' + (res.error||''));
+  }
+}
+
+async function presetLoad(){
+  if(!_selectedPreset) return;
+  const res = await apiPost('/api/presets/load', { name: _selectedPreset });
+  if(res.ok){
+    config = res.config;
+    await init();
+    toast(`Preset "${_selectedPreset}" cargado`);
+  } else {
+    toast('Error cargando: ' + (res.error||''));
+  }
+}
+
+async function presetDelete(name, e){
+  e.stopPropagation();
+  const res = await apiPost('/api/presets/delete', { name });
+  if(res.ok){
+    if(_selectedPreset === name) _selectedPreset = null;
+    await presetRefresh();
+    toast(`Preset "${name}" eliminado`);
+  } else {
+    toast('Error eliminando');
+  }
+}
+
+// BW en octavas → Q (fórmula estándar)
+function bwOctToQ(bw){ return 1/(2*Math.sinh(Math.log(2)/2*bw)); }
+
 function importEQ(){
   const fi=document.getElementById('file-input');
-  fi.accept='.txt,.yml,.yaml'; fi.onchange=async()=>{
+  fi.accept='.txt,.csv,.yml,.yaml'; fi.onchange=async()=>{
     const f=fi.files[0]; if(!f) return;
     const txt=await f.text(); const lines=txt.split('\n');
     const pf={}; let count=0;
+
     for(const line of lines){
-      const l=line.trim(); if(!l||l.toLowerCase().startsWith('freq')||l.toLowerCase().startsWith('#')) continue;
-      let freq,gain,q,tipo;
-      if(l.toLowerCase().startsWith('filter')){
-        if(!l.includes('ON')) continue;
+      const l=line.trim();
+      // Saltar vacíos, comentarios REW (*), comentarios (#), encabezados y Preamp
+      if(!l||l.startsWith('*')||l.startsWith('#')) continue;
+      if(/^(freq|preamp|title|note|source|room|measure|equaliser|supports|filter type|frequency range)/i.test(l)) continue;
+
+      let freq,gain=0,q=0.707,tipo;
+
+      // ── Formato REW Generic / Equalizer APO ───────────────────────────────
+      // Ejemplos:
+      //   Filter  1: ON  PK       Fc    90.0 Hz  Gain   6.00 dB  Q  3.000
+      //   Filter  4: ON  HP       Fc    20.0 Hz
+      //   Filter  4: ON  HP       Fc    20.0 Hz             BW Oct 1.000
+      //   Filter: ON PK Fc 90 Hz Gain 6 dB Q 3          ← APO sin número
+      if(/^filter/i.test(l)){
         const parts=l.split(/\s+/);
-        try{
-          if(parts.includes('None')) continue;
-          freq=parseFloat(parts[parts.indexOf('Fc')+1]);
-          gain=parseFloat(parts[parts.indexOf('Gain')+1]);
-          q=parts.includes('Q')?parseFloat(parts[parts.indexOf('Q')+1]):1;
-          const tr=parts[3].toUpperCase();
-          if(['PK','PEQ'].includes(tr)) tipo='Peaking';
-          else if(tr.includes('LS')) tipo='Lowshelf';
-          else if(tr.includes('HS')) tipo='Highshelf';
-          else tipo='Peaking';
-        }catch{continue;}
+        // Buscar 'ON' dinámicamente (posición varía entre REW y APO)
+        const onIdx=parts.findIndex(p=>p.toUpperCase()==='ON');
+        if(onIdx<0) continue; // filtro OFF o sin ON → saltar
+        const fcIdx=parts.indexOf('Fc');
+        if(fcIdx<0) continue;
+
+        freq=parseFloat(parts[fcIdx+1]);
+
+        // Ganancia (ausente en HP/LP)
+        const gIdx=parts.indexOf('Gain');
+        gain=gIdx>=0?parseFloat(parts[gIdx+1]):0;
+
+        // Q o BW Oct → Q
+        const qIdx=parts.indexOf('Q');
+        const bwIdx=parts.indexOf('BW');
+        if(qIdx>=0)        q=parseFloat(parts[qIdx+1]);
+        else if(bwIdx>=0&&parts[bwIdx+1]==='Oct') q=bwOctToQ(parseFloat(parts[bwIdx+2]));
+        else               q=0.707;
+
+        // Tipo: token inmediatamente después de ON
+        const tr=(parts[onIdx+1]||'').toUpperCase();
+        if(tr==='PK'||tr==='PEQ')           tipo='Peaking';
+        else if(tr==='LS'||tr==='LSC')      tipo='Lowshelf';
+        else if(tr==='HS'||tr==='HSC')      tipo='Highshelf';
+        else if(tr==='HP'||tr==='HPQ')      tipo='Highpass';
+        else if(tr==='LP'||tr==='LPQ')      tipo='Lowpass';
+        else continue; // NO (notch), AP (allpass), None, etc. → saltar
+
+      // ── Formato columnas: FREQ  GAIN  Q  [TIPO] ──────────────────────────
       } else {
         const parts=l.split(/\t|\s+/);
-        if(parts.length<3) continue;
-        try{ freq=parseFloat(parts[0]);gain=parseFloat(parts[1]);q=parseFloat(parts[2]);tipo=(parts[3]||'Peak').replace('Peak','Peaking'); }catch{continue;}
+        if(parts.length<2) continue;
+        freq=parseFloat(parts[0]);
+        gain=parseFloat(parts[1])||0;
+        q=parseFloat(parts[2])||0.707;
+        const raw=(parts[3]||'').trim();
+        if(!raw||raw==='Peak')          tipo='Peaking';
+        else if(raw==='Peaking')        tipo='Peaking';
+        else if(/lowshelf/i.test(raw))  tipo='Lowshelf';
+        else if(/highshelf/i.test(raw)) tipo='Highshelf';
+        else if(/highpass/i.test(raw))  tipo='Highpass';
+        else if(/lowpass/i.test(raw))   tipo='Lowpass';
+        else                            tipo='Peaking';
       }
-      if(!freq) continue;
-      [...visibleIn].forEach(ch=>{ const fid=makeEQId('in',ch); const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'in',channels:[ch]}; addFilterToPipeline(fid,'in',ch); pf[fid]=d; });
-      [...visibleOut].forEach(ch=>{ const fid=makeEQId('out',ch); const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}}; (config.filters=config.filters||{})[fid]=d; filtrosBiquad[fid]={data:d,domain:'out',channels:[ch]}; addFilterToPipeline(fid,'out',ch); pf[fid]=d; });
+
+      if(!freq||isNaN(freq)) continue;
+      if(isNaN(gain))   gain=0;
+      if(isNaN(q)||q<=0) q=0.707;
+
+      [...visibleIn].forEach(ch=>{
+        const fid=makeEQId('in',ch);
+        const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}};
+        (config.filters=config.filters||{})[fid]=d;
+        filtrosBiquad[fid]={data:d,domain:'in',channels:[ch]};
+        addFilterToPipeline(fid,'in',ch); pf[fid]=d;
+      });
+      [...visibleOut].forEach(ch=>{
+        const fid=makeEQId('out',ch);
+        const d={type:'Biquad',description:null,parameters:{type:tipo,freq,gain,q}};
+        (config.filters=config.filters||{})[fid]=d;
+        filtrosBiquad[fid]={data:d,domain:'out',channels:[ch]};
+        addFilterToPipeline(fid,'out',ch); pf[fid]=d;
+      });
       count++;
     }
-    if(count>0){ await patchCfg({filters:pf,pipeline:config.pipeline}); buildEQTable(); renderEQGraph(); toast(`${count} filtros importados`); }
-    else toast('No se encontraron filtros');
+
+    if(count>0){
+      await patchCfg({filters:pf,pipeline:config.pipeline});
+      buildEQTable(); renderEQGraph();
+      toast(`${count} filtros importados`);
+    } else {
+      toast('No se encontraron filtros válidos');
+    }
   };
   fi.click();
 }
@@ -1523,9 +2720,602 @@ function exportEQ(){
   const a=document.createElement('a'); a.href='data:text/plain;charset=utf-8,'+encodeURIComponent(txt);
   a.download='eq_filters.txt'; a.click();
 }
+
+// resetConfig removida - ver version nueva con modal ALSA al final del archivo
+
+// ===== UTILS
+function darken(hex){
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgb(${Math.round(r*0.7)},${Math.round(g*0.7)},${Math.round(b*0.7)})`;
+}
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.className='show';
+  setTimeout(()=>t.className='',3000);
+}
+// Reemplaza window.prompt() sin salir de pantalla completa
+function inlinePrompt(msg, defaultVal=''){
+  return new Promise(resolve=>{
+    const overlay=document.getElementById('inline-prompt-overlay');
+    const msgEl=document.getElementById('inline-prompt-msg');
+    const input=document.getElementById('inline-prompt-input');
+    const okBtn=document.getElementById('inline-prompt-ok');
+    const cancelBtn=document.getElementById('inline-prompt-cancel');
+    msgEl.textContent=msg;
+    input.value=defaultVal;
+    overlay.style.display='flex';
+    setTimeout(()=>input.focus(),50);
+    const finish=val=>{
+      overlay.style.display='none';
+      okBtn.removeEventListener('click',onOk);
+      cancelBtn.removeEventListener('click',onCancel);
+      input.removeEventListener('keydown',onKey);
+      resolve(val);
+    };
+    const onOk=()=>finish(input.value.trim()||null);
+    const onCancel=()=>finish(null);
+    const onKey=e=>{ if(e.key==='Enter') finish(input.value.trim()||null); if(e.key==='Escape') finish(null); };
+    okBtn.addEventListener('click',onOk);
+    cancelBtn.addEventListener('click',onCancel);
+    input.addEventListener('keydown',onKey);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GRAPHIC EQ
+// ═══════════════════════════════════════════════════════════════════════════
+// ISO 1/3-octave center frequencies (31 bands, 20 Hz – 20 kHz)
+// Frequencies following the user-defined ~1.25× per band pattern (31 bands, 20–18k Hz)
+const GEQ_FREQS = [
+   20,  26,  32,  41,  51,  65,  82, 103, 130, 163,
+  206, 259, 324, 405, 506, 632, 790, 988,1200,1500,
+ 1900,2400,3000,3800,4700,5900,7300,9200,11000,14000,18000
+];
+// Display labels for each band
+const GEQ_LABELS = [
+  '20','26','32','41','51','65','82','103','130','163',
+  '206','259','324','405','506','632','790','988','1.2k','1.5k',
+  '1.9k','2.4k','3.0k','3.8k','4.7k','5.9k','7.3k','9.2k','11k','14k','18k'
+];
+const GEQ_BANDS = GEQ_FREQS.length; // 31
+
+// State
+let geqChannels = new Set(); // Set of keys "in:N" — selected input channels (multi)
+const geqRange  = 9;         // ± dB fixed range (linear)
+// helpers
+const geqKey    = (domain,ch)=>`${domain}:${ch}`;
+const geqFirst  = ()=>{ const k=[...geqChannels][0]; if(!k) return null; const [d,c]=k.split(':'); return {domain:d,ch:+c}; };
+
+// Unique filter name for a given channel
+function geqFilterName(domain, ch){
+  const lbl = domain==='in' ? (inLabels[ch]||`IN${ch}`) : (outLabels[ch]||`OUT${ch}`);
+  return `GEQ_${domain.toUpperCase()}_${cleanName(lbl)}`;
+}
+
+// Default 31-band GraphicEqualizer filter object
+function geqDefaultFilter(){
+  return {
+    type: 'BiquadCombo',
+    description: 'Graphic equalizer',
+    parameters: {
+      type: 'GraphicEqualizer',
+      freq_min: GEQ_FREQS[0],
+      freq_max: GEQ_FREQS[GEQ_FREQS.length-1],
+      gains: Array(GEQ_BANDS).fill(0)
+    }
+  };
+}
+
+// Get gains array for current channel (from config), or zeros
+function geqGetGains(domain, ch){
+  const fname = geqFilterName(domain, ch);
+  const f = (config.filters||{})[fname];
+  if(f && f.parameters?.type==='GraphicEqualizer' && Array.isArray(f.parameters.gains)){
+    const g = [...f.parameters.gains];
+    while(g.length < GEQ_BANDS) g.push(0);
+    return g;
+  }
+  return Array(GEQ_BANDS).fill(0);
+}
+
+// Ensure the filter exists in config AND is in the pipeline for the given channel
+async function geqEnsureFilter(domain, ch){
+  const fname = geqFilterName(domain, ch);
+  const filters = config.filters || {};
+  let needPatch = false;
+  let filterPatch = {};
+  if(!filters[fname] || filters[fname].parameters?.type !== 'GraphicEqualizer'){
+    filterPatch[fname] = geqDefaultFilter();
+    needPatch = true;
+  }
+  // Check pipeline presence
+  const pipeline = config.pipeline || [];
+  const mixerIdx = pipeline.findIndex(s=>s.type==='Mixer');
+  let inPipeline = false;
+  for(const s of pipeline){
+    if(s.type==='Filter' && (s.names||[]).includes(fname)){
+      const sd = (mixerIdx>=0 && pipeline.indexOf(s)<mixerIdx) ? 'in':'out';
+      if(sd===domain && (s.channels||[]).includes(ch)){ inPipeline=true; break; }
+    }
+  }
+  if(!inPipeline){
+    // Build new pipeline with filter inserted at correct position
+    const newPipeline = JSON.parse(JSON.stringify(pipeline));
+    const insertIdx = (domain==='in') ? 0 : (mixerIdx>=0 ? mixerIdx+1 : newPipeline.length);
+    newPipeline.splice(insertIdx,0,{
+      type:'Filter',
+      channels:[ch],
+      names:[fname]
+    });
+    filterPatch[fname] = filterPatch[fname] || (filters[fname] || geqDefaultFilter());
+    await patchCfg({filters:filterPatch, pipeline:newPipeline});
+    return;
+  }
+  if(needPatch) await patchCfg({filters:filterPatch});
+}
+
+// Write gains to config and DSP — applies to ALL selected channels
+async function geqApplyGains(gains){
+  if(!geqChannels.size) return;
+  const filtersPatch={};
+  for(const key of geqChannels){
+    const [d,c]=key.split(':');
+    await geqEnsureFilter(d,+c);
+    const fname=geqFilterName(d,+c);
+    filtersPatch[fname]={parameters:{gains:[...gains]}};
+  }
+  await patchCfg({filters:filtersPatch});
+}
+
+// Build channel selector buttons (multi-select, input-only)
+function geqBuildChannelBtns(){
+  const wrap = document.getElementById('geq-ch-btns');
+  if(!wrap) return;
+  wrap.innerHTML='';
+
+  // "ALL" button
+  const allBtn=document.createElement('button');
+  allBtn.className='geq-ch-btn';
+  allBtn.id='geq-btn-all';
+  allBtn.textContent='ALL';
+  allBtn.onclick=()=>{
+    const allKeys=inLabels.map((_,i)=>geqKey('in',i));
+    const allSelected=allKeys.every(k=>geqChannels.has(k));
+    if(allSelected){ geqChannels.clear(); } // deselect all → reselect first
+    else allKeys.forEach(k=>geqChannels.add(k));
+    if(!geqChannels.size && inLabels.length>0) geqChannels.add(geqKey('in',0));
+    geqHighlightBtn(); geqBuildStrips();
+  };
+  wrap.appendChild(allBtn);
+
+  // Per-channel buttons (toggle on click)
+  inLabels.forEach((n,i)=>{
+    const b=document.createElement('button');
+    b.className='geq-ch-btn';
+    b.textContent='🎤 '+n;
+    b.dataset.key=geqKey('in',i);
+    b.onclick=()=>{
+      const k=geqKey('in',i);
+      if(geqChannels.has(k)){
+        geqChannels.delete(k);
+        // Keep at least one selected
+        if(!geqChannels.size) geqChannels.add(k);
+      } else {
+        geqChannels.add(k);
+      }
+      geqHighlightBtn(); geqBuildStrips();
+    };
+    wrap.appendChild(b);
+  });
+
+  // Init: select first channel if nothing selected, clear any stale 'out:N' keys
+  [...geqChannels].filter(k=>k.startsWith('out:')).forEach(k=>geqChannels.delete(k));
+  if(!geqChannels.size && inLabels.length>0) geqChannels.add(geqKey('in',0));
+  geqHighlightBtn();
+}
+
+function geqHighlightBtn(){
+  const allKeys=inLabels.map((_,i)=>geqKey('in',i));
+  const allSelected=allKeys.length>0 && allKeys.every(k=>geqChannels.has(k));
+  const allBtn=document.getElementById('geq-btn-all');
+  if(allBtn) allBtn.classList.toggle('active',allSelected);
+  document.querySelectorAll('.geq-ch-btn[data-key]').forEach(b=>{
+    b.classList.toggle('active', geqChannels.has(b.dataset.key));
+  });
+}
+
+// Tooltip element (shared across all strips)
+const _geqTip = ()=> document.getElementById('geq-tooltip');
+function geqShowTip(x, y, db){
+  const t=_geqTip(); if(!t) return;
+  t.textContent = db===0 ? '0.0 dB' : (db>0?'+':'')+db.toFixed(1)+' dB';
+  t.style.left=x+'px'; t.style.top=y+'px'; t.style.display='block';
+}
+function geqHideTip(){ const t=_geqTip(); if(t) t.style.display='none'; }
+
+// ── Linear dB ↔ position mapping ──────────────────────────────────────────
+// frac: 0 = -9 dB (bottom), 0.5 = 0 dB (center), 1 = +9 dB (top)
+function geqDbToFrac(db){ return 0.5 + Math.max(-geqRange, Math.min(geqRange, db)) / (geqRange*2); }
+function geqFracToDb(frac){ return (frac - 0.5) * geqRange * 2; }
+
+// Build the 31-band fader strips
+function geqBuildStrips(){
+  const first = geqFirst();
+  if(!first) return;
+  const {domain,ch} = first;
+  // Display gains of the first selected channel
+  const gains = geqGetGains(domain,ch);
+
+  const fadersEl = document.getElementById('geq-faders');
+  const scaleEl  = document.getElementById('geq-scale');
+  if(!fadersEl) return;
+
+  // Linear dB scale — ticks at 0, ±3, ±6, ±9
+  scaleEl.innerHTML='';
+  scaleEl.style.position='relative';
+  [-9,-6,-3,0,3,6,9].forEach(val=>{
+    const pct = (1 - geqDbToFrac(val)) * 100;
+    const d=document.createElement('div');
+    d.style.cssText=`position:absolute;right:2px;top:${pct}%;transform:translateY(-50%);font-size:9px;color:#fff;white-space:nowrap;line-height:1`;
+    d.textContent=(val>0?'+':'')+val;
+    scaleEl.appendChild(d);
+  });
+
+  fadersEl.innerHTML='';
+  gains.forEach((g,idx)=>{
+    const strip=document.createElement('div');
+    strip.className='geq-strip';
+    strip.dataset.idx=idx;
+
+    // dB value label on top (cyan, bold)
+    const topLbl=document.createElement('div');
+    topLbl.className='geq-strip-top';
+    topLbl.textContent=g===0?'0':(g>0?'+'+g.toFixed(1):g.toFixed(1));
+
+    // Track
+    const track=document.createElement('div');
+    track.className='geq-track';
+    const fillPos=document.createElement('div'); fillPos.className='geq-fill-pos';
+    const fillNeg=document.createElement('div'); fillNeg.className='geq-fill-neg';
+    const zeroLine=document.createElement('div'); zeroLine.className='geq-zero';
+    track.appendChild(fillPos); track.appendChild(fillNeg); track.appendChild(zeroLine);
+    geqUpdateFill(fillPos,fillNeg,g);
+
+    // Frequency label (white)
+    const botLbl=document.createElement('div');
+    botLbl.className='geq-strip-bot';
+    botLbl.textContent=GEQ_LABELS[idx];
+
+    strip.appendChild(topLbl);
+    strip.appendChild(track);
+    strip.appendChild(botLbl);
+    fadersEl.appendChild(strip);
+
+    // ── Drag logic (logarithmic) ────────────────────────────────
+    let dragStartY=0, dragStartFrac=0, isDragging=false;
+
+    const onMove=(clientX, clientY)=>{
+      if(!isDragging) return;
+      const rect = track.getBoundingClientRect();
+      const trackH = rect.height || 100;
+      // Compute absolute frac from cursor position within track
+      // frac=1 at top (max positive), frac=0 at bottom (max negative)
+      const relY = clientY - rect.top;
+      let frac = 1 - Math.max(0, Math.min(trackH, relY)) / trackH;
+      let newG = geqFracToDb(frac);
+      // Round to nearest 0.1 dB
+      newG = Math.round(newG*10)/10;
+      newG = Math.max(-geqRange, Math.min(geqRange, newG));
+      gains[idx]=newG;
+      topLbl.textContent=newG===0?'0':(newG>0?'+'+newG.toFixed(1):newG.toFixed(1));
+      geqUpdateFill(fillPos,fillNeg,newG);
+      geqShowTip(clientX, clientY, newG);
+    };
+
+    const onEnd=()=>{
+      if(!isDragging) return;
+      isDragging=false;
+      geqHideTip();
+      document.removeEventListener('mousemove',mMove);
+      document.removeEventListener('mouseup',mUp);
+      document.removeEventListener('touchmove',tMove);
+      document.removeEventListener('touchend',tEnd);
+      geqApplyGains(gains);
+    };
+
+    const mMove=e=>onMove(e.clientX, e.clientY);
+    const mUp=()=>onEnd();
+    const tMove=e=>{ e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); };
+    const tEnd=()=>onEnd();
+
+    strip.addEventListener('mousedown',e=>{
+      isDragging=true; dragStartY=e.clientY;
+      document.addEventListener('mousemove',mMove);
+      document.addEventListener('mouseup',mUp);
+      geqShowTip(e.clientX, e.clientY, gains[idx]);
+      e.preventDefault();
+    });
+    strip.addEventListener('touchstart',e=>{
+      isDragging=true; dragStartY=e.touches[0].clientY;
+      document.addEventListener('touchmove',tMove,{passive:false});
+      document.addEventListener('touchend',tEnd);
+      geqShowTip(e.touches[0].clientX, e.touches[0].clientY, gains[idx]);
+      e.preventDefault();
+    },{passive:false});
+
+    // Double-click → reset band to 0
+    strip.addEventListener('dblclick',async()=>{
+      gains[idx]=0;
+      topLbl.textContent='0';
+      geqUpdateFill(fillPos,fillNeg,0);
+      await geqApplyGains(gains);
+    });
+  });
+}
+
+function geqUpdateFill(fillPos, fillNeg, g){
+  // Logarithmic fill: fraction from center (0 dB) to edge
+  const frac = geqDbToFrac(g); // 0=bottom, 0.5=center, 1=top
+  const pct  = Math.abs(frac - 0.5) * 100; // % of half-height
+  if(g>=0){
+    fillPos.style.height=pct+'%';
+    fillNeg.style.height='0';
+  } else {
+    fillPos.style.height='0';
+    fillNeg.style.height=pct+'%';
+  }
+}
+
+// Called when tab is activated — sync strips with current config
+function geqSyncChannel(){
+  geqBuildChannelBtns();
+  geqBuildStrips();
+}
+
+async function geqFlatAll(){
+  if(!geqChannels.size) return;
+  const gains=Array(GEQ_BANDS).fill(0);
+  await geqApplyGains(gains);
+  geqBuildStrips();
+}
+
+async function geqResetChannel(){
+  if(!geqChannels.size) return;
+  const filtersPatch={};
+  const pipeline=JSON.parse(JSON.stringify(config.pipeline||[]));
+  let newPipeline=pipeline;
+  for(const key of geqChannels){
+    const [d,c]=key.split(':');
+    const fname=geqFilterName(d,+c);
+    filtersPatch[fname]=null;
+    newPipeline=newPipeline.filter(s=>!(s.type==='Filter'&&(s.names||[]).includes(fname)));
+  }
+  await patchCfg({filters:filtersPatch, pipeline:newPipeline});
+  geqBuildStrips();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TOUCH SUPPORT — longpress emulates right-click on touch devices
+// ═══════════════════════════════════════════════════════════════════════════
+const isTouch = ()=> window.matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints>0;
+
+// Longpress usando Pointer Events API.
+// setPointerCapture retiene el puntero en el elemento aunque el dedo se mueva,
+// evitando que el scroll del contenedor robe el gesto y dispare pointercancel.
+// Un tap corto (sin longpress) deja pasar el click normalmente.
+// Returns a cleanup function.
+// Longpress: dispara onLongPress al mantener el dedo quiet delay ms.
+// Expone el método .recentlyFired() para que el listener de click
+// del elemento pueda ignorar el click que sigue al longpress.
+function addLongPress(el, onLongPress, delay=400){
+  let timer=null, pointerId=null, startX=0, startY=0, firedAt=0;
+
+  const onDown=e=>{
+    if(e.pointerType==='mouse') return;
+    if(pointerId!==null) return;
+    pointerId=e.pointerId;
+    startX=e.clientX; startY=e.clientY;
+    try{ el.setPointerCapture(e.pointerId); }catch(_){}
+    timer=setTimeout(()=>{
+      timer=null;
+      firedAt=Date.now();
+      onLongPress(e.clientX, e.clientY);
+    }, delay);
+  };
+
+  const onMove=e=>{
+    if(e.pointerId!==pointerId) return;
+    if(Math.hypot(e.clientX-startX, e.clientY-startY)>10){
+      clearTimeout(timer); timer=null;
+      try{ el.releasePointerCapture(e.pointerId); }catch(_){}
+      pointerId=null;
+    }
+  };
+
+  const onUp=e=>{
+    if(e.pointerId!==pointerId) return;
+    clearTimeout(timer); timer=null;
+    pointerId=null;
+  };
+
+  const onCancel=e=>{
+    if(e.pointerId!==pointerId) return;
+    clearTimeout(timer); timer=null;
+    pointerId=null;
+  };
+
+  el.addEventListener('pointerdown',   onDown);
+  el.addEventListener('pointermove',   onMove);
+  el.addEventListener('pointerup',     onUp);
+  el.addEventListener('pointercancel', onCancel);
+
+  // recentlyFired(): true si el longpress disparó hace menos de 600ms
+  // Úsalo en el listener de click para ignorar el click post-longpress
+  el._lpRecentlyFired = ()=> (Date.now()-firedAt) < 600;
+
+  return ()=>{
+    el.removeEventListener('pointerdown',   onDown);
+    el.removeEventListener('pointermove',   onMove);
+    el.removeEventListener('pointerup',     onUp);
+    el.removeEventListener('pointercancel', onCancel);
+    clearTimeout(timer);
+    delete el._lpRecentlyFired;
+  };
+}
+
+// Helper: get element-relative coords from a touch ClientX/Y
+function touchOffset(el, clientX, clientY){
+  const r=el.getBoundingClientRect();
+  return {offsetX: clientX-r.left, offsetY: clientY-r.top};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FULLSCREEN
+// ═══════════════════════════════════════════════════════════════════════════
+function enterFullscreen(){
+  const el=document.documentElement;
+  const req=el.requestFullscreen||el.webkitRequestFullscreen||el.mozRequestFullScreen||el.msRequestFullscreen;
+  if(req) req.call(el).catch(()=>{});
+}
+function exitFullscreen(){
+  const ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen||document.msExitFullscreen;
+  if(ex) ex.call(document).catch(()=>{});
+}
+function toggleFullscreen(){
+  const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+  if(inFs) exitFullscreen(); else enterFullscreen();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STARTUP
+// ═══════════════════════════════════════════════════════════════════════════
+window.addEventListener('load',async()=>{
+  await init();
+  setupEQInteraction();
+  setupCrossInteraction();
+  setupMixerInteraction();
+  // Resize handlers
+  window.addEventListener('resize',()=>{
+    if(currentTab===1) geqBuildStrips();
+    if(currentTab===2) renderEQGraph();
+    if(currentTab===3) renderCrossGraph();
+  });
+  // Import YAML support via server
+  await fetch('/api/import-support').catch(()=>{});
+
+  // Pantalla completa en dispositivos táctiles
+  if(isTouch()){
+    const fsBtn=document.getElementById('fs-btn');
+    if(fsBtn) fsBtn.style.display='';
+
+    // Actualiza el icono según el estado actual
+    function updateFsIcon(){
+      const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+      if(fsBtn) fsBtn.textContent=inFs?'✕⛶':'⛶';
+    }
+    document.addEventListener('fullscreenchange', updateFsIcon);
+    document.addEventListener('webkitfullscreenchange', updateFsIcon);
+
+    // Intento automático al primer tap sobre cualquier parte de la página
+    const tryAutoFS=()=>{
+      const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
+      if(!inFs) enterFullscreen();
+    };
+    document.addEventListener('touchstart', tryAutoFS, {once:true, passive:true});
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LANGUAGE SWITCH
+// ═══════════════════════════════════════════════════════════════════════════
+let _lang = localStorage.getItem('cdsp_lang') || 'es';
+
+function applyLang(){
+  const isEs = _lang === 'es';
+  document.getElementById('help-es').style.display = isEs ? '' : 'none';
+  document.getElementById('help-en').style.display = isEs ? 'none' : '';
+  document.getElementById('help-title').textContent = isEs
+    ? 'CAMILLADSP CONSOLE — Ayuda'
+    : 'CAMILLADSP CONSOLE — Help';
+  document.getElementById('lang-btn').textContent = isEs ? 'ES/EN' : 'EN/ES';
+  // Tabs
+  const tabs = document.querySelectorAll('.tab');
+  if(isEs){
+    tabs[0].textContent='VÚMETROS'; tabs[1].textContent='GRAPHIC EQ';
+    tabs[2].textContent='PARAMETRIC EQ'; tabs[3].textContent='CROSSOVERS'; tabs[4].textContent='MIXER';
+  } else {
+    tabs[0].textContent='METERS'; tabs[1].textContent='GRAPHIC EQ';
+    tabs[2].textContent='PARAMETRIC EQ'; tabs[3].textContent='CROSSOVERS'; tabs[4].textContent='MIXER';
+  }
+  // View buttons
+  const vb = document.querySelectorAll('.view-btn');
+  if(vb.length>=3){
+    vb[0].textContent=isEs?'TODO':'ALL';
+    vb[1].textContent=isEs?'ENTRADAS':'INPUTS';
+    vb[2].textContent=isEs?'SALIDAS':'OUTPUTS';
+  }
+  // Top bar buttons (indices: WEB5005, ImpCfg, ExpCfg, ImpEQ, ExpEQ, Reset, Lang, Help)
+  const btns = document.querySelectorAll('.top-btn');
+  btns.forEach(b=>{
+    const t = b.textContent.trim();
+    if(t==='Imp Cfg'||t==='Imp Config') b.textContent=isEs?'Imp Cfg':'Imp Config';
+    if(t==='Exp Cfg'||t==='Exp Config') b.textContent=isEs?'Exp Cfg':'Exp Config';
+    if(t==='Imp EQ') b.textContent='Imp EQ';
+    if(t==='Exp EQ') b.textContent='Exp EQ';
+    if(t==='Reset') b.textContent='Reset';
+  });
+  // DSP stats labels
+  const statSpans = document.querySelectorAll('.dsp-stat');
+  if(statSpans.length>=3){
+    statSpans[0].childNodes[0].textContent = isEs ? 'State: ' : 'State: ';
+    statSpans[1].childNodes[0].textContent = isEs ? 'Buffer: ' : 'Buffer: ';
+    statSpans[2].childNodes[0].textContent = isEs ? 'DSP load: ' : 'DSP load: ';
+  }
+  // Mute all button
+  const muteAllBtn = document.getElementById('mute-all-btn');
+  if(muteAllBtn) muteAllBtn.textContent = isEs ? 'MUTE ALL' : 'MUTE ALL';
+  // Help button
+  const helpBtn = document.querySelector('[onclick="showHelp()"]');
+  if(helpBtn) helpBtn.innerHTML = isEs ? '?&nbsp;AYUDA' : '?&nbsp;HELP';
+  // Vista label
+  const vistaLbl = document.querySelector('#vu-top span[style*="color:#888"]');
+  if(vistaLbl) vistaLbl.textContent = isEs ? 'VISTA:' : 'VIEW:';
+  // Device panel labels
+  const devLabels = document.querySelectorAll('.device-lbl');
+  if(devLabels.length>=3){
+    devLabels[0].textContent='IN:'; devLabels[1].textContent='OUT:';
+    devLabels[2].textContent=isEs?'Chunk:':'Chunk:';
+  }
+  const dab = document.querySelector('.device-apply-btn');
+  if(dab) dab.textContent = isEs ? '↺ Actualizar' : '↺ Refresh';
+  const drb = document.querySelector('.device-restart-btn');
+  if(drb) drb.textContent = isEs ? '⟳ Motor' : '⟳ Engine';
+}
+
+function toggleLang(){
+  _lang = _lang === 'es' ? 'en' : 'es';
+  localStorage.setItem('cdsp_lang', _lang);
+  applyLang();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELP MODAL
+// ═══════════════════════════════════════════════════════════════════════════
+function showHelp(){
+  applyLang(); // make sure content matches current language
+  document.getElementById('help-overlay').classList.add('show');
+}
+function closeHelp(evt){
+  if(evt && evt.target !== document.getElementById('help-overlay')) return;
+  document.getElementById('help-overlay').classList.remove('show');
+}
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeHelp(null); });
+
+// Apply language on load (after DOM ready)
+document.addEventListener('DOMContentLoaded', ()=>{ applyLang(); });
+
 let resetCapDev=null, resetPlayDev=null, resetCapInfo=null, resetPlayInfo=null;
 
-async function resetConfig(){
+async function resetConfig(){ 
   const ov=document.getElementById('reset-overlay');
   ov.classList.add('show');
   resetCapDev=null; resetPlayDev=null; resetCapInfo=null; resetPlayInfo=null;
@@ -1544,9 +3334,10 @@ async function loadHwDevices(mode){
   const sel=document.getElementById(mode==='capture'?'reset-cap-dev':'reset-play-dev');
   sel.innerHTML='<option value="">-- Seleccione --</option>';
   try{
-    const r=await(await fetch(endpoint)).json();
+    const r=await fetch(endpoint);
+    const j=await r.json();
     if(!r.ok) return;
-    for(const d of r.devices){
+    for(const d of j.devices){
       const lbl=d.card_name?`${d.id} (${d.card_name}) ${d.desc?'— '+d.desc:''}`:`${d.id} ${d.desc?'— '+d.desc:''}`;
       const opt=document.createElement('option');
       opt.value=d.id; opt.textContent=lbl; sel.appendChild(opt);
@@ -1560,13 +3351,16 @@ async function probeDevice(mode,deviceId){
   const box=document.getElementById(mode==='capture'?'reset-cap-probe':'reset-play-probe');
   box.className='probe-box'; box.textContent='Probing...';
   try{
-    const r=await(await fetch(`/api/alsa-probe?device=${encodeURIComponent(deviceId)}&mode=${mode}`)).json();
-    if(!r.ok){box.className='probe-box err';box.textContent=r.error||'Error probing';return}
-    const p=r.probe;
+    const r=await fetch(`/api/alsa-probe?device=${encodeURIComponent(deviceId)}&mode=${mode}`);
+    const j=await r.json();
+    if(!j.ok){box.className='probe-box err';box.textContent=j.error||'Error probing';return}
+    const p=j.probe;
     if(mode==='capture'){resetCapDev=deviceId;resetCapInfo=p}else{resetPlayDev=deviceId;resetPlayInfo=p}
     box.className='probe-box';
+    const rateVal=String(p.rate||'?').replace(/[\[\]]/g,'');
+    const chVal=String(p.channels||'?').replace(/[\[\]]/g,'');
     box.innerHTML=`<b>${mode==='capture'?'Captura':'Reproducción'}:</b> ${p.device}<br>`+
-      `Canales: <b>${p.channels||'?'}</b> &nbsp; Frecuencia: <b>${p.rate||'?'}</b> Hz &nbsp; Formato: <b>${p.format||'?'}</b>`;
+      `Canales: <b>${chVal}</b> &nbsp; Frecuencia: <b>${rateVal}</b> Hz &nbsp; Formato: <b>${p.format||'?'}</b>`;
     updateSummary();
   }catch(e){
     box.className='probe-box err'; box.textContent='Error: '+e.message;
@@ -1582,9 +3376,9 @@ function updateSummary(){
   if(!resetCapInfo&&!resetPlayInfo){div.style.display='none';return}
   div.style.display='block'; div.innerHTML='';
   let h='<b>Resumen de configuración:</b><br>';
-  const sr=resetCapInfo?.rate||resetPlayInfo?.rate||48000;
-  const capCh=resetCapInfo?.channels||2;
-  const playCh=resetPlayInfo?.channels||2;
+  const sr=String(resetCapInfo?.rate||resetPlayInfo?.rate||48000).replace(/[\[\]]/g,'');
+  const capCh=String(resetCapInfo?.channels||2).replace(/[\[\]]/g,'');
+  const playCh=String(resetPlayInfo?.channels||2).replace(/[\[\]]/g,'');
   const capFmt=resetCapInfo?.format||null;
   const playFmt=resetPlayInfo?.format||null;
   h+=`Sample Rate: <b>${sr}</b> Hz<br>`;
@@ -1596,12 +3390,11 @@ function updateSummary(){
 }
 
 async function createConfigFromProbes(){
-  const sr=resetCapInfo?.rate||resetPlayInfo?.rate||48000;
-  const capCh=resetCapInfo?.channels||2;
-  const playCh=resetPlayInfo?.channels||2;
+  const sr=parseInt(String(resetCapInfo?.rate||resetPlayInfo?.rate||48000).replace(/[\[\]]/g,''))||48000;
+  const capCh=parseInt(String(resetCapInfo?.channels||2).replace(/[\[\]]/g,''))||2;
+  const playCh=parseInt(String(resetPlayInfo?.channels||2).replace(/[\[\]]/g,''))||2;
   const capFmt=resetCapInfo?.format||null;
   const playFmt=resetPlayInfo?.format||null;
-  const maxCh=Math.max(capCh,playCh);
   const def={
     description:'default',
     devices:{
@@ -1616,7 +3409,7 @@ async function createConfigFromProbes(){
     },
     filters:{},
     mixers:{Mixer:{channels:{in:capCh,out:playCh},description:null,labels:null,mapping:[]}},
-    pipeline:[{type:'Mixer',name:'Mixer',description:null}],
+    pipeline:[{type:'Mixer',name:'Mixer',description:null,bypassed:null}],
     processors:{},
     title:'default'
   };
@@ -1625,35 +3418,6 @@ async function createConfigFromProbes(){
   await init();
   toast('Configuración creada con dispositivos de audio');
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// UTILS
-// ═══════════════════════════════════════════════════════════════════════════
-function darken(hex){
-  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-  return `rgb(${Math.round(r*0.7)},${Math.round(g*0.7)},${Math.round(b*0.7)})`;
-}
-function toast(msg){
-  const t=document.getElementById('toast'); t.textContent=msg; t.className='show';
-  setTimeout(()=>t.className='',3000);
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// STARTUP
-// ═══════════════════════════════════════════════════════════════════════════
-window.addEventListener('load',async()=>{
-  await init();
-  setupEQInteraction();
-  setupCrossInteraction();
-  setupMixerInteraction();
-  // Resize handlers
-  window.addEventListener('resize',()=>{
-    if(currentTab===1) renderEQGraph();
-    if(currentTab===2) renderCrossGraph();
-  });
-  // Import YAML support via server
-  await fetch('/api/import-support').catch(()=>{});
-});
 </script>
 
 <!-- RESET MODAL -->

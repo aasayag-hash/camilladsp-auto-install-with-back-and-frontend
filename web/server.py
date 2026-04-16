@@ -90,7 +90,8 @@ def get_config():
 @app.route("/api/config", methods=["POST"])
 def set_config():
     try:
-        cfg = request.json.get("config")
+        data = json.loads(request.data) if request.data else {}
+        cfg = data.get("config")
         cdsp("SetConfigJson", json.dumps(cfg))
         save_yaml_config(cfg)
         return jsonify({"ok": True})
@@ -100,7 +101,8 @@ def set_config():
 @app.route("/api/patch", methods=["POST"])
 def patch_config():
     try:
-        cdsp("PatchConfig", request.json.get("patch"))
+        data = json.loads(request.data) if request.data else {}
+        cdsp("PatchConfig", data.get("patch"))
         try:
             v = cdsp("GetConfigJson")
             if v and v != "null":
@@ -133,7 +135,8 @@ def get_levels():
 @app.route("/api/volume", methods=["POST"])
 def set_volume():
     try:
-        cdsp("SetVolume", float(request.json.get("volume", 0.0)))
+        data = json.loads(request.data) if request.data else {}
+        cdsp("SetVolume", float(data.get("volume", 0.0)))
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -209,6 +212,8 @@ def get_playback_devices():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e), "devices": []})
 
+@app.route("/api/restart", methods=["POST"])
+
 def _get_alsa_hw_only(mode):
     cmd = "arecord -L" if mode == "capture" else "aplay -L"
     devs = []
@@ -256,13 +261,14 @@ def _probe_alsa_hw(device_id, mode):
         for line in output.splitlines():
             line = line.strip()
             if line.startswith("CHANNELS:"):
-                info["channels"] = int(line.split(":")[1].strip().split()[0])
+                vals = line.split(":")[1].strip().split()
+                info["channels"] = int(vals[-1]) if vals else 2
             elif line.startswith("RATE:"):
-                val = line.split(":")[1].strip().split()[0]
+                vals = line.split(":")[1].strip().split()
                 try:
-                    info["rate"] = int(val)
+                    info["rate"] = int(vals[-1]) if vals else 48000
                 except ValueError:
-                    info["rate"] = val
+                    info["rate"] = vals[-1] if vals else "48000"
             elif line.startswith("FORMAT:"):
                 info["format"] = line.split(":")[1].strip().split()[0]
         return info
@@ -315,74 +321,27 @@ def restart_engine():
 @app.route("/api/recovery", methods=["POST"])
 def recover_engine():
     try:
-        yaml_content = """description: default
-devices:
-  adjust_period: null
-  capture:
-    channels: 4
-    device: "null"
-    format: null
-    labels: null
-    link_mute_control: null
-    link_volume_control: null
-    stop_on_inactive: null
-    type: Alsa
-  capture_samplerate: 48000
-  chunksize: 1024
-  enable_rate_adjust: null
-  multithreaded: null
-  playback:
-    channels: 4
-    device: "null"
-    format: null
-    type: Alsa
-  queuelimit: null
-  rate_measure_interval: null
-  resampler: null
-  samplerate: 48000
-  silence_threshold: null
-  silence_timeout: null
-  stop_on_rate_change: null
-  target_level: null
-  volume_limit: null
-  volume_ramp_time: null
-  worker_threads: null
-filters: {}
-mixers:
-  Mixer:
-    description: null
-    channels:
-      in: 4
-      out: 4
-    mapping: []
-    labels: null
-processors: {}
-pipeline:
-- type: Mixer
-  name: Mixer
-  description: null
-  bypassed: null
-title: default"""
+        cfg = load_yaml_config()
+        if "capture" in cfg.get("devices", {}):
+            cfg["devices"]["capture"]["device"] = "hw:1,0"
+            cfg["devices"]["capture"]["channels"] = 4
+        if "playback" in cfg.get("devices", {}):
+            cfg["devices"]["playback"]["device"] = "hw:1,0"
+            cfg["devices"]["playback"]["channels"] = 4
+        if "devices" in cfg:
+            cfg["devices"]["chunksize"] = 1024
         
-        with open(CFG_FILE, "w", encoding="utf-8") as f:
-            f.write(yaml_content)
-            
-        import tempfile
-        # Purge CamillaGUI statefile because it often overrides physical camilladsp.yml on start
-        STATE_FILE = os.path.dirname(CFG_FILE).replace("config", "statefile.yml")
-        if os.path.exists(STATE_FILE):
-            try: os.remove(STATE_FILE)
-            except: pass
-        if os.path.exists("/root/camilladsp/statefile.yml"):
-            try: os.remove("/root/camilladsp/statefile.yml")
-            except: pass
+        save_yaml_config(cfg)
         
-        import os, threading
-        def restart_svc():
-            import time
-            time.sleep(0.5)
-            os.system("systemctl --user restart camilladsp.service || systemctl restart camilladsp.service || systemctl restart camilladsp-web")
-        threading.Thread(target=restart_svc).start()
+        try:
+            r1 = urllib.request.Request(f"{CDSP_GUI}/api/stopcamilladsp", method="GET")
+            urllib.request.urlopen(r1, timeout=3)
+        except Exception: pass
+        
+        try:
+            r2 = urllib.request.Request(f"{CDSP_GUI}/api/startcamilladsp", method="GET")
+            urllib.request.urlopen(r2, timeout=3)
+        except Exception: pass
             
         return jsonify({"ok": True})
     except Exception as e:
