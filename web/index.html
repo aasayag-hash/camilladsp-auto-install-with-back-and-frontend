@@ -3415,13 +3415,15 @@ function updateSummary(){
   const div=document.getElementById('reset-summary');
   if(!resetCapInfo&&!resetPlayInfo){div.style.display='none';return}
   div.style.display='block'; div.innerHTML='';
-  let h='<b>Resumen de configuración:</b><br>';
-  const sr=String(resetCapInfo?.rate||resetPlayInfo?.rate||48000).replace(/[\[\]]/g,'');
+  const detectedSr=parseInt(String(resetCapInfo?.rate||resetPlayInfo?.rate||48000).replace(/[\[\]]/g,''))||48000;
   const capCh=String(resetCapInfo?.channels||2).replace(/[\[\]]/g,'');
   const playCh=String(resetPlayInfo?.channels||2).replace(/[\[\]]/g,'');
   const capFmt=resetCapInfo?.format||null;
   const playFmt=resetPlayInfo?.format||null;
-  h+=`Sample Rate: <b>${sr}</b> Hz<br>`;
+  const rates=[44100,48000,96000,192000];
+  const srOpts=rates.map(r=>`<option value="${r}"${r===detectedSr?' selected':''}>${r}</option>`).join('');
+  let h=`<b>Resumen de configuración:</b><br>`;
+  h+=`Sample Rate: <select id="reset-sr-select">${srOpts}</select> Hz<br>`;
   h+=`Captura: <b>${resetCapDev||'null'}</b> — ${capCh}ch, ${capFmt||'default'}<br>`;
   h+=`Reproducción: <b>${resetPlayDev||'null'}</b> — ${playCh}ch, ${playFmt||'default'}<br>`;
   h+=`Chunksize: <b>1024</b><br>`;
@@ -3430,7 +3432,8 @@ function updateSummary(){
 }
 
 async function createConfigFromProbes(){
-  const sr=parseInt(String(resetCapInfo?.rate||resetPlayInfo?.rate||48000).replace(/[\[\]]/g,''))||48000;
+  const srSel=document.getElementById('reset-sr-select');
+  const sr=srSel?parseInt(srSel.value):48000;
   const capCh=parseInt(String(resetCapInfo?.channels||2).replace(/[\[\]]/g,''))||2;
   const playCh=parseInt(String(resetPlayInfo?.channels||2).replace(/[\[\]]/g,''))||2;
   const capFmt=resetCapInfo?.format||null;
