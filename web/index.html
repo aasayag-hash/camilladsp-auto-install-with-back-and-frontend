@@ -107,7 +107,7 @@ table.ftable tr:hover td{background:#1a1a1a}
 /* Mixer */
 #mixer-main{display:flex;flex:1;overflow:hidden;min-height:0}
 #mixer-scroll{flex:1;overflow:auto}
-#mixer-canvas{display:block;cursor:pointer}
+#mixer-canvas{display:block;cursor:pointer;-webkit-tap-highlight-color:transparent}
 #device-panel{flex-shrink:0;padding:6px 8px;background:#0a0a0a;border-top:1px solid #222}
 .device-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .device-lbl{font-size:12px;color:#0ff;font-weight:bold;white-space:nowrap}
@@ -2257,7 +2257,9 @@ function setupMixerInteraction(){
     await patchCfg({mixers:{[mixName]:m}}); renderMixer();
   }
 
+  let mixerLongFired=false;
   cv.addEventListener('click',async e=>{
+    if(mixerLongFired) { mixerLongFired=false; return; }
     const col=Math.floor((e.offsetX-LM)/CW), row=Math.floor((e.offsetY-TM)/CH);
     await mixerToggleOn(col,row);
   });
@@ -2266,20 +2268,7 @@ function setupMixerInteraction(){
     const col=Math.floor((e.offsetX-LM)/CW), row=Math.floor((e.offsetY-TM)/CH);
     await mixerToggleOff(col,row);
   });
-  // Touch: tap → toggle on; longpress → toggle off
-  let mixerTouchCol=-1, mixerTouchRow=-1, mixerLongFired=false;
-  cv.addEventListener('touchstart',e=>{
-    if(e.touches.length!==1) return;
-    mixerLongFired=false;
-    const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
-    mixerTouchCol=Math.floor((offsetX-LM)/CW);
-    mixerTouchRow=Math.floor((offsetY-TM)/CH);
-  },{passive:true});
-  cv.addEventListener('touchend',async e=>{
-    if(!mixerLongFired && mixerTouchCol>=0 && mixerTouchRow>=0)
-      await mixerToggleOn(mixerTouchCol,mixerTouchRow);
-    mixerTouchCol=-1; mixerTouchRow=-1; mixerLongFired=false;
-  },{passive:true});
+  // Touch: longpress -> toggle off. Simple click -> toggle on (handled natively via 'click')
   addLongPress(cv,async(clientX,clientY)=>{
     const {offsetX,offsetY}=touchOffset(cv,clientX,clientY);
     const col=Math.floor((offsetX-LM)/CW), row=Math.floor((offsetY-TM)/CH);
