@@ -229,49 +229,62 @@ def restart_engine():
 def recover_engine():
     try:
         yaml_content = """description: default
-title: default
 devices:
-  samplerate: 48000
+  adjust_period: null
+  capture:
+    channels: 4
+    device: "null"
+    format: null
+    labels: null
+    link_mute_control: null
+    link_volume_control: null
+    stop_on_inactive: null
+    type: Alsa
+  capture_samplerate: 48000
   chunksize: 1024
+  enable_rate_adjust: null
+  multithreaded: null
+  playback:
+    channels: 4
+    device: "null"
+    format: null
+    type: Alsa
   queuelimit: null
+  rate_measure_interval: null
+  resampler: null
+  samplerate: 48000
   silence_threshold: null
   silence_timeout: null
-  capture:
-    type: Dummy
-    channels: 4
-    format: S16LE
-  playback:
-    type: Dummy
-    channels: 4
-    format: S16LE
-  enable_rate_adjust: null
-  target_level: null
-  adjust_period: null
-  resampler: null
-  capture_samplerate: 48000
   stop_on_rate_change: null
-  rate_measure_interval: null
-  volume_ramp_time: null
+  target_level: null
   volume_limit: null
-  multithreaded: null
+  volume_ramp_time: null
   worker_threads: null
 filters: {}
 mixers:
-  Mixer:
+  Mixer 1:
     channels:
       in: 4
       out: 4
     description: null
     labels: null
     mapping: []
-pipeline:
-  - type: Mixer
-    name: Mixer
-    description: null
-processors: {}"""
+pipeline: []
+processors: {}
+title: default"""
         
         with open(CFG_FILE, "w", encoding="utf-8") as f:
             f.write(yaml_content)
+            
+        import tempfile
+        # Purge CamillaGUI statefile because it often overrides physical camilladsp.yml on start
+        STATE_FILE = os.path.dirname(CFG_FILE).replace("config", "statefile.yml")
+        if os.path.exists(STATE_FILE):
+            try: os.remove(STATE_FILE)
+            except: pass
+        if os.path.exists("/root/camilladsp/statefile.yml"):
+            try: os.remove("/root/camilladsp/statefile.yml")
+            except: pass
         
         import os, threading
         def restart_svc():
