@@ -134,6 +134,9 @@ table.ftable tr:hover td{background:#1a1a1a}
 #pset-load-btn{background:linear-gradient(180deg,#1a2a4a,#0a1020);color:#4af;border-color:#1a4a8a}
 #pset-load-btn:hover{background:linear-gradient(180deg,#1a3a6a,#0a1a30);border-color:#4af}
 #pset-load-btn:disabled{opacity:.4;cursor:default}
+#pset-dl-btn{background:linear-gradient(180deg,#2a2a3a,#1a1a2a);color:#fa0;border-color:#aa0}
+#pset-dl-btn:hover{background:linear-gradient(180deg,#3a3a4a,#2a2a3a);border-color:#fa0}
+#pset-dl-btn:disabled{opacity:.4;cursor:default}
 
 /* Fader */
 .strip{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
@@ -344,6 +347,7 @@ table.ftable tr:hover td{background:#1a1a1a}
         <div id="presets-list"></div>
         <button id="pset-save-btn" class="pset-btn" onclick="presetSave()">&#x1F4BE; Guardar</button>
         <button id="pset-load-btn" class="pset-btn" onclick="presetLoad()" disabled>&#x23EF; Cargar</button>
+        <button id="pset-dl-btn" class="pset-btn" onclick="presetDownload()" disabled>&#x1F4E5; Descargar</button>
       </div>
     </div>
     <div id="device-panel">
@@ -2562,24 +2566,43 @@ function presetSelect(name){
 }
 
 function _updateLoadBtn(){
-  const btn = document.getElementById('pset-load-btn');
-  if(btn) btn.disabled = !_selectedPreset;
+  const loadBtn = document.getElementById('pset-load-btn');
+  const dlBtn = document.getElementById('pset-dl-btn');
+  const hasPreset = !!_selectedPreset;
+  if(loadBtn) loadBtn.disabled = !hasPreset;
+  if(dlBtn) dlBtn.disabled = !hasPreset;
 }
 
 async function presetSave(){
-  const name = await inlinePrompt('Nombre del preset:', '');
+  const defaultName = _selectedPreset || '';
+  const name = await inlinePrompt('Nombre del preset:', defaultName);
   if(!name) return;
   const r = await apiGet('/api/config');
   if(!r.ok){ toast('Error leyendo config'); return; }
+  const isNew = name !== _selectedPreset;
   const res = await apiPost('/api/presets/save', { name, config: r.config });
   if(res.ok){
     _selectedPreset = res.name;
     await presetRefresh();
     presetSelect(res.name);
-    toast(`Preset "${res.name}" guardado`);
+    toast(isNew ? `Preset "${res.name}" guardado` : `Preset "${res.name}" actualizado`);
   } else {
     toast('Error guardando: ' + (res.error||''));
   }
+}
+
+async function presetDownload(){
+  if(!_selectedPreset){
+    toast('Selecciona un preset primero');
+    return;
+  }
+  const r = await apiGet('/api/config');
+  if(!r.ok){ toast('Error leyendo config'); return; }
+  const txt = jsyaml.dump(r.config);
+  const a = document.createElement('a');
+  a.href = 'data:text/yaml;charset=utf-8,' + encodeURIComponent(txt);
+  a.download = (_selectedPreset || 'config') + '.yml';
+  a.click();
 }
 
 async function presetLoad(){
