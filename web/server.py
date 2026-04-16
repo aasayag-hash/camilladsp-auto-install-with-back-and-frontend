@@ -262,15 +262,19 @@ devices:
   worker_threads: null
 filters: {}
 mixers:
-  Mixer 1:
+  Mixer:
+    description: null
     channels:
       in: 4
       out: 4
-    description: null
-    labels: null
     mapping: []
-pipeline: []
+    labels: null
 processors: {}
+pipeline:
+- type: Mixer
+  name: Mixer
+  description: null
+  bypassed: null
 title: default"""
         
         with open(CFG_FILE, "w", encoding="utf-8") as f:
