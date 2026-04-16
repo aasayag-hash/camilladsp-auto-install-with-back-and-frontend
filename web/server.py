@@ -262,7 +262,7 @@ devices:
   worker_threads: null
 filters: {}
 mixers:
-  Unnamed Mixer 1:
+  Mixer 1:
     channels:
       in: 4
       out: 4
@@ -276,15 +276,12 @@ title: default"""
         with open(CFG_FILE, "w", encoding="utf-8") as f:
             f.write(yaml_content)
         
-        try:
-            r1 = urllib.request.Request(f"{CDSP_GUI}/api/stopcamilladsp", method="GET")
-            urllib.request.urlopen(r1, timeout=3)
-        except Exception: pass
-        
-        try:
-            r2 = urllib.request.Request(f"{CDSP_GUI}/api/startcamilladsp", method="GET")
-            urllib.request.urlopen(r2, timeout=3)
-        except Exception: pass
+        import os, threading
+        def restart_svc():
+            import time
+            time.sleep(0.5)
+            os.system("systemctl --user restart camilladsp.service || systemctl restart camilladsp.service || systemctl restart camilladsp-web")
+        threading.Thread(target=restart_svc).start()
             
         return jsonify({"ok": True})
     except Exception as e:
