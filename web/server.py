@@ -228,15 +228,58 @@ def restart_engine():
 @app.route("/api/recovery", methods=["POST"])
 def recover_engine():
     try:
-        cfg = load_yaml_config()
-        if "capture" in cfg.get("devices", {}):
-            cfg["devices"]["capture"]["device"] = "hw:1,0"
-            cfg["devices"]["capture"]["channels"] = 4
-        if "playback" in cfg.get("devices", {}):
-            cfg["devices"]["playback"]["device"] = "hw:1,0"
-            cfg["devices"]["playback"]["channels"] = 4
-        if "devices" in cfg:
-            cfg["devices"]["chunksize"] = 1024
+        cfg = {
+            "title": "default",
+            "description": "default",
+            "devices": {
+                "adjust_period": None,
+                "capture": {
+                    "channels": 4,
+                    "device": "null",
+                    "format": None,
+                    "labels": None,
+                    "link_mute_control": None,
+                    "link_volume_control": None,
+                    "stop_on_inactive": None,
+                    "type": "Alsa"
+                },
+                "capture_samplerate": 48000,
+                "chunksize": 1024,
+                "enable_rate_adjust": None,
+                "multithreaded": None,
+                "playback": {
+                    "channels": 4,
+                    "device": "null",
+                    "format": None,
+                    "type": "Alsa"
+                },
+                "queuelimit": None,
+                "rate_measure_interval": None,
+                "resampler": None,
+                "samplerate": 48000,
+                "silence_threshold": None,
+                "silence_timeout": None,
+                "stop_on_rate_change": None,
+                "target_level": None,
+                "volume_limit": None,
+                "volume_ramp_time": None,
+                "worker_threads": None
+            },
+            "filters": {},
+            "mixers": {
+                "Unnamed Mixer 1": {
+                    "channels": {
+                        "in": 4,
+                        "out": 4
+                    },
+                    "description": None,
+                    "labels": None,
+                    "mapping": []
+                }
+            },
+            "pipeline": [],
+            "processors": {}
+        }
         
         save_yaml_config(cfg)
         
