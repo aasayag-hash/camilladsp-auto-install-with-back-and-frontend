@@ -15,8 +15,15 @@ WEB_PORT      = 5000
 os.makedirs(PRESETS_DIR, exist_ok=True)
 
 app = Flask(__name__)
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 _lock = threading.Lock()
 _ws   = None
+
+@app.errorhandler(400)
+def bad_request(e):
+    import traceback
+    traceback.print_exc()
+    return jsonify({"ok": False, "error": f"400: {str(e)}", "debug": traceback.format_exc()}), 400
 
 try:
     import yaml
@@ -90,10 +97,13 @@ def get_config():
 @app.route("/api/config", methods=["POST"])
 def set_config():
     try:
-        data = request.get_json(force=True)
-        if data is None:
-            try: data = json.loads(request.data)
-            except: return jsonify({"ok": False, "error": "No JSON body"}), 400
+        raw = request.data
+        print(f"[set_config] raw body length: {len(raw)}, content_type: {request.content_type}")
+        try:
+            data = json.loads(raw)
+        except Exception as e:
+            print(f"[set_config] json.loads failed: {e}")
+            return jsonify({"ok": False, "error": f"JSON parse error: {e}"}), 400
         cfg = data.get("config")
         if cfg is None:
             return jsonify({"ok": False, "error": "Missing 'config' key"}), 400
@@ -111,12 +121,15 @@ def set_config():
         return jsonify({"ok": True})
     except Exception as e:
         print(f"[set_config] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/api/patch", methods=["POST"])
 def patch_config():
     try:
-        cdsp("PatchConfig", request.json.get("patch"))
+        data = json.loads(request.data)
+        cdsp("PatchConfig", data.get("patch"))
         try:
             v = cdsp("GetConfigJson")
             if v and v != "null":
@@ -149,7 +162,7 @@ def get_levels():
 @app.route("/api/volume", methods=["POST"])
 def set_volume():
     try:
-        cdsp("SetVolume", float(request.json.get("volume", 0.0)))
+        cdsp("SetVolume", float(json.loads(request.data).get("volume", 0.0)))
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
@@ -303,8 +316,9 @@ def list_presets():
 @app.route("/api/presets/save", methods=["POST"])
 def save_preset():
     try:
-        name = request.json.get("name", "").strip()
-        cfg  = request.json.get("config")
+        d = json.loads(request.data)
+        name = d.get("name", "").strip()
+        cfg  = d.get("config")
         if not name or not cfg:
             return jsonify({"ok": False, "error": "Missing name or config"}), 400
         path = _preset_path(name)
@@ -321,7 +335,7 @@ def save_preset():
 @app.route("/api/presets/load", methods=["POST"])
 def load_preset():
     try:
-        name = request.json.get("name", "").strip()
+        name = json.loads(request.data).get("name", "").strip()
         if not name:
             return jsonify({"ok": False, "error": "Missing name"}), 400
         path = _preset_path(name)
@@ -343,7 +357,7 @@ def load_preset():
 @app.route("/api/presets/delete", methods=["POST"])
 def delete_preset():
     try:
-        name = request.json.get("name", "").strip()
+        name = json.loads(request.data).get("name", "").strip()
         if not name:
             return jsonify({"ok": False, "error": "Missing name"}), 400
         path = _preset_path(name)
