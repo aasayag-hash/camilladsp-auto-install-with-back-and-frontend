@@ -203,14 +203,14 @@ def _get_alsa_hw(mode):
             if not line:
                 continue
             if line[0] not in ' \t':
-                if current_id and current_id != "null":
+                if current_id and (current_id.startswith("hw:") or current_id == "null"):
                     desc_str = " - ".join([d.strip(" ,") for d in current_desc if d.strip(" ,")])
                     devs.append([current_id, desc_str])
                 current_id = line.strip()
                 current_desc = []
             else:
                 current_desc.append(line.strip())
-        if current_id and current_id != "null":
+        if current_id and (current_id.startswith("hw:") or current_id == "null"):
             desc_str = " - ".join([d.strip(" ,") for d in current_desc if d.strip(" ,")])
             devs.append([current_id, desc_str])
     except Exception:
