@@ -426,7 +426,7 @@ def alsa_hw_capture():
 def alsa_hw_playback():
     return jsonify({"ok": True, "devices": _list_hw_devices("playback")})
 
-CDSP_FORMATS = {'S16_LE', 'S24_3LE', 'S24_4LE', 'S32_LE', 'F32_LE', 'F64_LE'}
+CDSP_FORMATS = {'S16_LE', 'S24_3_LE', 'S24_4_LE', 'S32_LE', 'F32_LE', 'F64_LE'}
 
 ALSACTL_MAP = {
     'S16_LE': 'S16_LE', 'S24_3LE': 'S24_3_LE', 'S24_LE': 'S24_4_LE',
@@ -437,7 +437,7 @@ ALSACTL_MAP = {
 def _to_cdsp_fmt(fmt_list):
     for f in fmt_list:
         mapped = ALSACTL_MAP.get(f)
-        if mapped:
+        if mapped and mapped in CDSP_FORMATS:
             return mapped
     return None
 
