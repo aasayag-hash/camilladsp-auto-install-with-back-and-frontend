@@ -271,7 +271,6 @@ def restart_engine():
         pass
     return jsonify({"ok": True})
 
-@app.route("/api/recovery", methods=["POST"])
 DEFAULT_CONFIG_YAML = """\
 description: default
 devices:
@@ -321,22 +320,15 @@ title: default
 
 def _restart_all_services():
     try:
-        subprocess.run(["pkill", "-9", "camilladsp"], timeout=5)
-    except Exception: pass
-    try:
-        subprocess.run(["pkill", "-9", "-f", "server.py"], timeout=5)
-    except Exception: pass
-    try:
-        subprocess.Popen(["/root/camilladsp/engine/camilladsp", "-p", "1234", "-a", "0.0.0.0", "-w"],
-                         stdout=open("/tmp/camilladsp.log", "w"), stderr=subprocess.STDOUT)
+        subprocess.run(["systemctl", "restart", "camilladsp"], timeout=10)
     except Exception: pass
     import time; time.sleep(2)
     try:
-        subprocess.Popen(["python3", "/root/camilladsp/web/server.py"],
-                         stdout=open("/tmp/flask.log", "w"), stderr=subprocess.STDOUT)
+        subprocess.run(["systemctl", "restart", "camilladsp-web"], timeout=10)
     except Exception: pass
-    import time; time.sleep(2)
+    import time; time.sleep(3)
 
+@app.route("/api/recovery", methods=["POST"])
 def recover_engine():
     try:
         with open(CFG_FILE, "w") as f:
