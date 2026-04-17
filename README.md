@@ -1,33 +1,44 @@
 # CamillaDSP Web Console & Auto-Installer
 
-Una solución completa, robusta y desatendida para automatizar el despliegue del ecosistema **CamillaDSP** en cualquier dispositivo (TV-Box, Raspberry Pi, servidor Linux). Incluye la instalación del motor DSP, el backend de la GUI oficial y una **interfaz web front-end personalizada** de diseño premium accesible desde cualquier navegador.
+Complete solution for automated deployment of the **CamillaDSP** ecosystem on any Linux device (TV-Box, Raspberry Pi, server). Includes DSP engine, backend GUI, and a custom web frontend with premium design accessible from any browser.
 
 ---
 
-## 🚀 Características Principales
+## Features
 
-* **Instalación "Zero-Headache"**: El instalador ahora resuelve automáticamente sus propias dependencias (`curl`, `wget`, `python3-pip`, `jq`). Simplemente ejecuta el script en un entorno basado en Debian/Armbian/Ubuntu y él se encargará del resto.
-* **Limpieza Profunda Inteligente**: Si detecta una instalación corrupta o previa de CamillaDSP, te ofrecerá deshabilitar servicios pasados, liberar los puertos obstruidos y eliminar archivos viejos antes de realizar un despliegue impecable.
-* **Inmune a Errores de Formato**: Configurado nativamente con `.gitattributes` para evitar incompatibilidades de saltos de línea (CRLF/LF) al clonar desde entornos Windows a Linux.
-* **Arranque Automático**: Configura el sistema operativo para levantar el ecosistema automáticamente tras los reinicios mediante `systemd`, `rc.local`, o `cron`.
+### Installer
+- **Automatic dependency resolution**: installs `curl`, `wget`, `python3-pip`, `jq` automatically
+- **Smart cleanup**: detects previous/corrupted installations, frees blocked ports, removes old files
+- **CRLF/LF handling**: `.gitattributes` prevents line ending issues when cloning from Windows
+- **Auto-start**: configures systemd/rc.local/cron to start services on boot
+- **Retry logic**: services retry up to 5 times on startup failure
+- **Port management**: frees port 5000 before starting web server
+
+### Web Console (port 5000)
+- **VU Meters**: real-time RMS levels, peak hold, compressor gain reduction, per-channel faders with polarity invert
+- **Graphic EQ**: 31-band linear-phase equalizer with drag control and touch support
+- **Parametric EQ**: full-range interactive graph (20 Hz - 20 kHz), drag-and-drop filters, REW/APO import
+- **Crossovers**: Butterworth and Linkwitz-Riley filters up to 48 dB/octave
+- **Mixer**: real-time channel routing matrix with custom channel naming
+- **Device selection**: only shows ALSA hw: devices (not plughw/dmix), current device marked with arrow
+- **Reset wizard**: modal with device selectors, auto-probe of hardware params, sample rate selector, auto-restart engine
+- **Presets**: save/load/delete complete DSP configurations
+- **Compressor**: dynamic compressor with attack, release, threshold, ratio, makeup gain
+- **Touch-friendly**: long-press for bypass/delete, double-tap to add filters, fullscreen mode
+
+### Backend API (server.py)
+- GET/POST config via WebSocket to CamillaDSP
+- PATCH config (partial updates)
+- Status, levels, volume control
+- ALSA device listing (hw: format with card names)
+- Hardware probe (channels, rate, format) with fallback for busy devices
+- Format mapping: ALSA to CamillaDSP (S16_LE, S24_3_LE, S24_4_LE, S32_LE, F32_LE, F64_LE)
+- Engine restart via CamillaGUI
+- Flask 3.x compatible (json.loads instead of request.json)
 
 ---
 
-## 🎛️ Interfaz Web Personalizada — Capacidades
-
-La consola web (puerto `5000`) cuenta con panel táctil y diseño inmersivo:
-
-* **Vúmetros Universales**: Mediciones RMS en tiempo real, histórico de picos e indicadores visuales de atenuación para el compresor, junto con Faders independientes y fase invertida por canal.
-* **Ecualizador Gráfico de 31 Bandas**: Rango visual continuo de ±9 dB con fase lineal, función de enlazado global y control por doble-clic para reiniciar frecuencias puntuales.
-* **Ecualizador Paramétrico (PEQ)**: Gráfico de rango completo (20 Hz - 20 kHz) interactivo (drag-and-drop). Ajuste de ganancia, frecuencia y factor de banda "Q" con soporte táctil. Importación directa de filtros nativos, REW Generic, o Equalizer APO.
-* **Gestor de Crossovers**: Enrutamiento de alta fidelidad empleando filtros progresivos de Butterworth y Linkwitz-Riley (hasta 48 dB/octava).
-* **Mixer en Tiempo Real**: Ruteo entre tarjetas de sonido físicas ALSA, selector dinámico de tamaño de búfer (Chunksize), y soporte completo para renombra miento custom de los canales sobre la marcha.
-
----
-
-## 🛠️ Instalación Rápida
-
-Asegúrate de contar con internet en tu TV Box o Raspberry Pi y simplemente ejecuta:
+## Quick Install
 
 ```bash
 git clone https://github.com/aasayag-hash/camilladsp-auto-install-with-back-and-frontend.git
@@ -35,57 +46,77 @@ cd camilladsp-auto-install-with-back-and-frontend
 bash install_camilladsp.sh
 ```
 
-### Opciones de Instalación
+### Install Options
 ```bash
-bash install_camilladsp.sh [opciones]
+bash install_camilladsp.sh [options]
 
-  (sin opciones)    Instalación completa interactiva
-  --update          Actualizar engine y GUI a la última versión
-  --check           Verificar el estado general de los procesos
-  --uninstall       Desinstalar todo el entorno Camilla
-  --no-service      Instalar archivos pero no iniciar los servicios
+  (no options)    Full interactive installation
+  --update       Update engine and GUI to latest version
+  --check        Check status of all processes
+  --uninstall    Remove entire CamillaDSP environment
+  --no-service   Install files but don't start services
 ```
 
 ---
 
-## 🌐 Servicios y Puertos Ocupados
+## Services & Ports
 
-Por defecto, los servidores escucharán en las IPs correspondientes a tu red local (LAN) bajo los puertos:
-
-| Componente | Protocolo | Puerto | Descripción |
+| Component | Protocol | Port | Description |
 |---|---|---|---|
-| **Consola Web Custom** | HTTP | `5000` | Interfaz Front-end amigable (Este proyecto) |
-| **CamillaGUI Oficial** | HTTP | `5005` | Backend avanzado/GUI de HEnquist |
-| **CamillaDSP Engine** | WebSocket | `1234` | Motor de alto rendimiento y API de control |
+| **Web Console** | HTTP | `5000` | Custom frontend (this project) |
+| **CamillaGUI** | HTTP | `5005` | Official backend/GUI by HEnquist |
+| **CamillaDSP Engine** | WebSocket | `1234` | DSP engine control API |
 
 ---
 
-## 📂 Directorio y Configuración (Backend)
-
-La ejecución inicial asienta toda la carpeta de trabajo bajo la ubicación nativa del usuario principal (ejemplo `$HOME/camilladsp` o `/root/camilladsp` en TV-box).
+## Directory Structure
 
 ```text
 ~/camilladsp/
-├── engine/             # Binario del software
-├── gui/                # Core de configuración Backend
-├── web/                # Interfaz de usuario (Consola Web)
-├── config/             # Tuberías, filtros y yaml del pipeline
-├── coeffs/             # Archivos FIR y coeficientes
-├── scripts/            # Comandos: start_all.sh | stop_all.sh
-└── logs/               # Monitoreo del motor y el front-end
++-- engine/             # CamillaDSP binary
++-- gui/                # CamillaGUI backend
++-- web/                # Web console (Flask server + frontend)
++-- config/             # Pipeline config, presets, YAML
++-- coeffs/             # FIR coefficients
++-- scripts/            # start_all.sh | stop_all.sh | status.sh
++-- logs/               # Engine and frontend logs
++-- pids/               # Process ID files
 ```
 
 ---
 
-## 🔧 Resolución de Problemas
+## Configuration Reset (Web UI)
 
-1. **La Interfaz Web no muestra ningún dispositivo de audio ALSA:**
-   El demonio central debe estar operando. Ejecuta `~/camilladsp/scripts/status.sh` y asegúrate de que tanto el engine (1234) como la GUI (5005) estén "ON". Verifica tus logs en `~/camilladsp/logs/`.
-2. **Audio saturado o caídas repentinas (Dropouts):**
-   Accede a la pestaña `MIXER`, incrementa el valor de Chunksize en cascada (e.g., 512 → 1024 → 2048) y luego haz clic en `⟳ Motor`.
-3. **El instalador se queda bloqueado o "Congelado":**
-   Presiona `CTRL+C`, y vuelva a lanzar `bash install_camilladsp.sh`. La consola detectará vestigios de la instalación corrupta y te preguntará si quieres realizar un saneamiento ("Limpieza profunda"). Presiona la tecla `S` para aprobarlo y continuar.
+The Reset button opens a modal that:
+1. Lists ALSA hardware capture and playback devices (hw:X,Y format)
+2. Auto-probes selected device for channels, sample rate, and format
+3. Lets you choose sample rate (44100/48000/96000/192000 Hz)
+4. Creates a complete config with Mixer 1 and sends it to the DSP
+5. Automatically restarts the engine
 
 ---
 
-> Desplegado, probado y configurado bajo entornos Linux embebidos, TV-Boxes modificados (Armbian Debian Trixie/Ubuntu) y equipos de capa general.
+## ALSA Device Format Mapping
+
+| ALSA Format | CamillaDSP Format |
+|---|---|
+| S16_LE | S16_LE |
+| S24_3LE | S24_3_LE |
+| S24_LE | S24_4_LE |
+| S24_4LE | S24_4_LE |
+| S32_LE | S32_LE |
+| FLOAT_LE | F32_LE |
+| FLOAT64_LE | F64_LE |
+
+---
+
+## Troubleshooting
+
+1. **Web UI shows no audio devices**: Make sure the CamillaDSP engine is running. Run `~/camilladsp/scripts/status.sh` and verify engine (1234) and GUI (5005) are active. Check logs in `~/camilladsp/logs/`.
+2. **Audio dropouts or glitches**: Go to the MIXER tab, increase Chunksize (512 -> 1024 -> 2048) and click Engine restart.
+3. **Installer freezes**: Press Ctrl+C and run `bash install_camilladsp.sh` again. It will detect the interrupted install and offer cleanup.
+4. **Engine stays Inactive after Reset**: The engine needs a valid config to start. Make sure you selected capture and playback devices in the Reset modal, then click Create Config. The engine will auto-restart.
+
+---
+
+> Deployed, tested, and configured on Linux embedded devices, modified TV-Boxes (Armbian Debian Trixie/Ubuntu), and general-purpose servers.
