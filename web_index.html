@@ -2413,9 +2413,11 @@ function fillDeviceSel(id,devs,current){
   for(const [dev,desc] of sorted){
     const o=document.createElement('option');
     o.value=dev;
-    o.textContent=`${dev}  —  ${desc.split('\n')[0].trim()}`;
-    o.selected=(dev===current);
-    if(dev===current) o.style.background='#3a5a2a';
+    const isCurrent=(dev===current);
+    const label=desc.split('\n')[0].trim();
+    o.textContent=isCurrent?`\u25B6 ${dev}  \u2014  ${label}`:`${dev}  \u2014  ${label}`;
+    o.selected=isCurrent;
+    o.style.cssText=isCurrent?'color:#7fff7f;font-weight:bold':'';
     sel.appendChild(o);
   }
 }
