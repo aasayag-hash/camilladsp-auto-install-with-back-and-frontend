@@ -710,6 +710,421 @@ EOF
   log_warn "No se pudo configurar autostart (sin systemd, rc.local ni cron)"
 }
 
+# ── Dante / Inferno ───────────────────────────────────────────────────────────
+
+DANTE_ZIP_NAME="dante-aarch64.zip"
+DANTE_ZIP_URL="https://github.com/aasayag-hash/camilladsp-auto-install-with-back-and-frontend/releases/download/dante-plugin/${DANTE_ZIP_NAME}"
+INFERNO_STATE_BASE="$HOME/.local/state/inferno_aoip"
+
+ask_dante() {
+  echo ""
+  echo -e "${CYAN}${BOLD}┌─────────────────────────────────────────────────────┐"
+  echo -e "│          Integración Dante / AES67 (inferno)        │"
+  echo -e "└─────────────────────────────────────────────────────┘${RESET}"
+  echo -e "  Instala el plugin inferno (RX/TX Dante via red)"
+  echo -e "  y el demonio PTP ${BOLD}statime-inferno${RESET} para sincronización."
+  echo ""
+  echo -n "  ¿Instalar soporte Dante/AES67? [s/N]: "
+  read -n 1 -r DANTE_REPLY
+  echo ""
+  [[ "$DANTE_REPLY" =~ ^[Ss]$ ]]
+}
+
+install_dante() {
+  log_step "Instalando soporte Dante / Inferno"
+
+  # ── 1. Detectar interfaz ethernet ──────────────────────────────────────────
+  local eth_iface eth_ip
+  eth_iface=$(ip -o link show | awk -F': ' '$2 !~ /^lo|^wl|^docker|^veth|^br/ {print $2; exit}')
+  eth_ip=$(ip -4 addr show "$eth_iface" 2>/dev/null | grep -o 'inet [0-9.]*' | awk '{print $2}' | head -1)
+
+  if [ -z "$eth_ip" ]; then
+    log_warn "No se detectó IP en $eth_iface — asegurate de tener Ethernet conectado"
+    eth_ip="0.0.0.0"
+  fi
+  log_info "Interfaz Dante: $eth_iface ($eth_ip)"
+
+  # ── 2. Instalar plugin inferno (.so) ────────────────────────────────────────
+  local alsa_plugin_dir="/usr/lib/$(uname -m)-linux-gnu/alsa-lib"
+  local inferno_so="${alsa_plugin_dir}/libasound_module_pcm_inferno.so"
+
+  if [ -f "$inferno_so" ]; then
+    log_ok "Plugin inferno ya instalado"
+  else
+    log_info "Buscando $DANTE_ZIP_NAME..."
+    local zip_path=""
+
+    # Buscar en directorio del script primero
+    if [ -f "${SCRIPT_DIR}/${DANTE_ZIP_NAME}" ]; then
+      zip_path="${SCRIPT_DIR}/${DANTE_ZIP_NAME}"
+      log_info "Encontrado en directorio local"
+    else
+      log_info "Descargando desde releases..."
+      local tmp_zip="/tmp/${DANTE_ZIP_NAME}"
+      if curl -fsSL "$DANTE_ZIP_URL" -o "$tmp_zip" 2>/dev/null || \
+         wget -q "$DANTE_ZIP_URL" -O "$tmp_zip" 2>/dev/null; then
+        zip_path="$tmp_zip"
+      else
+        log_error "No se pudo descargar $DANTE_ZIP_NAME"
+        log_warn "Descargalo manualmente y colócalo junto al instalador"
+        return 1
+      fi
+    fi
+
+    log_info "Extrayendo plugin..."
+    local tmp_dir="/tmp/dante_extract"
+    rm -rf "$tmp_dir"; mkdir -p "$tmp_dir"
+    unzip -q "$zip_path" -d "$tmp_dir"
+
+    local so_file
+    so_file=$(find "$tmp_dir" -name "libasound_module_pcm_inferno.so" | head -1)
+    if [ -z "$so_file" ]; then
+      log_error "No se encontró libasound_module_pcm_inferno.so en el zip"
+      return 1
+    fi
+
+    sudo mkdir -p "$alsa_plugin_dir"
+    sudo cp "$so_file" "$inferno_so"
+    sudo chmod 644 "$inferno_so"
+    rm -rf "$tmp_dir"
+    log_ok "Plugin inferno instalado en $inferno_so"
+  fi
+
+  # ── 3. Instalar statime-inferno ─────────────────────────────────────────────
+  if ! command -v statime-inferno &>/dev/null && [ ! -f /usr/local/bin/statime-inferno ]; then
+    log_info "Buscando statime-inferno en zip..."
+    local zip_path=""
+    if [ -f "${SCRIPT_DIR}/${DANTE_ZIP_NAME}" ]; then
+      zip_path="${SCRIPT_DIR}/${DANTE_ZIP_NAME}"
+    elif [ -f "/tmp/${DANTE_ZIP_NAME}" ]; then
+      zip_path="/tmp/${DANTE_ZIP_NAME}"
+    fi
+
+    if [ -n "$zip_path" ]; then
+      local tmp_dir="/tmp/dante_extract2"
+      rm -rf "$tmp_dir"; mkdir -p "$tmp_dir"
+      unzip -q "$zip_path" -d "$tmp_dir"
+      local statime_bin
+      statime_bin=$(find "$tmp_dir" -name "statime-inferno" -type f | head -1)
+      if [ -n "$statime_bin" ]; then
+        sudo cp "$statime_bin" /usr/local/bin/statime-inferno
+        sudo chmod +x /usr/local/bin/statime-inferno
+        log_ok "statime-inferno instalado"
+      else
+        log_warn "statime-inferno no encontrado en el zip (opcional)"
+      fi
+      rm -rf "$tmp_dir"
+    fi
+  else
+    log_ok "statime-inferno ya instalado"
+  fi
+
+  # ── 4. Configurar statime-inferno.toml ────────────────────────────────────
+  local statime_cfg="/etc/statime-inferno.toml"
+  if [ ! -f "$statime_cfg" ]; then
+    sudo tee "$statime_cfg" > /dev/null << EOF
+[port-configs.${eth_iface}]
+announce-interval = 1
+sync-interval = 0
+delay-req-interval = 0
+delay-mechanism = "E2E"
+EOF
+    log_ok "statime-inferno.toml creado ($eth_iface)"
+  else
+    # Actualizar interfaz si cambió
+    sudo sed -i "s/^\[port-configs\.[^]]*\]/[port-configs.${eth_iface}]/" "$statime_cfg"
+    log_ok "statime-inferno.toml actualizado (interfaz: $eth_iface)"
+  fi
+
+  # ── 5. Servicio systemd statime-inferno ────────────────────────────────────
+  if [ ! -f /etc/systemd/system/statime-inferno.service ]; then
+    sudo tee /etc/systemd/system/statime-inferno.service > /dev/null << 'EOF'
+[Unit]
+Description=statime PTP daemon for Dante/AES67
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/statime-inferno -c /etc/statime-inferno.toml
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    sudo systemctl daemon-reload
+    sudo systemctl enable statime-inferno
+    sudo systemctl start statime-inferno
+    sleep 2
+    if systemctl is-active --quiet statime-inferno; then
+      log_ok "statime-inferno activo"
+    else
+      log_warn "statime-inferno no pudo iniciar (puede requerir PTP master en la red)"
+    fi
+  else
+    sudo systemctl restart statime-inferno 2>/dev/null || true
+    log_ok "statime-inferno reiniciado"
+  fi
+
+  # ── 6. Crear socket PTP ────────────────────────────────────────────────────
+  # statime-inferno expone el reloj PTP en este socket
+  local ptp_socket="/tmp/ptp-usrvclock"
+
+  # ── 7. Configurar .asoundrc con inferno_rx e inferno_tx ──────────────────
+  local asoundrc="$HOME/.asoundrc"
+  local ip_hex
+  ip_hex=$(printf '%02x' $(echo "$eth_ip" | tr '.' ' '))
+
+  # PROCESS_ID inicial para inferno_rx (1000 = 0x03e8)
+  local rx_pid=1000
+
+  cat > "$asoundrc" << EOF
+pcm.inferno {
+    type inferno
+    @args.NAME { type string }
+    @args.BIND_IP { type string }
+    @args.SAMPLE_RATE { type string }
+    @args.PROCESS_ID { type string }
+    @args.RX_CHANNELS { type string }
+    @args.TX_CHANNELS { type string }
+    @args.CLOCK_PATH { type string }
+    @args.RX_LATENCY_NS { type string }
+    NAME \$NAME
+    BIND_IP \$BIND_IP
+    SAMPLE_RATE \$SAMPLE_RATE
+    PROCESS_ID \$PROCESS_ID
+    RX_CHANNELS \$RX_CHANNELS
+    TX_CHANNELS \$TX_CHANNELS
+    CLOCK_PATH \$CLOCK_PATH
+    RX_LATENCY_NS \$RX_LATENCY_NS
+}
+
+pcm.inferno_rx {
+    type inferno
+    BIND_IP "${eth_ip}"
+    SAMPLE_RATE "48000"
+    RX_CHANNELS "2"
+    TX_CHANNELS "0"
+    PROCESS_ID "${rx_pid}"
+    CLOCK_PATH "${ptp_socket}"
+    RX_LATENCY_NS "200000000"
+}
+
+pcm.inferno_tx {
+    type inferno
+    BIND_IP "${eth_ip}"
+    SAMPLE_RATE "48000"
+    RX_CHANNELS "0"
+    TX_CHANNELS "2"
+    PROCESS_ID "1"
+    ALT_PORT "8700"
+    CLOCK_PATH "${ptp_socket}"
+}
+EOF
+  log_ok ".asoundrc configurado (IP: $eth_ip)"
+
+  # ── 8. Crear directorio de estado inferno_rx con suscripciones vacías ────
+  local rx_dir="${INFERNO_STATE_BASE}/0000${ip_hex}$(printf '%04x' $rx_pid)"
+  mkdir -p "$rx_dir"
+  if [ ! -f "${rx_dir}/rx_subscriptions.toml" ]; then
+    cat > "${rx_dir}/rx_subscriptions.toml" << 'EOF'
+[[channels]]
+local_channel_id = 1
+local_channel_name = "RX 1"
+tx_channel_name = "Dante Output 1"
+tx_hostname = ""
+
+[[channels]]
+local_channel_id = 2
+local_channel_name = "RX 2"
+tx_channel_name = "Dante Output 2"
+tx_hostname = ""
+EOF
+    log_ok "rx_subscriptions.toml creado (configurar hostname Dante en la web)"
+  fi
+
+  # ── 9. Instalar start_camilladsp.sh (arranque robusto) ──────────────────
+  local start_script="${INSTALL_BASE}/start_camilladsp.sh"
+  cat > "$start_script" << 'STARTSCRIPT'
+#!/bin/bash
+# Arranque robusto de CamillaDSP con inferno_rx (Dante via Ethernet)
+# - Auto-detecta IP de eth0
+# - Auto-incrementa PROCESS_ID para evitar error 1102 del P300
+# - Verifica que el flujo Dante llegue antes de arrancar CamillaDSP
+
+ASOUNDRC="$HOME/.asoundrc"
+INFERNO_STATE="$HOME/.local/state/inferno_aoip"
+ENGINE="/root/camilladsp/engine/camilladsp"
+CONFIG="/root/camilladsp/config/camilladsp.yml"
+
+# Detectar si la configuración activa usa inferno_rx
+CAPTURE_DEV=$(grep -A5 'capture:' "$CONFIG" 2>/dev/null | grep 'device:' | head -1 | awk '{print $2}' | tr -d '"')
+
+if [ "$CAPTURE_DEV" != "inferno_rx" ]; then
+    # No es Dante, arrancar directo
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+fi
+
+# Modo Dante: auto-incrementar PROCESS_ID
+ETH_IP=$(ip -4 addr show eth0 2>/dev/null | grep -o 'inet [0-9.]*' | awk '{print $2}' | head -1)
+if [ -z "$ETH_IP" ]; then
+    ETH_IP=$(ip -4 addr show | grep -o 'inet [0-9.]*' | awk 'NR==2{print $2}')
+fi
+
+# Calcular IP_HEX
+IP_HEX=$(printf '%02x' $(echo "$ETH_IP" | tr '.' ' '))
+
+# Obtener PROCESS_ID actual del .asoundrc
+CURRENT_PID=$(grep -A10 'pcm.inferno_rx' "$ASOUNDRC" | grep 'PROCESS_ID' | head -1 | grep -o '[0-9]*')
+NEW_PID=$((CURRENT_PID + 1))
+NEW_PID_HEX=$(printf '%04x' $NEW_PID)
+
+# Actualizar BIND_IP y PROCESS_ID en .asoundrc
+sed -i "s/BIND_IP \"[^\"]*\"/BIND_IP \"$ETH_IP\"/g" "$ASOUNDRC"
+# Actualizar solo el bloque inferno_rx
+python3 - << EOF
+import re
+with open('$ASOUNDRC') as f: c = f.read()
+c = re.sub(r'(pcm\.inferno_rx \{[^}]*PROCESS_ID\s+")[^"]+(")', r'\g<1>$NEW_PID\g<2>', c, flags=re.DOTALL)
+with open('$ASOUNDRC', 'w') as f: f.write(c)
+EOF
+
+# Crear nuevo directorio de estado y copiar suscripciones
+OLD_DIR=$(find "$INFERNO_STATE" -name "rx_subscriptions.toml" | xargs grep -l 'tx_hostname' 2>/dev/null | sort -r | head -1 | xargs dirname 2>/dev/null)
+NEW_DIR="${INFERNO_STATE}/0000${IP_HEX}${NEW_PID_HEX}"
+mkdir -p "$NEW_DIR"
+[ -n "$OLD_DIR" ] && [ -f "${OLD_DIR}/rx_subscriptions.toml" ] && \
+    cp "${OLD_DIR}/rx_subscriptions.toml" "${NEW_DIR}/rx_subscriptions.toml"
+
+# Verificar que el hostname Dante está configurado
+HOSTNAME=$(grep 'tx_hostname' "${NEW_DIR}/rx_subscriptions.toml" 2>/dev/null | grep -v '""' | head -1)
+if [ -z "$HOSTNAME" ]; then
+    echo "WARN: tx_hostname no configurado — arrancando CamillaDSP sin verificar flujo Dante"
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+fi
+
+# Esperar expiración del flujo anterior en P300 (4s keepalive + margen)
+sleep 6
+
+# Verificar que llega audio Dante (max 5 intentos de 2s)
+FLOW_OK=0
+for i in 1 2 3 4 5; do
+    BYTES=$(arecord -D inferno_rx -f S32_LE -r 48000 -c 2 -d 2 2>/dev/null | wc -c)
+    if [ "$BYTES" -gt 300000 ]; then
+        FLOW_OK=1
+        break
+    fi
+    sleep 2
+done
+
+if [ "$FLOW_OK" = "0" ]; then
+    echo "WARN: No llegó audio Dante — arrancando igual (puede estar en silencio)"
+fi
+
+# Esperar expiración del flujo de prueba
+sleep 6
+
+exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+STARTSCRIPT
+  chmod +x "$start_script"
+
+  # Reemplazar ruta del engine en el script
+  sed -i "s|ENGINE=\"/root/camilladsp/engine/camilladsp\"|ENGINE=\"${INSTALL_BASE}/engine/camilladsp\"|" "$start_script"
+  sed -i "s|CONFIG=\"/root/camilladsp/config/camilladsp.yml\"|CONFIG=\"${INSTALL_BASE}/config/camilladsp.yml\"|" "$start_script"
+
+  log_ok "start_camilladsp.sh creado"
+
+  # ── 10. Servicio camilladsp systemd (root, Restart=always) ───────────────
+  sudo tee /etc/systemd/system/camilladsp.service > /dev/null << EOF
+[Unit]
+Description=CamillaDSP Audio Processor
+After=network-online.target statime-inferno.service
+Wants=network-online.target
+
+[Service]
+ExecStart=${start_script}
+Restart=always
+RestartSec=10
+KillMode=process
+TimeoutStartSec=120
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  sudo tee /etc/systemd/system/camilladsp-web.service > /dev/null << EOF
+[Unit]
+Description=CamillaDSP Web Console
+After=network-online.target
+
+[Service]
+ExecStart=python3 ${INSTALL_BASE}/web/server.py
+Restart=always
+RestartSec=5
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+  sudo systemctl daemon-reload
+  sudo systemctl enable camilladsp camilladsp-web
+  log_ok "Servicios systemd camilladsp y camilladsp-web configurados"
+
+  # ── 11. Config YAML por defecto con inferno_rx ────────────────────────────
+  cat > "${INSTALL_BASE}/config/camilladsp.yml" << 'EOF'
+description: inferno_rx_direct
+devices:
+  samplerate: 48000
+  chunksize: 512
+  enable_rate_adjust: true
+  capture_samplerate: 48000
+  capture:
+    type: Alsa
+    channels: 2
+    device: inferno_rx
+    format: S32_LE
+  playback:
+    type: Alsa
+    channels: 2
+    device: "null"
+    format: S16_LE
+mixers: {}
+pipeline: []
+EOF
+  log_ok "Config CamillaDSP con inferno_rx creada"
+
+  # ── 12. Prueba funcional ───────────────────────────────────────────────────
+  log_step "Prueba de integración Dante"
+
+  # Verificar plugin ALSA carga
+  if aplay -L 2>/dev/null | grep -q "inferno"; then
+    log_ok "Plugin inferno visible en ALSA"
+  else
+    log_warn "Plugin inferno no aparece en ALSA — verificar instalación"
+  fi
+
+  # Verificar statime-inferno
+  if systemctl is-active --quiet statime-inferno; then
+    log_ok "statime-inferno corriendo"
+  else
+    log_warn "statime-inferno no activo (normal sin PTP master en la red)"
+  fi
+
+  echo ""
+  log_ok "Instalación Dante completada"
+  echo ""
+  echo -e "  ${YELLOW}Próximos pasos:${RESET}"
+  echo -e "  1. En la web → tab MIXER → botón ${BOLD}Dante RX${RESET}"
+  echo -e "     Ingresar hostname del equipo Dante y nombres de canales TX"
+  echo -e "  2. Seleccionar ${BOLD}inferno_rx${RESET} como dispositivo de entrada"
+  echo -e "  3. El servicio camilladsp arrancará automáticamente"
+  echo ""
+}
+
 # Main
 main() {
   # Capturar directorio del script antes de cualquier cambio de directorio
@@ -774,15 +1189,33 @@ main() {
   mkdir -p "${INSTALL_BASE}/pids"
   mkdir -p "${INSTALL_BASE}/scripts"
 
+  # ── Dante opcional ────────────────────────────────────────────────────────
+  INSTALL_DANTE=0
+  if [ "$ARG_UPDATE" != "1" ]; then
+    if ask_dante; then
+      INSTALL_DANTE=1
+      install_dante || log_warn "Instalación Dante incompleta — ver mensajes anteriores"
+    fi
+  fi
+
   # Iniciar servicios
   if [ "$ARG_NO_SERVICE" != "1" ]; then
-    log_step "Iniciando servicios..."
-    bash "${INSTALL_BASE}/scripts/start_all.sh"
-    sleep 3
+    if [ "$INSTALL_DANTE" = "1" ]; then
+      log_step "Iniciando servicios con Dante..."
+      sudo systemctl start camilladsp-web
+      sudo systemctl start camilladsp
+      sleep 5
+      systemctl is-active --quiet camilladsp-web && log_ok "camilladsp-web activo" || log_warn "camilladsp-web no arrancó"
+      systemctl is-active --quiet camilladsp      && log_ok "camilladsp activo"     || log_warn "camilladsp iniciando (arranca lento con Dante)"
+    else
+      log_step "Iniciando servicios..."
+      bash "${INSTALL_BASE}/scripts/start_all.sh"
+      sleep 3
+    fi
   fi
 
   # Configurar arranque automático al inicio del sistema
-  if [ "$ARG_NO_SERVICE" != "1" ] && [ "$ARG_UPDATE" != "1" ]; then
+  if [ "$ARG_NO_SERVICE" != "1" ] && [ "$ARG_UPDATE" != "1" ] && [ "$INSTALL_DANTE" != "1" ]; then
     log_step "Configurando autostart..."
     setup_autostart
   fi
