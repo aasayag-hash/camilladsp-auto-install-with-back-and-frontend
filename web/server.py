@@ -702,6 +702,100 @@ pcm.inferno_tx {{
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 
+
+# == Dante Subscription endpoints ==
+import re as _re
+
+INFERNO_STATE = os.path.expanduser('~/.local/state/inferno_aoip')
+
+def _find_active_rx_dir():
+    PAT_IP  = r'inferno_rx' + r'\s*\{[^}]*BIND_IP\s+' + '"([^"]+)"'
+    PAT_PID = r'inferno_rx' + r'\s*\{[^}]*PROCESS_ID\s+' + '"([^"]+)"'
+    try:
+        asoundrc = open(DANTE_ASOUNDRC).read()
+        m_ip  = _re.search(PAT_IP,  asoundrc, _re.DOTALL)
+        m_pid = _re.search(PAT_PID, asoundrc, _re.DOTALL)
+        if m_ip and m_pid:
+            parts   = m_ip.group(1).split('.')
+            ip_hex  = ''.join('{:02x}'.format(int(p)) for p in parts)
+            pid_hex = '{:04x}'.format(int(m_pid.group(1)))
+            cand = os.path.join(INFERNO_STATE, '0000' + ip_hex + pid_hex)
+            if os.path.exists(cand):
+                return cand
+    except Exception:
+        pass
+    try:
+        for d in sorted(os.listdir(INFERNO_STATE), reverse=True):
+            path = os.path.join(INFERNO_STATE, d, 'rx_subscriptions.toml')
+            if os.path.exists(path) and 'tx_hostname' in open(path).read():
+                return os.path.join(INFERNO_STATE, d)
+    except Exception:
+        pass
+    return None
+
+@app.route('/api/dante-subscriptions', methods=['GET'])
+def dante_get_subscriptions():
+    try:
+        rx_dir = _find_active_rx_dir()
+        if not rx_dir:
+            return jsonify({'ok': True, 'channels': []})
+        sub_file = os.path.join(rx_dir, 'rx_subscriptions.toml')
+        if not os.path.exists(sub_file):
+            return jsonify({'ok': True, 'channels': []})
+        channels = []
+        current = {}
+        for line in open(sub_file):
+            line = line.strip()
+            if line == '[[channels]]':
+                if current:
+                    channels.append(current)
+                current = {}
+            elif '=' in line:
+                k, v = line.split('=', 1)
+                k = k.strip(); v = v.strip().strip('"')
+                try: v = int(v)
+                except Exception: pass
+                current[k] = v
+        if current:
+            channels.append(current)
+        return jsonify({'ok': True, 'channels': channels, 'rx_dir': rx_dir})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
+@app.route('/api/dante-subscriptions', methods=['POST'])
+def dante_set_subscriptions():
+    try:
+        PAT_IP  = r'inferno_rx' + r'\s*\{[^}]*BIND_IP\s+' + '"([^"]+)"'
+        PAT_PID = r'inferno_rx' + r'\s*\{[^}]*PROCESS_ID\s+' + '"([^"]+)"'
+        d = json.loads(request.data)
+        channels = d.get('channels', [])
+        rx_dir = _find_active_rx_dir()
+        if not rx_dir:
+            asoundrc = open(DANTE_ASOUNDRC).read()
+            m_ip  = _re.search(PAT_IP,  asoundrc, _re.DOTALL)
+            m_pid = _re.search(PAT_PID, asoundrc, _re.DOTALL)
+            if m_ip and m_pid:
+                parts   = m_ip.group(1).split('.')
+                ip_hex  = ''.join('{:02x}'.format(int(p)) for p in parts)
+                pid_hex = '{:04x}'.format(int(m_pid.group(1)))
+                rx_dir  = os.path.join(INFERNO_STATE, '0000' + ip_hex + pid_hex)
+            else:
+                return jsonify({'ok': False, 'error': 'No se pudo determinar directorio inferno_rx'})
+        os.makedirs(rx_dir, exist_ok=True)
+        sub_file = os.path.join(rx_dir, 'rx_subscriptions.toml')
+        out = []
+        for ch in channels:
+            out.append('[[channels]]')
+            out.append('local_channel_id = ' + str(ch['local_channel_id']))
+            out.append('local_channel_name = "' + ch['local_channel_name'] + '"')
+            out.append('tx_channel_name = "' + ch['tx_channel_name'] + '"')
+            out.append('tx_hostname = "' + ch['tx_hostname'] + '"')
+            out.append('')
+        open(sub_file, 'w').write(chr(10).join(out))
+        return jsonify({'ok': True, 'file': sub_file, 'channels': len(channels)})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
 if __name__ == "__main__":
     print(f"CamillaDSP Web GUI → http://0.0.0.0:{WEB_PORT}")
     app.run(host="0.0.0.0", port=WEB_PORT, threaded=True)

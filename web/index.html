@@ -367,6 +367,7 @@ table.ftable tr:hover td{background:#1a1a1a}
         </select>
         <button class="device-apply-btn" onclick="loadDevices()" title="Recargar lista de dispositivos">? Actualizar</button>
         <button class="device-restart-btn" onclick="restartEngine()" title="Reiniciar motor de audio">? Motor</button>
+        <button class="device-apply-btn" onclick="openDanteSub()" title="Configurar fuente Dante" style="background:#005080;border-color:#0af">? Dante RX</button>
       </div>
     </div>
   </div>
@@ -846,16 +847,24 @@ async function setVolume(db){
   await apiPost('/api/volume',{volume:db});
 }
 async function recoverEngine(){
-  if(!confirm('?El motor ALSA colapso? Esto inyectara una configuracion de emergencia (hw:1,0) para destrabarlo. ?Continuar?')) return;
-  toast('Aplicando Rescue Config...');
-  try {
-    await fetch('/api/recovery', {method: 'POST'});
-    toast('Reiniciando DSP...');
-    setTimeout(() => location.reload(), 3000);
-  } catch(e) {
-    toast('Error en recovery');
-  }
-}
+   const btn=document.getElementById('recovery-btn');
+   if(btn){btn.disabled=true;btn.textContent='Recuperando...';}
+   toast('Escribiendo config de emergencia y reiniciando servicios...');
+   try {
+     const r=await fetch('/api/recovery', {method:'POST'});
+     const j=await r.json();
+     if(j.ok){
+       toast('Servicios reiniciados. Recargando pagina...');
+       setTimeout(()=>location.reload(), 4000);
+     } else {
+       toast('Error en recovery: '+(j.error||'desconocido'));
+       if(btn){btn.disabled=false;btn.textContent='Recovery Config';}
+     }
+   } catch(e) {
+     toast('Error en recovery: '+e.message);
+     if(btn){btn.disabled=false;btn.textContent='Recovery Config';}
+   }
+ }
 
 // ???????????????????????????????????????????????????????????????????????????
 // MATH
@@ -2421,27 +2430,45 @@ async function applyChunksize(val){
   }
 }
 function fillDeviceSel(id,devs,current){
-  const sel=document.getElementById(id); if(!sel) return;
-  sel.innerHTML='';
-  if(!devs.length){const o=document.createElement('option');o.textContent='(sin dispositivos)';sel.appendChild(o);return;}
-  let sorted=[...devs];
-  let found=false;
-  if(current){
-    const ci=sorted.findIndex(d=>d[0]===current);
-    if(ci>=0){found=true;if(ci>0){const [item]=sorted.splice(ci,1);sorted.unshift(item);}}
-  }
-  if(current&&!found) sorted.unshift([current,'(dispositivo actual)']);
-  for(const [dev,desc] of sorted){
-    const o=document.createElement('option');
-    o.value=dev;
-    const isCurrent=(dev===current);
-    const label=desc.split('\n')[0].trim();
-    o.textContent=isCurrent?`\u25B6 ${dev}  \u2014  ${label}`:`${dev}  \u2014  ${label}`;
-    o.selected=isCurrent;
-    o.style.cssText=isCurrent?'color:#7fff7f;font-weight:bold':'';
-    sel.appendChild(o);
-  }
-}
+   const sel=document.getElementById(id); if(!sel) return;
+   sel.innerHTML='';
+   if(!devs.length){const o=document.createElement('option');o.textContent='(sin dispositivos)';sel.appendChild(o);return;}
+let sorted=devs.map(d=>{
+      const devId=d.id||d[0]||'';
+      const dName=d.card_name||d[1]||'';
+      const dDesc=d.desc||'';
+      const isDante=devId.startsWith('inferno');
+      let label='';
+      if(isDante){
+        label=`[Dante] ${dDesc||dName||'AES67 Network Audio'}`;
+      } else if(dName && dDesc && dName!==dDesc){
+        label=`${devId} - ${dName} (${dDesc})`;
+      } else if(dName){
+        label=`${devId} - ${dName}`;
+      } else if(dDesc){
+        label=`${devId} - ${dDesc}`;
+      } else {
+        label=devId;
+      }
+      return{id:devId,label,isDante,current:false};
+    });
+   let found=false;
+   if(current){
+     const ci=sorted.findIndex(d=>d.id===current);
+     if(ci>=0){found=true;if(ci>0){const [item]=sorted.splice(ci,1);sorted.unshift(item);}}
+   }
+   if(current&&!found) sorted.unshift({id:current,label:'(dispositivo actual)',isDante:current.startsWith('inferno'),current:true});
+   for(const d of sorted){
+     const o=document.createElement('option');
+     o.value=d.id;
+     const isCurrent=(d.id===current);
+     const prefix=d.isDante?'[Dante] ':'';
+     o.textContent=isCurrent?`\u25B6 ${prefix}${d.label}`:`${prefix}${d.label}`;
+     o.selected=isCurrent;
+     o.style.cssText=isCurrent?'color:#7fff7f;font-weight:bold':(d.isDante?'color:#5599ff':'');
+     sel.appendChild(o);
+   }
+ }
 async function applyDevice(domain,val){
   if(!val) return;
   const patch=domain==='capture'?{devices:{capture:{device:val}}}:{devices:{playback:{device:val}}};
@@ -3398,17 +3425,32 @@ function closeResetModal(){
 }
 
 async function loadHwDevices(mode){
-  const endpoint=mode==='capture'?'/api/alsa-hw-capture':'/api/alsa-hw-playback';
+  const endpoint=mode==='capture'?'/api/capturedevices':'/api/playbackdevices';
   const sel=document.getElementById(mode==='capture'?'reset-cap-dev':'reset-play-dev');
   sel.innerHTML='<option value="">-- Seleccione --</option>';
   try{
     const r=await fetch(endpoint);
     const j=await r.json();
     if(!r.ok) return;
-    for(const d of j.devices){
-      const lbl=d.card_name?`${d.id} (${d.card_name}) ${d.desc?'- '+d.desc:''}`:`${d.id} ${d.desc?'- '+d.desc:''}`;
+    for(const d of j.devices||[]){
+      const devId=d.id||d[0]||'';
+      const dName=d.card_name||d[1]||'';
+      const dDesc=d.desc||'';
+      const isDante=devId.startsWith('inferno');
+      let lbl='';
+      if(isDante){
+        lbl=`[Dante] ${dDesc||dName||'AES67 Network Audio'}`;
+      } else if(dName && dDesc && dName!==dDesc){
+        lbl=`${dName} (${dDesc})`;
+      } else if(dName){
+        lbl=dName;
+      } else if(dDesc){
+        lbl=dDesc;
+      } else {
+        lbl=devId;
+      }
       const opt=document.createElement('option');
-      opt.value=d.id; opt.textContent=lbl; sel.appendChild(opt);
+      opt.value=devId; opt.textContent=lbl; sel.appendChild(opt);
     }
   }catch(e){console.error(e)}
   sel.onchange=()=>probeDevice(mode,sel.value);
@@ -3492,10 +3534,89 @@ async function createConfigFromProbes(){
   if(btn){btn.disabled=false;btn.textContent='Crear Config';}
   if(ok){
     await restartEngine();
-    await init();
-    toast('Configuracion creada y motor reiniciado');
+    toast('Configuracion creada. Recargando...');
+    setTimeout(()=>location.reload(), 1500);
   }
 }
+
+// ── Dante Subscription Modal ───────────────────────────────────────────────
+let _danteSubChannels = [];
+
+async function openDanteSub() {
+  const overlay = document.getElementById('dante-sub-overlay');
+  overlay.style.display = 'flex';
+  document.getElementById('dante-sub-status').textContent = 'Cargando...';
+  try {
+    const r = await fetch('/api/dante-subscriptions');
+    const data = await r.json();
+    _danteSubChannels = data.channels || [];
+    // Detectar cuantos canales RX tiene la config actual
+    const cfg = config || {};
+    const rxCh = cfg.devices?.capture?.channels || 2;
+    if (_danteSubChannels.length === 0) {
+      for (let i = 1; i <= rxCh; i++) {
+        _danteSubChannels.push({local_channel_id: i, local_channel_name: 'RX ' + i,
+          tx_channel_name: 'Dante Output ' + i, tx_hostname: ''});
+      }
+    }
+    // Hostname: tomar del primer canal
+    document.getElementById('dante-sub-host').value = _danteSubChannels[0]?.tx_hostname || '';
+    renderDanteSubRows(_danteSubChannels, rxCh);
+    document.getElementById('dante-sub-status').textContent = '';
+  } catch(e) {
+    document.getElementById('dante-sub-status').textContent = 'Error: ' + e.message;
+  }
+}
+
+function renderDanteSubRows(channels, rxCh) {
+  const tbody = document.getElementById('dante-sub-rows');
+  tbody.innerHTML = '';
+  const count = Math.max(channels.length, rxCh || 2);
+  for (let i = 0; i < count; i++) {
+    const ch = channels[i] || {local_channel_id: i+1, local_channel_name: 'RX '+(i+1), tx_channel_name: 'Dante Output '+(i+1)};
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td style="padding:4px 8px;border:1px solid #222;background:#111;color:#ccc">' +
+      (ch.local_channel_name || ('RX '+(i+1))) + '</td>' +
+      '<td style="padding:2px 4px;border:1px solid #222;background:#111">' +
+      '<input type="text" value="' + (ch.tx_channel_name||'') + '" ' +
+      'data-idx="'+i+'" class="dante-tx-name" style="width:100%;background:#000;color:#0ff;border:1px solid #333;padding:4px;border-radius:3px;font-size:11px">' +
+      '</td>';
+    tbody.appendChild(tr);
+  }
+}
+
+function closeDanteSub() {
+  document.getElementById('dante-sub-overlay').style.display = 'none';
+}
+
+async function saveDanteSub() {
+  const host = document.getElementById('dante-sub-host').value.trim();
+  if (!host) { document.getElementById('dante-sub-status').textContent = 'Ingrese el hostname del equipo Dante'; return; }
+  const inputs = document.querySelectorAll('.dante-tx-name');
+  const channels = Array.from(inputs).map((inp, i) => ({
+    local_channel_id: i + 1,
+    local_channel_name: 'RX ' + (i+1),
+    tx_channel_name: inp.value.trim(),
+    tx_hostname: host
+  })).filter(ch => ch.tx_channel_name);
+  if (!channels.length) { document.getElementById('dante-sub-status').textContent = 'Ingrese al menos un canal TX'; return; }
+  document.getElementById('dante-sub-status').textContent = 'Guardando...';
+  try {
+    const r = await fetch('/api/dante-subscriptions', {method:'POST', body: JSON.stringify({channels})});
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error);
+    document.getElementById('dante-sub-status').textContent = 'Guardado. Reiniciando CamillaDSP...';
+    await fetch('/api/restart', {method:'POST'});
+    setTimeout(closeDanteSub, 1500);
+  } catch(e) {
+    document.getElementById('dante-sub-status').textContent = 'Error: ' + e.message;
+  }
+}
+
+// Cerrar modal con Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeDanteSub();
+});
 </script>
 
 <!-- RESET MODAL -->
@@ -3512,6 +3633,31 @@ async function createConfigFromProbes(){
     <div class="btn-row">
       <button class="btn btn-cancel" onclick="closeResetModal()">Cancelar</button>
       <button class="btn btn-create" id="reset-create-btn" onclick="createConfigFromProbes()" disabled>Crear Config</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- DANTE SUBSCRIPTION MODAL -->
+<div id="dante-sub-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center">
+  <div style="background:#1a1a1a;border:1px solid #0af;border-radius:8px;padding:20px;min-width:420px;max-width:95vw;color:#eee;font-family:monospace">
+    <h3 style="margin:0 0 14px;color:#0af;font-size:14px">? FUENTE DANTE RX</h3>
+    <div style="margin-bottom:12px">
+      <label style="font-size:11px;color:#aaa">Hostname del equipo Dante transmisore</label>
+      <input id="dante-sub-host" type="text" placeholder="P300-fb2f11" style="width:100%;box-sizing:border-box;background:#000;color:#0ff;border:1px solid #444;padding:6px 8px;border-radius:4px;font-size:12px;margin-top:4px">
+    </div>
+    <div style="margin-bottom:4px;font-size:11px;color:#aaa">Asignacion de canales (nombre de salida en el equipo Dante):</div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px" id="dante-sub-table">
+      <thead><tr>
+        <th style="background:#111;color:#0ff;padding:4px 8px;border:1px solid #333;text-align:left">Canal local</th>
+        <th style="background:#111;color:#0ff;padding:4px 8px;border:1px solid #333;text-align:left">Nombre canal TX (equipo Dante)</th>
+      </tr></thead>
+      <tbody id="dante-sub-rows"></tbody>
+    </table>
+    <div id="dante-sub-status" style="font-size:11px;color:#fa0;min-height:18px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeDanteSub()" style="background:#333;color:#ccc;border:1px solid #555;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:12px">Cancelar</button>
+      <button onclick="saveDanteSub()" style="background:#005080;color:#fff;border:1px solid #0af;padding:6px 16px;border-radius:4px;cursor:pointer;font-size:12px">Guardar y reiniciar</button>
     </div>
   </div>
 </div>
