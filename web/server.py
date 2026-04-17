@@ -401,15 +401,21 @@ def _list_hw_devices(mode):
     devices = []
     cards = _parse_proc_cards()
     try:
-        out = subprocess.check_output(["aplay", "-l"], text=True, timeout=5) if mode == "playback" else subprocess.check_output(["arecord", "-l"], text=True, timeout=5)
+        cmd = ["aplay", "-l"] if mode == "playback" else ["arecord", "-l"]
+        out = subprocess.check_output(cmd, text=True, timeout=5)
+        import re
         for line in out.splitlines():
-            m = __import__("re").match(r"card (\d+): (\w+).*device (\d+):.*\[(.+?)\]", line)
+            m = re.match(r"card (\d+): (\S+)\s+\[.*\], device (\d+):.*\[(.*)\]", line)
             if m:
-                cnum, cid, dnum, desc = int(m.group(1)), m.group(2), int(m.group(3)), m.group(4)
+                cnum = int(m.group(1))
+                cid = m.group(2)
+                dnum = int(m.group(3))
+                desc = m.group(4).strip() or cid
                 dev_id = f"hw:{cnum},{dnum}"
                 card_name = cards.get(cnum, {}).get("name", cid)
                 devices.append({"id": dev_id, "card_name": card_name, "desc": desc})
-    except: pass
+    except Exception as e:
+        print(f"[ERROR] _list_hw_devices({mode}): {e}")
     return devices
 
 @app.route("/api/alsa-hw-capture")
