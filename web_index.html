@@ -2421,27 +2421,33 @@ async function applyChunksize(val){
   }
 }
 function fillDeviceSel(id,devs,current){
-  const sel=document.getElementById(id); if(!sel) return;
-  sel.innerHTML='';
-  if(!devs.length){const o=document.createElement('option');o.textContent='(sin dispositivos)';sel.appendChild(o);return;}
-  let sorted=[...devs];
-  let found=false;
-  if(current){
-    const ci=sorted.findIndex(d=>d[0]===current);
-    if(ci>=0){found=true;if(ci>0){const [item]=sorted.splice(ci,1);sorted.unshift(item);}}
-  }
-  if(current&&!found) sorted.unshift([current,'(dispositivo actual)']);
-  for(const [dev,desc] of sorted){
-    const o=document.createElement('option');
-    o.value=dev;
-    const isCurrent=(dev===current);
-    const label=desc.split('\n')[0].trim();
-    o.textContent=isCurrent?`\u25B6 ${dev}  \u2014  ${label}`:`${dev}  \u2014  ${label}`;
-    o.selected=isCurrent;
-    o.style.cssText=isCurrent?'color:#7fff7f;font-weight:bold':'';
-    sel.appendChild(o);
-  }
-}
+   const sel=document.getElementById(id); if(!sel) return;
+   sel.innerHTML='';
+   if(!devs.length){const o=document.createElement('option');o.textContent='(sin dispositivos)';sel.appendChild(o);return;}
+   let sorted=devs.map(d=>{
+     const devId=d.id||d[0]||'';
+     const desc=d.desc||d.card_name||d[1]||'';
+     const isDante=devId.startsWith('inferno');
+     const label=isDante?`[Dante] ${desc}`:(desc?`${devId} - ${desc}`:devId);
+     return{id:devId,label,isDante,current:false};
+   });
+   let found=false;
+   if(current){
+     const ci=sorted.findIndex(d=>d.id===current);
+     if(ci>=0){found=true;if(ci>0){const [item]=sorted.splice(ci,1);sorted.unshift(item);}}
+   }
+   if(current&&!found) sorted.unshift({id:current,label:'(dispositivo actual)',isDante:current.startsWith('inferno'),current:true});
+   for(const d of sorted){
+     const o=document.createElement('option');
+     o.value=d.id;
+     const isCurrent=(d.id===current);
+     const prefix=d.isDante?'[Dante] ':'';
+     o.textContent=isCurrent?`\u25B6 ${prefix}${d.label}`:`${prefix}${d.label}`;
+     o.selected=isCurrent;
+     o.style.cssText=isCurrent?'color:#7fff7f;font-weight:bold':(d.isDante?'color:#5599ff':'');
+     sel.appendChild(o);
+   }
+ }
 async function applyDevice(domain,val){
   if(!val) return;
   const patch=domain==='capture'?{devices:{capture:{device:val}}}:{devices:{playback:{device:val}}};
@@ -3492,8 +3498,8 @@ async function createConfigFromProbes(){
   if(btn){btn.disabled=false;btn.textContent='Crear Config';}
   if(ok){
     await restartEngine();
-    await init();
-    toast('Configuracion creada y motor reiniciado');
+    toast('Configuracion creada. Recargando...');
+    setTimeout(()=>location.reload(), 1500);
   }
 }
 </script>
