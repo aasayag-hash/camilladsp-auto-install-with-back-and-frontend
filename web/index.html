@@ -2405,11 +2405,17 @@ function fillDeviceSel(id,devs,current){
   const sel=document.getElementById(id); if(!sel) return;
   sel.innerHTML='';
   if(!devs.length){const o=document.createElement('option');o.textContent='(sin dispositivos)';sel.appendChild(o);return;}
-  for(const [dev,desc] of devs){
+  let sorted=[...devs];
+  if(current){
+    const ci=sorted.findIndex(d=>d[0]===current);
+    if(ci>0){const [item]=sorted.splice(ci,1);sorted.unshift(item);}
+  }
+  for(const [dev,desc] of sorted){
     const o=document.createElement('option');
     o.value=dev;
     o.textContent=`${dev}  —  ${desc.split('\n')[0].trim()}`;
     o.selected=(dev===current);
+    if(dev===current) o.style.background='#3a5a2a';
     sel.appendChild(o);
   }
 }
