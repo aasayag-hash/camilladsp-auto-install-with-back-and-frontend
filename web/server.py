@@ -796,6 +796,26 @@ def dante_set_subscriptions():
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
 
+def _push_saved_config():
+    import time
+    time.sleep(3)
+    try:
+        cfg = load_yaml_config()
+        if not cfg or not cfg.get("devices"):
+            return
+        def strip_nulls(obj):
+            if isinstance(obj, dict):
+                return {k: strip_nulls(v) for k, v in obj.items() if v is not None}
+            if isinstance(obj, list):
+                return [strip_nulls(v) for v in obj]
+            return obj
+        cfg = strip_nulls(cfg)
+        cdsp("SetConfigJson", json.dumps(cfg))
+        print(f"[startup] config aplicada al arranque")
+    except Exception as e:
+        print(f"[startup] no se pudo aplicar config: {e}")
+
 if __name__ == "__main__":
     print(f"CamillaDSP Web GUI → http://0.0.0.0:{WEB_PORT}")
+    threading.Thread(target=_push_saved_config, daemon=True).start()
     app.run(host="0.0.0.0", port=WEB_PORT, threaded=True)
