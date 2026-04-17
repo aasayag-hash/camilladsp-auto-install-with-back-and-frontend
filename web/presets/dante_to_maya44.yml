@@ -1,0 +1,160 @@
+description: inferno_rx_direct
+devices:
+  adjust_period: null
+  capture:
+    channels: 2
+    device: inferno_rx
+    format: S32_LE
+    labels: null
+    link_mute_control: null
+    link_volume_control: null
+    stop_on_inactive: null
+    type: Alsa
+  capture_samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: true
+  multithreaded: null
+  playback:
+    channels: 4
+    device: hw:1,0
+    format: S16_LE
+    type: Alsa
+  queuelimit: null
+  rate_measure_interval: null
+  resampler: null
+  samplerate: 48000
+  silence_threshold: null
+  silence_timeout: null
+  stop_on_rate_change: null
+  target_level: null
+  volume_limit: null
+  volume_ramp_time: null
+  worker_threads: null
+filters: {}
+mixers:
+  Mixer 1:
+    channels:
+      in: 2
+      out: 4
+    description: null
+    labels: null
+    mapping:
+    - dest: 0
+      mute: false
+      sources:
+      - channel: 0
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 1
+      mute: false
+      sources:
+      - channel: 1
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 2
+      mute: false
+      sources:
+      - channel: 0
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+    - dest: 3
+      mute: false
+      sources:
+      - channel: 1
+        gain: 0
+        inverted: false
+        mute: false
+        scale: dB
+pipeline:
+- bypassed: null
+  description: null
+  name: Mixer 1
+  type: Mixer
+- bypassed: null
+  description: null
+  name: Comp_OUT0
+  type: Processor
+- bypassed: null
+  description: null
+  name: Comp_OUT1
+  type: Processor
+- bypassed: null
+  description: null
+  name: Comp_OUT2
+  type: Processor
+- bypassed: null
+  description: null
+  name: Comp_OUT3
+  type: Processor
+processors:
+  Comp_OUT0:
+    description: null
+    parameters:
+      attack: 0.2
+      channels: 4
+      clip_limit: null
+      factor: 5
+      makeup_gain: 0
+      monitor_channels:
+      - 0
+      process_channels:
+      - 0
+      release: 1
+      soft_clip: false
+      threshold: -54.7
+    type: Compressor
+  Comp_OUT1:
+    description: null
+    parameters:
+      attack: 0.2
+      channels: 4
+      clip_limit: null
+      factor: 5
+      makeup_gain: 0
+      monitor_channels:
+      - 1
+      process_channels:
+      - 1
+      release: 1
+      soft_clip: false
+      threshold: -56.2
+    type: Compressor
+  Comp_OUT2:
+    description: null
+    parameters:
+      attack: 0.2
+      channels: 4
+      clip_limit: null
+      factor: 5
+      makeup_gain: 0
+      monitor_channels:
+      - 2
+      process_channels:
+      - 2
+      release: 1
+      soft_clip: false
+      threshold: -57.7
+    type: Compressor
+  Comp_OUT3:
+    description: null
+    parameters:
+      attack: 0.2
+      channels: 4
+      clip_limit: null
+      factor: 5
+      makeup_gain: 0
+      monitor_channels:
+      - 3
+      process_channels:
+      - 3
+      release: 1
+      soft_clip: false
+      threshold: -58.2
+    type: Compressor
+title: null
