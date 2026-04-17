@@ -1112,7 +1112,6 @@ devices:
   chunksize: 1024
   capture_samplerate: 48000
   enable_rate_adjust: true
-  stop_on_inactive: true
   capture:
     type: Alsa
     channels: 2
