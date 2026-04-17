@@ -3475,8 +3475,9 @@ async function createConfigFromProbes(){
   const ok=await setFullConfig(def);
   if(btn){btn.disabled=false;btn.textContent='Crear Config';}
   if(ok){
+    await restartEngine();
     await init();
-    toast('Configuración creada con dispositivos de audio');
+    toast('Configuración creada y motor reiniciado');
   }
 }
 </script>
