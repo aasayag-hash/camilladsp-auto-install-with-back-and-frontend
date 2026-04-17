@@ -31,47 +31,20 @@ pcm.inferno_rx {
     SAMPLE_RATE "48000"
     RX_CHANNELS "2"
     TX_CHANNELS "0"
-    PROCESS_ID "1005"
+    PROCESS_ID "1007"
     CLOCK_PATH "/tmp/ptp-usrvclock"
     RX_LATENCY_NS "1000000"
 }
 
-
-pcm.inferno_rx2 {
-    type inferno
-    NAME "tvbox-dante"
-    BIND_IP "192.168.1.180"
-    SAMPLE_RATE "48000"
-    RX_CHANNELS "2"
-    TX_CHANNELS "2"
-    PROCESS_ID "2000"
-    ALT_PORT "8700"
-    CLOCK_PATH "/tmp/ptp-usrvclock"
-    RX_LATENCY_NS "1000000"
-    TX_LATENCY_NS "1000000"
-}
-
-pcm.inferno_tx2 {
-    type inferno
-    NAME "tvbox-dante"
-    BIND_IP "192.168.1.180"
-    SAMPLE_RATE "48000"
-    RX_CHANNELS "2"
-    TX_CHANNELS "2"
-    PROCESS_ID "2000"
-    ALT_PORT "8700"
-    CLOCK_PATH "/tmp/ptp-usrvclock"
-    RX_LATENCY_NS "1000000"
-    TX_LATENCY_NS "1000000"
-}
 pcm.inferno_tx {
     type inferno
     BIND_IP "192.168.1.180"
     SAMPLE_RATE "48000"
     RX_CHANNELS "0"
     TX_CHANNELS "2"
-    PROCESS_ID "2"
+    PROCESS_ID "11"
     ALT_PORT "8700"
     CLOCK_PATH "/tmp/ptp-usrvclock"
     RX_LATENCY_NS "1000000"
+    TX_LATENCY_NS "1000000"
 }

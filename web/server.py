@@ -387,6 +387,35 @@ def save_preset():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+def _increment_inferno_pid(device_name):
+    """Incrementa el PROCESS_ID del bloque inferno exacto en .asoundrc."""
+    import re
+    asoundrc = os.path.expanduser("~/.asoundrc")
+    try:
+        content = open(asoundrc).read()
+        # Buscar el bloque exacto: pcm.inferno_rx { ... } o pcm.inferno_tx { ... }
+        # device_name puede ser "inferno_rx", "inferno_tx", etc.
+        block_name = device_name.strip()
+        # Extraer solo el bloque exacto y reemplazar su PROCESS_ID
+        block_pat = re.compile(
+            r'(pcm\.' + re.escape(block_name) + r'\s*\{)([^}]*?)(PROCESS_ID\s*")(\d+)(")',
+            re.DOTALL
+        )
+        m = block_pat.search(content)
+        if not m:
+            print(f"[inferno] bloque {block_name} no encontrado en .asoundrc")
+            return
+        old = int(m.group(4))
+        new = old + 1
+        new_content = block_pat.sub(
+            lambda x: x.group(1) + x.group(2) + x.group(3) + str(new) + x.group(5),
+            content, count=1
+        )
+        open(asoundrc, "w").write(new_content)
+        print(f"[inferno] {block_name} PROCESS_ID: {old} -> {new}")
+    except Exception as e:
+        print(f"[inferno] error incrementando PROCESS_ID: {e}")
+
 @app.route("/api/presets/load", methods=["POST"])
 def load_preset():
     try:
@@ -402,6 +431,13 @@ def load_preset():
         else:
             with open(path, "r") as f:
                 cfg = json.load(f)
+        # Si usa inferno, incrementar PROCESS_ID antes de aplicar para liberar puerto anterior
+        capture_dev = cfg.get("devices", {}).get("capture", {}).get("device", "")
+        playback_dev = cfg.get("devices", {}).get("playback", {}).get("device", "")
+        if "inferno" in capture_dev:
+            _increment_inferno_pid(capture_dev)
+        if "inferno" in playback_dev:
+            _increment_inferno_pid(playback_dev)
         # Apply to DSP
         cdsp("SetConfigJson", json.dumps(cfg))
         save_yaml_config(cfg)
