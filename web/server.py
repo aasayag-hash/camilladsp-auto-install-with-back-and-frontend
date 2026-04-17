@@ -398,7 +398,7 @@ def _parse_proc_cards():
     return cards
 
 def _list_hw_devices(mode):
-    devices = []
+    devices = [{"id": "null", "card_name": "null", "desc": "Discard all samples"}]
     cards = _parse_proc_cards()
     try:
         cmd = ["aplay", "-l"] if mode == "playback" else ["arecord", "-l"]
