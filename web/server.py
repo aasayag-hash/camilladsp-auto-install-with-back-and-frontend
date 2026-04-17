@@ -429,9 +429,9 @@ def alsa_hw_playback():
 CDSP_FORMATS = {'S16_LE', 'S24_3LE', 'S24_4LE', 'S32_LE', 'F32_LE', 'F64_LE'}
 
 ALSACTL_MAP = {
-    'S16_LE': 'S16_LE', 'S24_3LE': 'S24_3LE', 'S24_LE': 'S24_4LE',
+    'S16_LE': 'S16_LE', 'S24_3LE': 'S24_3_LE', 'S24_LE': 'S24_4_LE',
     'S32_LE': 'S32_LE', 'FLOAT_LE': 'F32_LE', 'FLOAT64_LE': 'F64_LE',
-    'S24_4LE': 'S24_4LE', 'F32_LE': 'F32_LE', 'F64_LE': 'F64_LE',
+    'S24_4LE': 'S24_4_LE', 'F32_LE': 'F32_LE', 'F64_LE': 'F64_LE',
 }
 
 def _to_cdsp_fmt(fmt_list):
@@ -460,7 +460,7 @@ def _parse_hw_params_proc(device, mode):
             k, _, v = line.partition(":")
             k, v = k.strip().lower(), v.strip()
             if k == "format":
-                info["format"] = v
+                info["format"] = ALSACTL_MAP.get(v, v)
             elif k == "channels":
                 info["channels"] = v
             elif k == "rate":
