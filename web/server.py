@@ -238,8 +238,7 @@ def _get_alsa_hw(mode):
 @app.route("/api/capturedevices")
 def get_capture_devices():
     try:
-        # Fallback a CamillaGUI si _get_alsa_hw falla, pero nativo primero
-        data = _get_alsa_hw("capture")
+        data = _list_hw_devices("capture")
         if not data:
             data = _cdsp_gui_get("/api/capturedevices/Alsa")
         return jsonify({"ok": True, "devices": data})
@@ -249,7 +248,7 @@ def get_capture_devices():
 @app.route("/api/playbackdevices")
 def get_playback_devices():
     try:
-        data = _get_alsa_hw("playback")
+        data = _list_hw_devices("playback")
         if not data:
             data = _cdsp_gui_get("/api/playbackdevices/Alsa")
         return jsonify({"ok": True, "devices": data})
@@ -416,7 +415,28 @@ def _list_hw_devices(mode):
                 devices.append({"id": dev_id, "card_name": card_name, "desc": desc})
     except Exception as e:
         print(f"[ERROR] _list_hw_devices({mode}): {e}")
+    dante_devs = _list_dante_devices(mode)
+    devices.extend(dante_devs)
     return devices
+
+def _list_dante_devices(mode):
+    devs = []
+    try:
+        cmd = ["aplay", "-L"] if mode == "playback" else ["arecord", "-L"]
+        out = subprocess.check_output(cmd, text=True, timeout=3)
+        target = "inferno_tx" if mode == "playback" else "inferno_rx"
+        for line in out.splitlines():
+            line = line.strip()
+            if line == target:
+                devs.append({"id": target, "card_name": "Dante", "desc": "Dante/AES67 Network Audio" + (" (RX)" if "rx" in target else " (TX)")})
+        if "inferno" not in out:
+            pass
+    except Exception:
+        pass
+    for alt in (["inferno_rx"] if mode == "capture" else ["inferno_tx"]):
+        if not any(d["id"] == alt for d in devs):
+            devs.append({"id": alt, "card_name": "Dante", "desc": "Dante/AES67 Network Audio" + (" (RX)" if "rx" in alt else " (TX)") + " (not detected)"})
+    return devs
 
 @app.route("/api/alsa-hw-capture")
 def alsa_hw_capture():
@@ -476,6 +496,11 @@ def alsa_probe():
     mode = request.args.get("mode", "capture")
     if not device:
         return jsonify({"ok": False, "error": "Missing device parameter"}), 400
+    if device.startswith("inferno"):
+        return jsonify({"ok": True, "probe": {
+            "device": device, "formats": ["S32_LE"], "format": "S32_LE",
+            "channels": "2", "rate": 48000, "dante": True
+        }})
     result = {"device": device, "formats": []}
     try:
         cmd = ["aplay", "--dump-hw-params", "-D", device, "/dev/zero"] if mode == "playback" else ["arecord", "--dump-hw-params", "-D", device, "/dev/null"]
@@ -513,6 +538,131 @@ def alsa_probe():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
     return jsonify({"ok": True, "probe": result})
+
+# ── Dante / Inferno endpoints ───────────────────────────────────────────────────
+
+DANTE_ASOUNDRC = os.path.expanduser("~/.asoundrc")
+
+def _dante_service_active():
+    try:
+        out = subprocess.check_output(["systemctl", "is-active", "statime-inferno"], text=True, timeout=3).strip()
+        return out == "active"
+    except Exception:
+        return False
+
+def _dante_ptp_status():
+    try:
+        out = subprocess.check_output(
+            ["journalctl", "-u", "statime-inferno", "--no-pager", "-n", "50"],
+            text=True, timeout=3
+        )
+        has_master = "Recommended state port" in out and "M2(" in out
+        lines = [l for l in out.splitlines() if "offset" in l.lower() or "delay" in l.lower()]
+        offset_ns = None
+        delay_ns = None
+        for l in lines[-3:]:
+            import re as _r
+            m = _r.search(r"offset\s+([-\d.]+)ns", l)
+            if m:
+                try: offset_ns = float(m.group(1))
+                except: pass
+            m = _r.search(r"delay\s+([-\d.]+)", l)
+            if m:
+                try: delay_ns = float(m.group(1))
+                except: pass
+        locked = has_master
+        return {"locked": locked, "offset_ns": offset_ns, "delay_ns": delay_ns, "raw_log": out[-500:]}
+    except Exception as e:
+        return {"locked": False, "offset_ns": None, "delay_ns": None, "raw_log": str(e)}
+
+@app.route("/api/dante-status")
+def dante_status():
+    try:
+        svc = _dante_service_active()
+        ptp = _dante_ptp_status() if svc else {"locked": False, "offset_ns": None, "delay_ns": None, "raw_log": ""}
+        devices = []
+        for d in ["inferno_rx", "inferno_tx"]:
+            try:
+                cmd = ["arecord", "-L"] if "rx" in d else ["aplay", "-L"]
+                out = subprocess.check_output(cmd, text=True, timeout=3)
+                if d in out:
+                    devices.append(d)
+            except:
+                pass
+        inf_so = os.path.exists("/usr/lib/aarch64-linux-gnu/alsa-lib/libasound_module_pcm_inferno.so") or \
+                 os.path.exists("/usr/lib/x86_64-linux-gnu/alsa-lib/libasound_module_pcm_inferno.so")
+        return jsonify({
+            "ok": True,
+            "service_active": svc,
+            "ptp": ptp,
+            "devices": devices,
+            "inferno_installed": inf_so,
+            "asoundrc_exists": os.path.exists(DANTE_ASOUNDRC)
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/dante-config", methods=["POST"])
+def dante_config():
+    try:
+        d = json.loads(request.data)
+        bind_ip = d.get("bind_ip", "192.168.1.127")
+        sample_rate = d.get("sample_rate", "48000")
+        rx_channels = d.get("rx_channels", "2")
+        tx_channels = d.get("tx_channels", "2")
+        clock_path = d.get("clock_path", "/tmp/ptp-usrvclock")
+        asoundrc = f"""pcm.inferno {{
+    type inferno
+    @args.NAME {{ type string }}
+    @args.DEVICE_ID {{ type string }}
+    @args.BIND_IP {{ type string }}
+    @args.SAMPLE_RATE {{ type string }}
+    @args.PROCESS_ID {{ type string }}
+    @args.ALT_PORT {{ type string }}
+    @args.RX_CHANNELS {{ type string }}
+    @args.TX_CHANNELS {{ type string }}
+    @args.CLOCK_PATH {{ type string }}
+    @args.RX_LATENCY_NS {{ type string }}
+    @args.TX_LATENCY_NS {{ type string }}
+    NAME $NAME
+    DEVICE_ID $DEVICE_ID
+    BIND_IP $BIND_IP
+    SAMPLE_RATE $SAMPLE_RATE
+    PROCESS_ID $PROCESS_ID
+    ALT_PORT $ALT_PORT
+    RX_CHANNELS $RX_CHANNELS
+    TX_CHANNELS $TX_CHANNELS
+    CLOCK_PATH $CLOCK_PATH
+    RX_LATENCY_NS $RX_LATENCY_NS
+    TX_LATENCY_NS $TX_LATENCY_NS
+}}
+
+pcm.inferno_rx {{
+    type inferno
+    BIND_IP "{bind_ip}"
+    SAMPLE_RATE "{sample_rate}"
+    RX_CHANNELS "{rx_channels}"
+    TX_CHANNELS "0"
+    PROCESS_ID "0"
+    CLOCK_PATH "{clock_path}"
+}}
+
+pcm.inferno_tx {{
+    type inferno
+    BIND_IP "{bind_ip}"
+    SAMPLE_RATE "{sample_rate}"
+    RX_CHANNELS "0"
+    TX_CHANNELS "{tx_channels}"
+    PROCESS_ID "1"
+    ALT_PORT "8700"
+    CLOCK_PATH "{clock_path}"
+}}
+"""
+        with open(DANTE_ASOUNDRC, "w") as f:
+            f.write(asoundrc)
+        return jsonify({"ok": True, "asoundrc": asoundrc})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
 if __name__ == "__main__":
     print(f"CamillaDSP Web GUI → http://0.0.0.0:{WEB_PORT}")
