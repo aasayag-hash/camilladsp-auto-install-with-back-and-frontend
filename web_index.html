@@ -2424,13 +2424,25 @@ function fillDeviceSel(id,devs,current){
    const sel=document.getElementById(id); if(!sel) return;
    sel.innerHTML='';
    if(!devs.length){const o=document.createElement('option');o.textContent='(sin dispositivos)';sel.appendChild(o);return;}
-   let sorted=devs.map(d=>{
-     const devId=d.id||d[0]||'';
-     const desc=d.desc||d.card_name||d[1]||'';
-     const isDante=devId.startsWith('inferno');
-     const label=isDante?`[Dante] ${desc}`:(desc?`${devId} - ${desc}`:devId);
-     return{id:devId,label,isDante,current:false};
-   });
+let sorted=devs.map(d=>{
+      const devId=d.id||d[0]||'';
+      const dName=d.card_name||d[1]||'';
+      const dDesc=d.desc||'';
+      const isDante=devId.startsWith('inferno');
+      let label='';
+      if(isDante){
+        label=`[Dante] ${dDesc||dName||'AES67 Network Audio'}`;
+      } else if(dName && dDesc && dName!==dDesc){
+        label=`${devId} - ${dName} (${dDesc})`;
+      } else if(dName){
+        label=`${devId} - ${dName}`;
+      } else if(dDesc){
+        label=`${devId} - ${dDesc}`;
+      } else {
+        label=devId;
+      }
+      return{id:devId,label,isDante,current:false};
+    });
    let found=false;
    if(current){
      const ci=sorted.findIndex(d=>d.id===current);
@@ -3404,17 +3416,32 @@ function closeResetModal(){
 }
 
 async function loadHwDevices(mode){
-  const endpoint=mode==='capture'?'/api/alsa-hw-capture':'/api/alsa-hw-playback';
+  const endpoint=mode==='capture'?'/api/capturedevices':'/api/playbackdevices';
   const sel=document.getElementById(mode==='capture'?'reset-cap-dev':'reset-play-dev');
   sel.innerHTML='<option value="">-- Seleccione --</option>';
   try{
     const r=await fetch(endpoint);
     const j=await r.json();
     if(!r.ok) return;
-    for(const d of j.devices){
-      const lbl=d.card_name?`${d.id} (${d.card_name}) ${d.desc?'- '+d.desc:''}`:`${d.id} ${d.desc?'- '+d.desc:''}`;
+    for(const d of j.devices||[]){
+      const devId=d.id||d[0]||'';
+      const dName=d.card_name||d[1]||'';
+      const dDesc=d.desc||'';
+      const isDante=devId.startsWith('inferno');
+      let lbl='';
+      if(isDante){
+        lbl=`[Dante] ${dDesc||dName||'AES67 Network Audio'}`;
+      } else if(dName && dDesc && dName!==dDesc){
+        lbl=`${dName} (${dDesc})`;
+      } else if(dName){
+        lbl=dName;
+      } else if(dDesc){
+        lbl=dDesc;
+      } else {
+        lbl=devId;
+      }
       const opt=document.createElement('option');
-      opt.value=d.id; opt.textContent=lbl; sel.appendChild(opt);
+      opt.value=devId; opt.textContent=lbl; sel.appendChild(opt);
     }
   }catch(e){console.error(e)}
   sel.onchange=()=>probeDevice(mode,sel.value);
