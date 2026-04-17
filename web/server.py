@@ -272,30 +272,76 @@ def restart_engine():
     return jsonify({"ok": True})
 
 @app.route("/api/recovery", methods=["POST"])
+DEFAULT_CONFIG_YAML = """\
+description: default
+devices:
+  adjust_period: null
+  capture:
+    channels: 4
+    device: "null"
+    format: null
+    labels: null
+    link_mute_control: null
+    link_volume_control: null
+    stop_on_inactive: null
+    type: Alsa
+  capture_samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: null
+  multithreaded: null
+  playback:
+    channels: 4
+    device: "null"
+    format: null
+    type: Alsa
+  queuelimit: null
+  rate_measure_interval: null
+  resampler: null
+  samplerate: 48000
+  silence_threshold: null
+  silence_timeout: null
+  stop_on_rate_change: null
+  target_level: null
+  volume_limit: null
+  volume_ramp_time: null
+  worker_threads: null
+filters: {}
+mixers:
+  Mixer 1:
+    channels:
+      in: 4
+      out: 4
+    description: null
+    labels: null
+    mapping: []
+pipeline: []
+processors: {}
+title: default
+"""
+
+def _restart_all_services():
+    try:
+        subprocess.run(["pkill", "-9", "camilladsp"], timeout=5)
+    except Exception: pass
+    try:
+        subprocess.run(["pkill", "-9", "-f", "server.py"], timeout=5)
+    except Exception: pass
+    try:
+        subprocess.Popen(["/root/camilladsp/engine/camilladsp", "-p", "1234", "-a", "0.0.0.0", "-w"],
+                         stdout=open("/tmp/camilladsp.log", "w"), stderr=subprocess.STDOUT)
+    except Exception: pass
+    import time; time.sleep(2)
+    try:
+        subprocess.Popen(["python3", "/root/camilladsp/web/server.py"],
+                         stdout=open("/tmp/flask.log", "w"), stderr=subprocess.STDOUT)
+    except Exception: pass
+    import time; time.sleep(2)
+
 def recover_engine():
     try:
-        cfg = load_yaml_config()
-        if "capture" in cfg.get("devices", {}):
-            cfg["devices"]["capture"]["device"] = "hw:1,0"
-            cfg["devices"]["capture"]["channels"] = 4
-        if "playback" in cfg.get("devices", {}):
-            cfg["devices"]["playback"]["device"] = "hw:1,0"
-            cfg["devices"]["playback"]["channels"] = 4
-        if "devices" in cfg:
-            cfg["devices"]["chunksize"] = 1024
-        
-        save_yaml_config(cfg)
-        
-        try:
-            r1 = urllib.request.Request(f"{CDSP_GUI}/api/stopcamilladsp", method="GET")
-            urllib.request.urlopen(r1, timeout=3)
-        except Exception: pass
-        
-        try:
-            r2 = urllib.request.Request(f"{CDSP_GUI}/api/startcamilladsp", method="GET")
-            urllib.request.urlopen(r2, timeout=3)
-        except Exception: pass
-            
+        with open(CFG_FILE, "w") as f:
+            f.write(DEFAULT_CONFIG_YAML)
+        _restart_all_services()
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})

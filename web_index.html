@@ -846,16 +846,24 @@ async function setVolume(db){
   await apiPost('/api/volume',{volume:db});
 }
 async function recoverEngine(){
-  if(!confirm('?El motor ALSA colapso? Esto inyectara una configuracion de emergencia (hw:1,0) para destrabarlo. ?Continuar?')) return;
-  toast('Aplicando Rescue Config...');
-  try {
-    await fetch('/api/recovery', {method: 'POST'});
-    toast('Reiniciando DSP...');
-    setTimeout(() => location.reload(), 3000);
-  } catch(e) {
-    toast('Error en recovery');
-  }
-}
+   const btn=document.getElementById('recovery-btn');
+   if(btn){btn.disabled=true;btn.textContent='Recuperando...';}
+   toast('Escribiendo config de emergencia y reiniciando servicios...');
+   try {
+     const r=await fetch('/api/recovery', {method:'POST'});
+     const j=await r.json();
+     if(j.ok){
+       toast('Servicios reiniciados. Recargando pagina...');
+       setTimeout(()=>location.reload(), 4000);
+     } else {
+       toast('Error en recovery: '+(j.error||'desconocido'));
+       if(btn){btn.disabled=false;btn.textContent='Recovery Config';}
+     }
+   } catch(e) {
+     toast('Error en recovery: '+e.message);
+     if(btn){btn.disabled=false;btn.textContent='Recovery Config';}
+   }
+ }
 
 // ???????????????????????????????????????????????????????????????????????????
 // MATH
