@@ -13,7 +13,7 @@
 <title>CamillaDSP Web Console</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-/* Pantalla completa en dispositivos táctiles */
+/* Pantalla completa en dispositivos tactiles */
 @media (pointer:coarse){
   html,body{width:100%;height:100%;overflow:hidden;background:#000}
   body{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right)}
@@ -89,7 +89,7 @@ canvas.graph{width:100%;flex:1;min-height:100px;display:block;cursor:crosshair}
 .eq-q-btn{display:none}
 #eq-q-info{display:none}
 #eq-q-overlay{display:none}
-/* Táctil: controles más grandes */
+/* Tactil: controles mas grandes */
 @media (pointer:coarse){
   canvas.graph{min-height:160px}
   table.ftable td input{min-height:32px;font-size:13px}
@@ -239,7 +239,7 @@ table.ftable tr:hover td{background:#1a1a1a}
   <h1>CAMILLADSP CONSOLE</h1>
   <div id="dsp-stats">
     <span class="dsp-stat">State: <span id="dsp-state">—</span></span>
-    <button class="top-btn danger" id="recovery-btn" onclick="recoverEngine()" style="display:none;padding:0 5px;font-size:10px;height:20px;border-color:#f00;margin-left:5px" title="Fuerza una configuración segura de fábrica para destrabar el motor">Recovery Config</button>
+    <button class="top-btn danger" id="recovery-btn" onclick="recoverEngine()" style="display:none;padding:0 5px;font-size:10px;height:20px;border-color:#f00;margin-left:5px" title="Fuerza una configuracion segura de fabrica para destrabar el motor">Recovery Config</button>
     <span class="dsp-stat">Buffer: <span id="dsp-buf">—</span></span>
     <span class="dsp-stat">DSP load: <span id="dsp-load">—</span></span>
     <span class="dsp-stat">CPU: <span id="cpu-load">—</span></span>
@@ -256,7 +256,7 @@ table.ftable tr:hover td{background:#1a1a1a}
 
 <!-- TABS -->
 <div id="tabs">
-  <div class="tab active" onclick="switchTab(0)">VÚMETROS</div>
+  <div class="tab active" onclick="switchTab(0)">VUMETROS</div>
   <div class="tab" onclick="switchTab(1)">GRAPHIC EQ</div>
   <div class="tab" onclick="switchTab(2)">PARAMETRIC EQ</div>
   <div class="tab" onclick="switchTab(3)">CROSSOVERS</div>
@@ -315,13 +315,13 @@ table.ftable tr:hover td{background:#1a1a1a}
   <div class="tab-page" id="page-2">
     <div class="eq-wrap">
       <canvas class="graph" id="eq-canvas"></canvas>
-      <!-- Barra Q: botón −Q | info filtro | botón +Q (entre canvas y tabla) -->
+      <!-- Barra Q: boton −Q | info filtro | boton +Q (entre canvas y tabla) -->
       <div id="eq-q-bar">
         <button class="eq-q-btn" id="eq-q-minus" title="-Q">−</button>
         <div id="eq-q-info">Toca un filtro</div>
         <button class="eq-q-btn" id="eq-q-plus" title="+Q">+</button>
       </div>
-      <div id="eq-q-overlay"></div><!-- compatibilidad con código existente -->
+      <div id="eq-q-overlay"></div><!-- compatibilidad con codigo existente -->
       <div class="filter-table-wrap">
         <table class="ftable"><thead><tr><th>ID</th><th>Tipo</th><th>Freq(Hz)</th><th>Gain(dB)</th><th>Q</th><th>Canal</th><th></th></tr></thead>
         <tbody id="eq-tbody"></tbody></table>
@@ -382,83 +382,83 @@ table.ftable tr:hover td{background:#1a1a1a}
     </div>
     <div id="help-body">
 
-      <!-- ─── ESPAÑOL ─── -->
+      <!-- ─── ESPANOL ─── -->
       <div id="help-es">
 
-        <h3>¿Qué es esta aplicación?</h3>
-        <p>CamillaDSP Console es una interfaz web para controlar en tiempo real el procesador de audio digital <b>CamillaDSP</b> instalado en un dispositivo embebido (TV-box, Raspberry Pi, etc.). Permite ajustar ecualización gráfica y paramétrica, crossovers, mezcla de canales, compresores y dispositivos de audio sin editar archivos de configuración manualmente. Funciona desde cualquier navegador de la red local, incluyendo tablets y teléfonos.</p>
+        <h3>?Que es esta aplicacion?</h3>
+        <p>CamillaDSP Console es una interfaz web para controlar en tiempo real el procesador de audio digital <b>CamillaDSP</b> instalado en un dispositivo embebido (TV-box, Raspberry Pi, etc.). Permite ajustar ecualizacion grafica y parametrica, crossovers, mezcla de canales, compresores y dispositivos de audio sin editar archivos de configuracion manualmente. Funciona desde cualquier navegador de la red local, incluyendo tablets y telefonos.</p>
 
         <h3>Barra superior</h3>
         <ul>
-          <li><b>● (punto de color):</b> verde = conectado al DSP, rojo = sin conexión.</li>
+          <li><b>● (punto de color):</b> verde = conectado al DSP, rojo = sin conexion.</li>
           <li><b>State:</b> estado del motor — Running / Idle / Error.</li>
           <li><b>Buffer:</b> nivel del buffer de audio en muestras.</li>
           <li><b>DSP load:</b> carga de procesamiento del motor DSP en %.</li>
           <li><b>CPU:</b> carga total del procesador del dispositivo, actualizada cada segundo.</li>
-          <li><b>WEB 5005:</b> abre la interfaz nativa de CamillaDSP en otra pestaña.</li>
-          <li><b>Imp EQ / Exp EQ:</b> importa filtros paramétricos desde archivo (REW / Equalizer APO) o exporta los filtros actuales.</li>
-          <li><b>Reset:</b> restablece la configuración a los valores por defecto. <span style="color:#f88">¡Operación irreversible!</span></li>
-          <li><b>ES/EN:</b> cambia el idioma entre español e inglés. Se guarda entre sesiones.</li>
-          <li><b>⛶:</b> activa o desactiva la pantalla completa. En dispositivos táctiles también se activa automáticamente al primer toque.</li>
+          <li><b>WEB 5005:</b> abre la interfaz nativa de CamillaDSP en otra pestana.</li>
+          <li><b>Imp EQ / Exp EQ:</b> importa filtros parametricos desde archivo (REW / Equalizer APO) o exporta los filtros actuales.</li>
+          <li><b>Reset:</b> restablece la configuracion a los valores por defecto. <span style="color:#f88">!Operacion irreversible!</span></li>
+          <li><b>ES/EN:</b> cambia el idioma entre espanol e ingles. Se guarda entre sesiones.</li>
+          <li><b>⛶:</b> activa o desactiva la pantalla completa. En dispositivos tactiles tambien se activa automaticamente al primer toque.</li>
           <li><b>? AYUDA:</b> abre este panel.</li>
         </ul>
 
-        <h3>Uso en dispositivos táctiles (tablet / teléfono)</h3>
+        <h3>Uso en dispositivos tactiles (tablet / telefono)</h3>
         <ul>
-          <li><b>Tap:</b> equivale al clic del ratón.</li>
+          <li><b>Tap:</b> equivale al clic del raton.</li>
           <li><b>Mantener apretado (400 ms):</b> equivale al clic derecho — bypass de canal, eliminar filtro, resetear fader a 0 dB.</li>
-          <li><b>Doble tap:</b> equivale al doble clic — añadir filtro EQ, resetear banda GEQ.</li>
-          <li><b>Arrastrar:</b> mueve filtros en el gráfico y ajusta faders.</li>
+          <li><b>Doble tap:</b> equivale al doble clic — anadir filtro EQ, resetear banda GEQ.</li>
+          <li><b>Arrastrar:</b> mueve filtros en el grafico y ajusta faders.</li>
           <li>Los cuadros de texto (renombrar canales, Reset, guardar preset) se abren en pantalla sin salir del modo fullscreen.</li>
         </ul>
 
-        <h3>Pestaña VÚMETROS</h3>
+        <h3>Pestana VUMETROS</h3>
         <p>Monitoreo en tiempo real de todos los canales con control completo de ganancia.</p>
         <h4>Botones de vista y canal</h4>
         <ul>
-          <li><b>TODO / ENTRADAS / SALIDAS:</b> filtra qué canales se muestran.</li>
-          <li><b>Botón de canal (tap):</b> activa o desactiva la visibilidad de ese canal en el gráfico EQ paramétrico.</li>
-          <li><b>Botón de canal (mantener):</b> pone ese canal en bypass — el EQ se desactiva sin eliminar los filtros. El botón muestra 🔴. Mantener de nuevo para desactivar.</li>
+          <li><b>TODO / ENTRADAS / SALIDAS:</b> filtra que canales se muestran.</li>
+          <li><b>Boton de canal (tap):</b> activa o desactiva la visibilidad de ese canal en el grafico EQ parametrico.</li>
+          <li><b>Boton de canal (mantener):</b> pone ese canal en bypass — el EQ se desactiva sin eliminar los filtros. El boton muestra 🔴. Mantener de nuevo para desactivar.</li>
         </ul>
-        <h4>Vúmetros</h4>
+        <h4>Vumetros</h4>
         <ul>
           <li>Barra <b style="color:#0f0">verde</b> = nivel RMS en tiempo real.</li>
-          <li>Barra <b style="color:#f44">roja</b> (arriba) = reducción de ganancia del compresor (GR).</li>
-          <li>Línea <b style="color:#ff0">amarilla</b> = pico retenido (peak hold, 2 s).</li>
-          <li>Línea <b style="color:#88f">azul</b> punteada = umbral del compresor.</li>
+          <li>Barra <b style="color:#f44">roja</b> (arriba) = reduccion de ganancia del compresor (GR).</li>
+          <li>Linea <b style="color:#ff0">amarilla</b> = pico retenido (peak hold, 2 s).</li>
+          <li>Linea <b style="color:#88f">azul</b> punteada = umbral del compresor.</li>
           <li>Escala: 0 dB arriba → −80 dB abajo.</li>
         </ul>
         <h4>Faders</h4>
         <ul>
-          <li><b>Fader MAIN:</b> volumen maestro (−∞ a +10 dB). Es más largo para facilitar el ajuste fino.</li>
+          <li><b>Fader MAIN:</b> volumen maestro (−∞ a +10 dB). Es mas largo para facilitar el ajuste fino.</li>
           <li><b>MUTE ALL:</b> al fondo de la columna MAIN — silencia todos los canales de salida (rojo = activo).</li>
-          <li><b>Fader de canal:</b> arrastra arriba/abajo para ajustar la ganancia individual (−∞ a +10 dB). En táctil, mantener apretado resetea a 0 dB.</li>
+          <li><b>Fader de canal:</b> arrastra arriba/abajo para ajustar la ganancia individual (−∞ a +10 dB). En tactil, mantener apretado resetea a 0 dB.</li>
           <li><b>MUTE:</b> silencia el canal individualmente (rojo = muteado).</li>
           <li><b>Ø (Polaridad):</b> invierte la fase del canal (morado = invertido).</li>
-          <li><b>Delay (ms):</b> retardo en milisegundos. En táctil, mantener apretado resetea a 0.</li>
+          <li><b>Delay (ms):</b> retardo en milisegundos. En tactil, mantener apretado resetea a 0.</li>
         </ul>
         <h4>Tabla de compresores</h4>
-        <p>Parámetros del compresor dinámico por canal de salida:</p>
+        <p>Parametros del compresor dinamico por canal de salida:</p>
         <ul>
-          <li><b>Attack / Release:</b> tiempos de ataque y liberación en segundos.</li>
-          <li><b>Threshold:</b> umbral de activación en dBFS.</li>
-          <li><b>Ratio:</b> relación de compresión (ej. 4 = 4:1).</li>
-          <li><b>Makeup:</b> ganancia de compensación post-compresión en dB.</li>
+          <li><b>Attack / Release:</b> tiempos de ataque y liberacion en segundos.</li>
+          <li><b>Threshold:</b> umbral de activacion en dBFS.</li>
+          <li><b>Ratio:</b> relacion de compresion (ej. 4 = 4:1).</li>
+          <li><b>Makeup:</b> ganancia de compensacion post-compresion en dB.</li>
           <li><b>ClipLim:</b> activa limitador de clip a 0 dBFS.</li>
-          <li><b>Auto:</b> autoajuste del tiempo de release según el programa.</li>
+          <li><b>Auto:</b> autoajuste del tiempo de release segun el programa.</li>
         </ul>
 
-        <h3>Pestaña GRAPHIC EQ</h3>
-        <p>Ecualizador gráfico de <b>31 bandas</b> de fase lineal, aplicable a canales de entrada.</p>
+        <h3>Pestana GRAPHIC EQ</h3>
+        <p>Ecualizador grafico de <b>31 bandas</b> de fase lineal, aplicable a canales de entrada.</p>
         <h4>Selector de canales</h4>
         <ul>
           <li><b>ALL:</b> selecciona o deselecciona todos los canales de entrada.</li>
-          <li><b>Botones por canal:</b> toggle individual — se pueden seleccionar varios a la vez. El ajuste de ganancia se aplica a todos los seleccionados simultáneamente.</li>
+          <li><b>Botones por canal:</b> toggle individual — se pueden seleccionar varios a la vez. El ajuste de ganancia se aplica a todos los seleccionados simultaneamente.</li>
           <li>Solo disponible para canales de <b>entrada</b>.</li>
         </ul>
         <h4>Faders de banda</h4>
         <ul>
-          <li><b>31 bandas</b> de 20 Hz a 18 kHz (patrón ×1.25): 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
+          <li><b>31 bandas</b> de 20 Hz a 18 kHz (patron ×1.25): 20, 26, 32, 41, 51, 65, 82, 103, 130, 163, 206, 259, 324, 405, 506, 632, 790, 988, 1.2k, 1.5k, 1.9k, 2.4k, 3.0k, 3.8k, 4.7k, 5.9k, 7.3k, 9.2k, 11k, 14k, 18k Hz.</li>
           <li><b>Rango:</b> ±9 dB, escala lineal. Marcas en 0, ±3, ±6, ±9 dB.</li>
           <li><b>Arrastre:</b> arriba = boost, abajo = cut. El valor exacto en dB aparece en tooltip durante el arrastre.</li>
           <li><b>Doble clic / Doble tap:</b> resetea esa banda a 0 dB.</li>
@@ -469,22 +469,22 @@ table.ftable tr:hover td{background:#1a1a1a}
           <li><b>Flat:</b> pone todas las bandas a 0 dB en los canales seleccionados.</li>
           <li><b>Reset canal:</b> elimina completamente el filtro GEQ del pipeline.</li>
         </ul>
-        <div class="tip">El GEQ usa un filtro BiquadCombo/GraphicEqualizer en CamillaDSP, creado automáticamente la primera vez que se mueve un fader.</div>
+        <div class="tip">El GEQ usa un filtro BiquadCombo/GraphicEqualizer en CamillaDSP, creado automaticamente la primera vez que se mueve un fader.</div>
 
-        <h3>Pestaña PARAMETRIC EQ</h3>
-        <p>Ecualizador paramétrico de precisión por canal (entradas y salidas).</p>
+        <h3>Pestana PARAMETRIC EQ</h3>
+        <p>Ecualizador parametrico de precision por canal (entradas y salidas).</p>
         <h4>Selector de canal</h4>
-        <p>Fila superior = entradas, fila inferior = salidas. <b>ALL IN / ALL OUT</b> superpone todos los filtros en el gráfico. El bypass de canal (mantener apretado el botón de canal) desactiva el EQ temporalmente sin borrar los filtros.</p>
-        <h4>Gráfico de respuesta</h4>
+        <p>Fila superior = entradas, fila inferior = salidas. <b>ALL IN / ALL OUT</b> superpone todos los filtros en el grafico. El bypass de canal (mantener apretado el boton de canal) desactiva el EQ temporalmente sin borrar los filtros.</p>
+        <h4>Grafico de respuesta</h4>
         <ul>
-          <li>Eje X: 20 Hz – 20 kHz (logarítmico). Eje Y: ±18 dB.</li>
-          <li><b>Clic / Doble tap en zona vacía:</b> añade un filtro Peaking.</li>
+          <li>Eje X: 20 Hz – 20 kHz (logaritmico). Eje Y: ±18 dB.</li>
+          <li><b>Clic / Doble tap en zona vacia:</b> anade un filtro Peaking.</li>
           <li><b>Arrastrar un punto:</b> mueve el filtro en frecuencia y ganancia.</li>
           <li><b>Clic derecho / Mantener apretado sobre un punto:</b> elimina ese filtro.</li>
           <li>Curva blanca = respuesta total del canal seleccionado.</li>
         </ul>
-        <h4>Botones Q (solo táctil)</h4>
-        <p>Al tocar un filtro aparece un recuadro con su información y botones <b>[−]</b> / <b>[+]</b> para ajustar el factor Q en pasos de 0.1. Tocar fuera del recuadro lo cierra.</p>
+        <h4>Botones Q (solo tactil)</h4>
+        <p>Al tocar un filtro aparece un recuadro con su informacion y botones <b>[−]</b> / <b>[+]</b> para ajustar el factor Q en pasos de 0.1. Tocar fuera del recuadro lo cierra.</p>
         <h4>Tabla de filtros</h4>
         <ul>
           <li><b>Tipo:</b> Peaking, Highshelf, Lowshelf, Highpass, Lowpass.</li>
@@ -492,10 +492,10 @@ table.ftable tr:hover td{background:#1a1a1a}
           <li><b>Gain (dB):</b> ganancia (no aplica en HP/LP).</li>
           <li><b>Q:</b> factor de calidad / anchura de banda.</li>
           <li><b>Canal:</b> canal al que pertenece el filtro.</li>
-          <li><b>✕:</b> elimina el filtro. La tabla tiene scroll cuando hay más filtros de los que caben en pantalla.</li>
+          <li><b>✕:</b> elimina el filtro. La tabla tiene scroll cuando hay mas filtros de los que caben en pantalla.</li>
         </ul>
-        <div class="tip">Q = 0.707 → Butterworth (máxima planicidad). Q alto → pico estrecho; Q bajo → curva ancha.</div>
-        <h4>Importación de filtros (Imp EQ)</h4>
+        <div class="tip">Q = 0.707 → Butterworth (maxima planicidad). Q alto → pico estrecho; Q bajo → curva ancha.</div>
+        <h4>Importacion de filtros (Imp EQ)</h4>
         <p>Soporta REW (Room EQ Wizard) y Equalizer APO:</p>
         <ul>
           <li><b>REW:</b> <span class="kbd">Filter 1: ON PK Fc 1000 Hz Gain 3.0 dB Q 1.41</span></li>
@@ -503,47 +503,47 @@ table.ftable tr:hover td{background:#1a1a1a}
           <li><b>HP/LP:</b> <span class="kbd">Filter: ON HP Fc 80 Hz</span></li>
           <li>Tipos: PK/PEQ→Peaking, LS/LSC→Lowshelf, HS/HSC→Highshelf, HP/HPQ→Highpass, LP/LPQ→Lowpass.</li>
         </ul>
-        <div class="warn">Los filtros importados se asignan al canal activo en ese momento. Seleccioná primero el canal destino.</div>
+        <div class="warn">Los filtros importados se asignan al canal activo en ese momento. Selecciona primero el canal destino.</div>
 
-        <h3>Pestaña CROSSOVERS</h3>
-        <p>Filtros de división de frecuencia para sistemas multiamplificados (activos).</p>
+        <h3>Pestana CROSSOVERS</h3>
+        <p>Filtros de division de frecuencia para sistemas multiamplificados (activos).</p>
         <ul>
           <li><b>Tipos:</b> Butterworth LP/HP y Linkwitz-Riley LP/HP.</li>
           <li><b>Orden:</b> 2 = 12 dB/oct, 4 = 24 dB/oct, 8 = 48 dB/oct.</li>
-          <li>Linkwitz-Riley (LR): LP y HP suman 0 dB a la frecuencia de corte, con fase coincidente — estándar para divisores activos.</li>
-          <li>Se asignan a canales de <b>salida</b>. La tabla tiene scroll cuando hay más filtros de los que caben.</li>
+          <li>Linkwitz-Riley (LR): LP y HP suman 0 dB a la frecuencia de corte, con fase coincidente — estandar para divisores activos.</li>
+          <li>Se asignan a canales de <b>salida</b>. La tabla tiene scroll cuando hay mas filtros de los que caben.</li>
           <li><b>Arrastrar punto / Mantener apretado:</b> mover o eliminar un crossover.</li>
         </ul>
-        <div class="tip">Sistema 2 vías: LP al woofer y HP al tweeter, misma frecuencia de corte en ambos.</div>
+        <div class="tip">Sistema 2 vias: LP al woofer y HP al tweeter, misma frecuencia de corte en ambos.</div>
 
-        <h3>Pestaña MIXER</h3>
-        <p>Matriz de mezcla que enruta canales de entrada hacia canales de salida, con gestión de presets y dispositivos de audio.</p>
+        <h3>Pestana MIXER</h3>
+        <p>Matriz de mezcla que enruta canales de entrada hacia canales de salida, con gestion de presets y dispositivos de audio.</p>
         <h4>Matriz de mezcla</h4>
         <ul>
           <li>Columnas = entradas, filas = salidas.</li>
-          <li><b>Tap en una celda:</b> activa/desactiva esa conexión. Celda iluminada = activa.</li>
-          <li><b>Doble tap en etiqueta de entrada o salida:</b> renombra ese canal. El nombre se actualiza inmediatamente en vúmetros, faders y botones. Se abre un cuadro de texto en pantalla sin salir de fullscreen.</li>
+          <li><b>Tap en una celda:</b> activa/desactiva esa conexion. Celda iluminada = activa.</li>
+          <li><b>Doble tap en etiqueta de entrada o salida:</b> renombra ese canal. El nombre se actualiza inmediatamente en vumetros, faders y botones. Se abre un cuadro de texto en pantalla sin salir de fullscreen.</li>
         </ul>
         <h4>Presets</h4>
         <p>Panel a la derecha de la matriz para guardar y recuperar configuraciones completas del DSP:</p>
         <ul>
-          <li><b>💾 Guardar:</b> pide un nombre y guarda la configuración actual completa (EQ, crossovers, mixer, dispositivos) como preset en el dispositivo.</li>
+          <li><b>💾 Guardar:</b> pide un nombre y guarda la configuracion actual completa (EQ, crossovers, mixer, dispositivos) como preset en el dispositivo.</li>
           <li><b>⏯ Cargar:</b> aplica el preset seleccionado al DSP en tiempo real. Se activa al seleccionar un preset de la lista.</li>
           <li><b>✕:</b> elimina el preset de la lista.</li>
         </ul>
         <h4>Panel de dispositivos</h4>
         <ul>
           <li><b>IN:</b> tarjeta de sonido de captura (entrada de audio).</li>
-          <li><b>OUT:</b> tarjeta de sonido de reproducción (salida de audio).</li>
-          <li><b>Chunk:</b> tamaño del buffer en muestras (128 – 4096). Menor = menor latencia; mayor = más estabilidad.</li>
+          <li><b>OUT:</b> tarjeta de sonido de reproduccion (salida de audio).</li>
+          <li><b>Chunk:</b> tamano del buffer en muestras (128 – 4096). Menor = menor latencia; mayor = mas estabilidad.</li>
           <li><b>↺ Actualizar:</b> recarga la lista de dispositivos ALSA del sistema.</li>
-          <li><b>⟳ Motor:</b> reinicia el proceso CamillaDSP. Usar tras cambiar dispositivos o configuración.</li>
+          <li><b>⟳ Motor:</b> reinicia el proceso CamillaDSP. Usar tras cambiar dispositivos o configuracion.</li>
         </ul>
 
         <h3>EQ: importar / exportar</h3>
         <ul>
-          <li><b>Exp EQ:</b> exporta los filtros paramétricos actuales en formato texto compatible con REW.</li>
-          <li><b>Imp EQ:</b> importa filtros desde archivo REW o Equalizer APO y los añade al canal activo.</li>
+          <li><b>Exp EQ:</b> exporta los filtros parametricos actuales en formato texto compatible con REW.</li>
+          <li><b>Imp EQ:</b> importa filtros desde archivo REW o Equalizer APO y los anade al canal activo.</li>
         </ul>
 
       </div><!-- /help-es -->
@@ -830,7 +830,7 @@ async function setVolume(db){
   await apiPost('/api/volume',{volume:db});
 }
 async function recoverEngine(){
-  if(!confirm('¿El motor ALSA colapsó? Esto inyectará una configuración de emergencia (hw:1,0) para destrabarlo. ¿Continuar?')) return;
+  if(!confirm('?El motor ALSA colapso? Esto inyectara una configuracion de emergencia (hw:1,0) para destrabarlo. ?Continuar?')) return;
   toast('Aplicando Rescue Config...');
   try {
     await fetch('/api/recovery', {method: 'POST'});
@@ -1660,7 +1660,7 @@ function renderEQGraph(){
     const x=fToX(p.freq,W), y=eqDbToY(markerDb,H);
     const isByp=bypassedFids.has(fid), isSel=fid===eqState.drag||fid===eqState.hover||fid===eqState.highlight;
     const col=COLORS[visChs[0]%COLORS.length];
-    const r=9; // radio del punto — más grande para toque táctil
+    const r=9; // radio del punto — mas grande para toque tactil
     ctx.fillStyle=isByp?'#666':(isSel?'#fff':col);
     ctx.beginPath(); ctx.arc(x,y,r,0,2*Math.PI); ctx.fill();
     if(isSel){ ctx.strokeStyle='#fff'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,r+3,0,2*Math.PI); ctx.stroke(); }
@@ -1669,18 +1669,18 @@ function renderEQGraph(){
     ctx.fillText(`${idx}|${dom.toUpperCase()}:${chName}`,x,y-r-3);
     if(isSel){
       const touch=isTouch();
-      // En touch: recuadro más ancho para incluir botones [-Q] y [+Q]
+      // En touch: recuadro mas ancho para incluir botones [-Q] y [+Q]
       const BW=touch?296:210, BH=60;
       const bx=Math.max(0,Math.min(W-BW,x-BW/2)), by=Math.max(0,y-65);
       ctx.fillStyle='rgba(0,0,0,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1.5;
       ctx.beginPath(); ctx.roundRect(bx,by,BW,BH,6); ctx.fill(); ctx.stroke();
       if(touch){
-        // Botón [-Q] a la izquierda
+        // Boton [-Q] a la izquierda
         ctx.fillStyle='#003'; ctx.strokeStyle='#0ff'; ctx.lineWidth=1.5;
         ctx.beginPath(); ctx.roundRect(bx+5,by+12,36,36,18); ctx.fill(); ctx.stroke();
         ctx.fillStyle='#0ff'; ctx.font='bold 22px Arial'; ctx.textAlign='center';
         ctx.fillText('−',bx+23,by+36);
-        // Botón [+Q] a la derecha
+        // Boton [+Q] a la derecha
         ctx.fillStyle='#003'; ctx.strokeStyle='#0ff'; ctx.lineWidth=1.5;
         ctx.beginPath(); ctx.roundRect(bx+BW-41,by+12,36,36,18); ctx.fill(); ctx.stroke();
         ctx.fillStyle='#0ff'; ctx.font='bold 22px Arial'; ctx.textAlign='center';
@@ -1714,7 +1714,7 @@ function renderEQGraph(){
       // Limpiar hit-rects si no hay filtro seleccionado de este fid
     }
   }
-  // Limpiar hit-rects si ningún filtro está seleccionado
+  // Limpiar hit-rects si ningun filtro esta seleccionado
   const hasSel=Object.keys(filtrosBiquad).some(fid=>{
     return fid===eqState.drag||fid===eqState.hover||fid===eqState.highlight;
   });
@@ -1726,7 +1726,7 @@ function setupEQInteraction(){
 
   // Double-click (desktop) / double-tap (touch via dblclick) → add filter
   cv.addEventListener('dblclick',e=>{
-    // Si el doble-tap cayó sobre un botón Q del tooltip, ignorar (no crear filtro)
+    // Si el doble-tap cayo sobre un boton Q del tooltip, ignorar (no crear filtro)
     const ox=e.offsetX, oy=e.offsetY;
     const hm=eqQHitRects.minus, hp=eqQHitRects.plus;
     if(hm && ox>=hm.x && ox<=hm.x+hm.w && oy>=hm.y && oy<=hm.y+hm.h) return;
@@ -1800,7 +1800,7 @@ function setupEQInteraction(){
     if(e.touches.length!==1) return;
     eqTouchDragging=false; eqTouchLongFired=false; eqTouchMoved=false; eqTouchQBtn=false;
     const t=e.touches[0]; const {offsetX,offsetY}=touchOffset(cv,t.clientX,t.clientY);
-    // Primero: comprobar si el tap cae sobre un botón Q del tooltip
+    // Primero: comprobar si el tap cae sobre un boton Q del tooltip
     if(eqQHitRects.activeFid){
       const hm=eqQHitRects.minus, hp=eqQHitRects.plus;
       if(hm && offsetX>=hm.x && offsetX<=hm.x+hm.w && offsetY>=hm.y && offsetY<=hm.y+hm.h){
@@ -1836,11 +1836,11 @@ function setupEQInteraction(){
     renderEQGraph(); buildEQTable(); e.preventDefault();
   },{passive:false});
   cv.addEventListener('touchend',async e=>{
-    // Si el toque fue sobre un botón Q, el tooltip ya se actualizó en touchstart; no hacer nada más
+    // Si el toque fue sobre un boton Q, el tooltip ya se actualizo en touchstart; no hacer nada mas
     if(eqTouchQBtn){ eqTouchQBtn=false; return; }
     if(eqTouchDragging&&eqState.drag){
       if(eqTouchMoved){
-        // Arrastrado: guardar nueva posición
+        // Arrastrado: guardar nueva posicion
         const patch={};
         eqState.dragGroup.forEach(fid=>{
           if(!filtrosBiquad[fid]) return;
@@ -1855,7 +1855,7 @@ function setupEQInteraction(){
       eqState.drag=null; eqTouchDragging=false; eqTouchMoved=false;
       renderEQGraph();
     } else {
-      // Tap en zona vacía → cerrar tooltip
+      // Tap en zona vacia → cerrar tooltip
       eqState.highlight=null;
       eqQHitRects={minus:null,plus:null,activeFid:null};
       renderEQGraph();
@@ -1885,7 +1885,7 @@ function setupEQInteraction(){
     const patch={};
     group.forEach(f2=>{ if(filtrosBiquad[f2]) filtrosBiquad[f2].data.parameters.q=nq; patch[f2]={parameters:{q:nq}}; });
     await patchCfg({filters:patch}); buildEQTable(); renderEQGraph();
-    eqQHitRects.activeFid=fid; // mantener fid activo para próximos taps
+    eqQHitRects.activeFid=fid; // mantener fid activo para proximos taps
   }
   // Botones HTML del eq-q-bar (fallback para dispositivos que muestran la barra)
   document.getElementById('eq-q-plus') ?.addEventListener('click',()=>qStep(+0.1));
@@ -1911,7 +1911,7 @@ function eqHideQOverlay(){
 
 function findEQNear(ox,oy,cv){
   const W=cv.clientWidth,H=cv.clientHeight,res=[];
-  const hitR=isTouch()?22:14; // mayor área de toque en táctil
+  const hitR=isTouch()?22:14; // mayor area de toque en tactil
   for(const [fid,info] of Object.entries(filtrosBiquad)){
     const dom=info.domain;
     const vis=info.channels.some(c=>(dom==='in'&&visibleIn.has(c))||(dom==='out'&&visibleOut.has(c)));
@@ -2324,7 +2324,7 @@ function setupMixerInteraction(){
     const {offsetX,offsetY}=touchOffset(cv,clientX,clientY);
     const col=Math.floor((offsetX-LM)/CW), row=Math.floor((offsetY-TM)/CH);
     mixerLongFired=true;
-    await mixerToggleOff(col,row); toast('Conexión eliminada');
+    await mixerToggleOff(col,row); toast('Conexion eliminada');
   });
   cv.addEventListener('dblclick',async e=>{
     const x=e.offsetX, y=e.offsetY;
@@ -2433,7 +2433,7 @@ async function applyDevice(domain,val){
   if(domain==='playback'&&config.devices?.playback) config.devices.playback.device=val;
   try{
     await patchCfg(patch);
-    toast(`${domain==='capture'?'Captura':'Reproducción'}: ${val}`);
+    toast(`${domain==='capture'?'Captura':'Reproduccion'}: ${val}`);
   }catch(e){
     toast(`Error al cambiar dispositivo: ${e.message||e}`);
   }
@@ -2516,7 +2516,7 @@ function finishAutoComp(pid){
   const btn=document.getElementById(`auto-btn-${pid}`);
   if(btn){btn.textContent='AUTO';btn.disabled=false;btn.style.background='#007bff';}
   const hist=(data.history||[]).filter(x=>x>-80);
-  if(!hist.length){toast('No se detectó audio');return;}
+  if(!hist.length){toast('No se detecto audio');return;}
   const sumE=hist.reduce((s,x)=>s+Math.pow(10,x/10),0);
   const rmsDb=10*Math.log10(sumE/hist.length), peak=Math.max(...hist);
   const cf=peak-rmsDb;
@@ -2558,7 +2558,7 @@ function importConfig(){
       if(!r.ok){toast('Error importando');return;}
       cfg=(await r.json()).config;
     }
-    await setFullConfig(cfg); await init(); toast('Configuración importada');
+    await setFullConfig(cfg); await init(); toast('Configuracion importada');
   };
   fi.click();
 }
@@ -2658,7 +2658,7 @@ async function presetDelete(name, e){
   }
 }
 
-// BW en octavas → Q (fórmula estándar)
+// BW en octavas → Q (formula estandar)
 function bwOctToQ(bw){ return 1/(2*Math.sinh(Math.log(2)/2*bw)); }
 
 function importEQ(){
@@ -2670,7 +2670,7 @@ function importEQ(){
 
     for(const line of lines){
       const l=line.trim();
-      // Saltar vacíos, comentarios REW (*), comentarios (#), encabezados y Preamp
+      // Saltar vacios, comentarios REW (*), comentarios (#), encabezados y Preamp
       if(!l||l.startsWith('*')||l.startsWith('#')) continue;
       if(/^(freq|preamp|title|note|source|room|measure|equaliser|supports|filter type|frequency range)/i.test(l)) continue;
 
@@ -2681,10 +2681,10 @@ function importEQ(){
       //   Filter  1: ON  PK       Fc    90.0 Hz  Gain   6.00 dB  Q  3.000
       //   Filter  4: ON  HP       Fc    20.0 Hz
       //   Filter  4: ON  HP       Fc    20.0 Hz             BW Oct 1.000
-      //   Filter: ON PK Fc 90 Hz Gain 6 dB Q 3          ← APO sin número
+      //   Filter: ON PK Fc 90 Hz Gain 6 dB Q 3          ← APO sin numero
       if(/^filter/i.test(l)){
         const parts=l.split(/\s+/);
-        // Buscar 'ON' dinámicamente (posición varía entre REW y APO)
+        // Buscar 'ON' dinamicamente (posicion varia entre REW y APO)
         const onIdx=parts.findIndex(p=>p.toUpperCase()==='ON');
         if(onIdx<0) continue; // filtro OFF o sin ON → saltar
         const fcIdx=parts.indexOf('Fc');
@@ -2703,7 +2703,7 @@ function importEQ(){
         else if(bwIdx>=0&&parts[bwIdx+1]==='Oct') q=bwOctToQ(parseFloat(parts[bwIdx+2]));
         else               q=0.707;
 
-        // Tipo: token inmediatamente después de ON
+        // Tipo: token inmediatamente despues de ON
         const tr=(parts[onIdx+1]||'').toUpperCase();
         if(tr==='PK'||tr==='PEQ')           tipo='Peaking';
         else if(tr==='LS'||tr==='LSC')      tipo='Lowshelf';
@@ -2755,7 +2755,7 @@ function importEQ(){
       buildEQTable(); renderEQGraph();
       toast(`${count} filtros importados`);
     } else {
-      toast('No se encontraron filtros válidos');
+      toast('No se encontraron filtros validos');
     }
   };
   fi.click();
@@ -3156,7 +3156,7 @@ const isTouch = ()=> window.matchMedia('(pointer:coarse)').matches || navigator.
 // Un tap corto (sin longpress) deja pasar el click normalmente.
 // Returns a cleanup function.
 // Longpress: dispara onLongPress al mantener el dedo quiet delay ms.
-// Expone el método .recentlyFired() para que el listener de click
+// Expone el metodo .recentlyFired() para que el listener de click
 // del elemento pueda ignorar el click que sigue al longpress.
 function addLongPress(el, onLongPress, delay=400){
   let timer=null, pointerId=null, startX=0, startY=0, firedAt=0;
@@ -3200,8 +3200,8 @@ function addLongPress(el, onLongPress, delay=400){
   el.addEventListener('pointerup',     onUp);
   el.addEventListener('pointercancel', onCancel);
 
-  // recentlyFired(): true si el longpress disparó hace menos de 600ms
-  // Úsalo en el listener de click para ignorar el click post-longpress
+  // recentlyFired(): true si el longpress disparo hace menos de 600ms
+  // Usalo en el listener de click para ignorar el click post-longpress
   el._lpRecentlyFired = ()=> (Date.now()-firedAt) < 600;
 
   return ()=>{
@@ -3254,12 +3254,12 @@ window.addEventListener('load',async()=>{
   // Import YAML support via server
   await fetch('/api/import-support').catch(()=>{});
 
-  // Pantalla completa en dispositivos táctiles
+  // Pantalla completa en dispositivos tactiles
   if(isTouch()){
     const fsBtn=document.getElementById('fs-btn');
     if(fsBtn) fsBtn.style.display='';
 
-    // Actualiza el icono según el estado actual
+    // Actualiza el icono segun el estado actual
     function updateFsIcon(){
       const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
       if(fsBtn) fsBtn.textContent=inFs?'✕⛶':'⛶';
@@ -3267,7 +3267,7 @@ window.addEventListener('load',async()=>{
     document.addEventListener('fullscreenchange', updateFsIcon);
     document.addEventListener('webkitfullscreenchange', updateFsIcon);
 
-    // Intento automático al primer tap sobre cualquier parte de la página
+    // Intento automatico al primer tap sobre cualquier parte de la pagina
     const tryAutoFS=()=>{
       const inFs=!!(document.fullscreenElement||document.webkitFullscreenElement);
       if(!inFs) enterFullscreen();
@@ -3292,7 +3292,7 @@ function applyLang(){
   // Tabs
   const tabs = document.querySelectorAll('.tab');
   if(isEs){
-    tabs[0].textContent='VÚMETROS'; tabs[1].textContent='GRAPHIC EQ';
+    tabs[0].textContent='VUMETROS'; tabs[1].textContent='GRAPHIC EQ';
     tabs[2].textContent='PARAMETRIC EQ'; tabs[3].textContent='CROSSOVERS'; tabs[4].textContent='MIXER';
   } else {
     tabs[0].textContent='METERS'; tabs[1].textContent='GRAPHIC EQ';
@@ -3411,7 +3411,7 @@ async function probeDevice(mode,deviceId){
     box.className='probe-box';
     const rateVal=String(p.rate||'?').replace(/[\[\]]/g,'');
     const chVal=String(p.channels||'?').replace(/[\[\]]/g,'');
-    box.innerHTML=`<b>${mode==='capture'?'Captura':'Reproducción'}:</b> ${p.device}<br>`+
+    box.innerHTML=`<b>${mode==='capture'?'Captura':'Reproduccion'}:</b> ${p.device}<br>`+
       `Canales: <b>${chVal}</b> &nbsp; Frecuencia: <b>${rateVal}</b> Hz<br>`+
       `Formato: <b>${p.format||'default'}</b>${p.formats?.length?'<br><small>Disponibles: '+p.formats.join(', ')+'</small>':''}`;
     updateSummary();
@@ -3435,10 +3435,10 @@ function updateSummary(){
   const playFmt=resetPlayInfo?.format||null;
   const rates=[44100,48000,96000,192000];
   const srOpts=rates.map(r=>`<option value="${r}"${r===detectedSr?' selected':''}>${r}</option>`).join('');
-  let h=`<b>Resumen de configuración:</b><br>`;
+  let h=`<b>Resumen de configuracion:</b><br>`;
   h+=`Sample Rate: <select id="reset-sr-select">${srOpts}</select> Hz<br>`;
   h+=`Captura: <b>${resetCapDev||'null'}</b> — ${capCh}ch, ${capFmt||'default'}<br>`;
-  h+=`Reproducción: <b>${resetPlayDev||'null'}</b> — ${playCh}ch, ${playFmt||'default'}<br>`;
+  h+=`Reproduccion: <b>${resetPlayDev||'null'}</b> — ${playCh}ch, ${playFmt||'default'}<br>`;
   h+=`Chunksize: <b>1024</b><br>`;
   div.innerHTML=h;
   document.getElementById('reset-create-btn').disabled=!(resetCapDev||resetPlayDev);
@@ -3477,7 +3477,7 @@ async function createConfigFromProbes(){
   if(ok){
     await restartEngine();
     await init();
-    toast('Configuración creada y motor reiniciado');
+    toast('Configuracion creada y motor reiniciado');
   }
 }
 </script>
@@ -3489,7 +3489,7 @@ async function createConfigFromProbes(){
     <label>CAPTURA (Entrada):</label>
     <select id="reset-cap-dev"><option value="">Cargando...</option></select>
     <div id="reset-cap-probe" class="probe-box">Seleccione un dispositivo para ver sus capacidades</div>
-    <label>REPRODUCCIÓN (Salida):</label>
+    <label>REPRODUCCION (Salida):</label>
     <select id="reset-play-dev"><option value="">Cargando...</option></select>
     <div id="reset-play-probe" class="probe-box">Seleccione un dispositivo para ver sus capacidades</div>
     <div id="reset-summary" style="margin-top:14px;background:#080808;border:1px solid #444;border-radius:4px;padding:10px;font-size:12px;color:#aaa;display:none"></div>
