@@ -387,6 +387,22 @@ def save_preset():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+def _unmute_on_dante_signal():
+    import time
+    try:
+        cdsp("SetVolume", -100.0)
+    except Exception:
+        return
+    for _ in range(60):  # esperar hasta 60s
+        time.sleep(1)
+        try:
+            levels = cdsp("GetCaptureSignalRms")
+            if levels and any(v > -50.0 for v in levels):
+                cdsp("SetVolume", 0.0)
+                return
+        except Exception:
+            pass
+
 @app.route("/api/presets/load", methods=["POST"])
 def load_preset():
     try:
@@ -405,6 +421,10 @@ def load_preset():
         # Apply to DSP
         cdsp("SetConfigJson", json.dumps(cfg))
         save_yaml_config(cfg)
+        # Si la captura es inferno_rx, mutear hasta que haya señal válida del flujo Dante
+        capture_dev = cfg.get("devices", {}).get("capture", {}).get("device", "")
+        if "inferno" in capture_dev:
+            threading.Thread(target=_unmute_on_dante_signal, daemon=True).start()
         return jsonify({"ok": True, "config": cfg})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
