@@ -193,6 +193,16 @@ def _cdsp_gui_get(path):
 import re
 
 def _get_alsa_hw(mode):
+    import re
+    card_map = {}
+    try:
+        with open("/proc/asound/cards") as f:
+            for line in f:
+                m = re.match(r'\s*(\d+)\s+\[(\w+)\s*\]:\s+(.+)', line)
+                if m:
+                    card_map[m.group(2)] = (int(m.group(1)), m.group(3).strip())
+    except Exception:
+        pass
     cmd = "arecord -L" if mode == "capture" else "aplay -L"
     devs = []
     try:
@@ -204,15 +214,23 @@ def _get_alsa_hw(mode):
                 continue
             if line[0] not in ' \t':
                 if current_id and (current_id.startswith("hw:") or current_id == "null"):
+                    hw_id = current_id
+                    m = re.match(r'hw:CARD=(\w+),DEV=(\d+)', current_id)
+                    if m and m.group(1) in card_map:
+                        hw_id = f"hw:{card_map[m.group(1)][0]},{m.group(2)}"
                     desc_str = " - ".join([d.strip(" ,") for d in current_desc if d.strip(" ,")])
-                    devs.append([current_id, desc_str])
+                    devs.append([hw_id, desc_str])
                 current_id = line.strip()
                 current_desc = []
             else:
                 current_desc.append(line.strip())
         if current_id and (current_id.startswith("hw:") or current_id == "null"):
+            hw_id = current_id
+            m = re.match(r'hw:CARD=(\w+),DEV=(\d+)', current_id)
+            if m and m.group(1) in card_map:
+                hw_id = f"hw:{card_map[m.group(1)][0]},{m.group(2)}"
             desc_str = " - ".join([d.strip(" ,") for d in current_desc if d.strip(" ,")])
-            devs.append([current_id, desc_str])
+            devs.append([hw_id, desc_str])
     except Exception:
         pass
     return devs
