@@ -901,13 +901,14 @@ pcm.inferno {
 
 pcm.inferno_rx {
     type inferno
+    NAME "tvbox-dante"
     BIND_IP "${eth_ip}"
     SAMPLE_RATE "48000"
     RX_CHANNELS "2"
     TX_CHANNELS "0"
     PROCESS_ID "${rx_pid}"
     CLOCK_PATH "${ptp_socket}"
-    RX_LATENCY_NS "200000000"
+    RX_LATENCY_NS "1000000"
 }
 
 pcm.inferno_tx {
@@ -919,6 +920,7 @@ pcm.inferno_tx {
     PROCESS_ID "1"
     ALT_PORT "8700"
     CLOCK_PATH "${ptp_socket}"
+    RX_LATENCY_NS "1000000"
 }
 EOF
   log_ok ".asoundrc configurado (IP: $eth_ip)"
