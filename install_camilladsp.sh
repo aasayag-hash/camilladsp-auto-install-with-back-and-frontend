@@ -513,6 +513,8 @@ GUI=${INSTALL_BASE}/gui/camillagui_backend
 start_svc() {
   local name=\$1; shift
   local pid_file=\$PIDS/\$name.pid
+  local max_retries=5
+  local retry=0
 
   if [ -f \$pid_file ]; then
     local old_pid=\$(cat \$pid_file 2>/dev/null)
@@ -528,22 +530,36 @@ start_svc() {
 
   mkdir -p "\$LOGS" "\$PIDS"
   > "\$LOGS/\$name.log"
-  setsid "\$@" >> "\$LOGS/\$name.log" 2>&1 &
-  local new_pid=\$!
-  echo \$new_pid > \$pid_file
-  sleep 2
 
-  if kill -0 "\$new_pid" 2>/dev/null; then
-    echo "  [OK] \$name iniciado (PID \$new_pid)"
-  else
-    echo "  [ERROR] \$name no pudo iniciar"
-  fi
+  while [ \$retry -lt \$max_retries ]; do
+    setsid "\$@" >> "\$LOGS/\$name.log" 2>&1 &
+    local new_pid=\$!
+    echo \$new_pid > \$pid_file
+    sleep 3
+
+    if kill -0 "\$new_pid" 2>/dev/null; then
+      echo "  [OK] \$name iniciado (PID \$new_pid)"
+      return 0
+    fi
+
+    retry=\$((retry + 1))
+    if [ \$retry -lt \$max_retries ]; then
+      echo "  [WARN] \$name no pudo iniciar, reintentando (\$retry/\$max_retries)..."
+      sleep 2
+    fi
+  done
+
+  echo "  [ERROR] \$name no pudo iniciar"
+  return 1
 }
 
 echo "Iniciando CamillaDSP..."
 start_svc engine \$ENGINE -p ${ENGINE_WS_PORT} -a 0.0.0.0 -w
-sleep 2
+sleep 3
 start_svc gui \$GUI --config ${INSTALL_BASE}/gui/config/camillagui.yml
+sleep 2
+# Liberar puerto del web server si está ocupado
+fuser -k ${WEB_GUI_PORT}/tcp 2>/dev/null || true
 sleep 1
 start_svc web python3 ${INSTALL_BASE}/web/server.py
 echo ""
