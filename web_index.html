@@ -3443,9 +3443,6 @@ async function createConfigFromProbes(){
   if(capFmt)capObj.format=capFmt;
   const playObj={type:'Alsa',channels:playCh,device:resetPlayDev};
   if(playFmt)playObj.format=playFmt;
-  const mixMap=[];
-  const inCh=Math.min(capCh,playCh);
-  for(let ch=0;ch<inCh;ch++) mixMap.push({dest:ch,sources:[{channel:ch,gain:0,mute:false,inverted:false}]});
   const def={
     devices:{
       samplerate:sr,
@@ -3455,8 +3452,8 @@ async function createConfigFromProbes(){
       playback:playObj
     },
     filters:{},
-    mixers:{Mixer:{channels:{in:capCh,out:playCh},mapping:mixMap}},
-    pipeline:[{type:'Mixer',name:'Mixer'}],
+    mixers:{'Mixer 1':{channels:{in:capCh,out:playCh},description:null,labels:null,mapping:[]}},
+    pipeline:[{type:'Mixer',name:'Mixer 1'}],
     processors:{}
   };
   closeResetModal();
