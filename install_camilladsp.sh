@@ -917,10 +917,11 @@ pcm.inferno_tx {
     SAMPLE_RATE "48000"
     RX_CHANNELS "0"
     TX_CHANNELS "2"
-    PROCESS_ID "1"
+    PROCESS_ID "10"
     ALT_PORT "8700"
     CLOCK_PATH "${ptp_socket}"
     RX_LATENCY_NS "1000000"
+    TX_LATENCY_NS "1000000"
 }
 EOF
   log_ok ".asoundrc configurado (IP: $eth_ip)"
@@ -1098,6 +1099,107 @@ mixers: {}
 pipeline: []
 EOF
   log_ok "Config CamillaDSP con inferno_rx creada"
+
+  # ── 11b. Presets de audio ──────────────────────────────────────────────────
+  local presets_dir="${INSTALL_BASE}/config/presets"
+  mkdir -p "$presets_dir"
+
+  # Preset: Dante RX -> MAYA44
+  cat > "${presets_dir}/dante_to_maya44.yml" << 'EOF'
+description: inferno_rx_direct
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  capture_samplerate: 48000
+  enable_rate_adjust: true
+  stop_on_inactive: true
+  capture:
+    type: Alsa
+    channels: 2
+    device: inferno_rx
+    format: S32_LE
+  playback:
+    type: Alsa
+    channels: 4
+    device: hw:1,0
+    format: S16_LE
+mixers:
+  Mixer 1:
+    channels:
+      in: 2
+      out: 4
+    mapping:
+    - {dest: 0, mute: false, sources: [{channel: 0, gain: 0, inverted: false, mute: false, scale: dB}]}
+    - {dest: 1, mute: false, sources: [{channel: 1, gain: 0, inverted: false, mute: false, scale: dB}]}
+    - {dest: 2, mute: false, sources: [{channel: 0, gain: 0, inverted: false, mute: false, scale: dB}]}
+    - {dest: 3, mute: false, sources: [{channel: 1, gain: 0, inverted: false, mute: false, scale: dB}]}
+pipeline:
+- {type: Mixer, name: Mixer 1}
+processors: {}
+EOF
+
+  # Preset: MAYA44 -> Dante TX
+  cat > "${presets_dir}/maya44_to_dante.yml" << 'EOF'
+description: maya44_to_dante_tx
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  capture_samplerate: 48000
+  capture:
+    type: Alsa
+    channels: 4
+    device: hw:1,0
+    format: S16_LE
+  playback:
+    type: Alsa
+    channels: 2
+    device: inferno_tx
+    format: S32_LE
+mixers:
+  Mixer 1:
+    channels:
+      in: 4
+      out: 2
+    mapping:
+    - {dest: 0, mute: false, sources: [{channel: 0, gain: 0, inverted: false, mute: false, scale: dB}]}
+    - {dest: 1, mute: false, sources: [{channel: 1, gain: 0, inverted: false, mute: false, scale: dB}]}
+pipeline:
+- {type: Mixer, name: Mixer 1}
+processors: {}
+EOF
+
+  # Preset: MAYA44 local
+  cat > "${presets_dir}/maya44usb.yml" << 'EOF'
+description: maya44_local
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  capture:
+    type: Alsa
+    channels: 4
+    device: hw:1,0
+    format: S16_LE
+  playback:
+    type: Alsa
+    channels: 4
+    device: hw:1,0
+    format: S16_LE
+mixers:
+  Mixer 1:
+    channels:
+      in: 4
+      out: 4
+    mapping:
+    - {dest: 0, mute: false, sources: [{channel: 0, gain: 0, inverted: false, mute: false, scale: dB}]}
+    - {dest: 1, mute: false, sources: [{channel: 1, gain: 0, inverted: false, mute: false, scale: dB}]}
+    - {dest: 2, mute: false, sources: [{channel: 0, gain: 0, inverted: false, mute: false, scale: dB}]}
+    - {dest: 3, mute: false, sources: [{channel: 1, gain: 0, inverted: false, mute: false, scale: dB}]}
+pipeline:
+- {type: Mixer, name: Mixer 1}
+processors: {}
+EOF
+
+  log_ok "Presets de audio creados en ${presets_dir}"
 
   # ── 12. Prueba funcional ───────────────────────────────────────────────────
   log_step "Prueba de integración Dante"
