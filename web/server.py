@@ -674,17 +674,19 @@ def network_interfaces():
     import socket
     try:
         out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=5)
+        import re as _re_iface
         ifaces = []
         current = None
         for line in out.splitlines():
-            line = line.strip()
-            if line.startswith(('1:','2:','3:','4:','5:','6:','7:','8:','9:')) or (': ' in line and not line.startswith('inet')):
-                parts = line.split(':', 2)
-                if len(parts) >= 2:
-                    name = parts[1].strip().split('@')[0]
-                    current = name
-            elif line.startswith('inet ') and current and current != 'lo':
-                ip = line.split()[1].split('/')[0]
+            m = _re_iface.match(r'^\d+:\s+(\S+):', line)
+            if m:
+                current = m.group(1).split('@')[0]
+                continue
+            m = _re_iface.match(r'^\s+inet\s+(\d+\.\d+\.\d+\.\d+)', line)
+            if m and current and current != 'lo':
+                if any(x['iface'] == current for x in ifaces):
+                    continue  # una sola entrada por interfaz
+                ip = m.group(1)
                 try:
                     hostname = socket.gethostbyaddr(ip)[0]
                 except Exception:
