@@ -938,6 +938,13 @@ def _push_saved_config():
         cfg = load_yaml_config()
         if not cfg or not cfg.get("devices"):
             return
+        capture_dev = cfg.get("devices", {}).get("capture", {}).get("device", "")
+        if "inferno" in capture_dev:
+            # No aplicar config inferno en el arranque — el script ya verificó el flujo.
+            # Si hay flujo el engine ya arrancó con -c; si no hay, arrancó con -w y
+            # pushear la config causaría un error ALSA que deja el engine en Inactive.
+            print(f"[startup] preset inferno detectado ({capture_dev}), no se pushea config al arranque")
+            return
         def strip_nulls(obj):
             if isinstance(obj, dict):
                 return {k: strip_nulls(v) for k, v in obj.items() if v is not None}
@@ -946,7 +953,7 @@ def _push_saved_config():
             return obj
         cfg = strip_nulls(cfg)
         cdsp("SetConfigJson", json.dumps(cfg))
-        print(f"[startup] config aplicada al arranque")
+        print(f"[startup] config aplicada al arranque ({capture_dev})")
     except Exception as e:
         print(f"[startup] no se pudo aplicar config: {e}")
 

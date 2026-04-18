@@ -27,7 +27,7 @@ echo "Capture device: '$CAPTURE_DEV'"
 # Si no es inferno_rx, arrancar directamente con config
 if [ "$CAPTURE_DEV" != "inferno_rx" ]; then
     echo "No es Dante, arrancando directamente"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -c "$CONFIG"
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 "$CONFIG"
 fi
 
 # --- Modo Dante (inferno_rx) ---
@@ -72,7 +72,7 @@ done < <(ls -dt "$STATE_BASE"/*/ 2>/dev/null)
 
 if [ -z "$SUBSCRIPTIONS_SRC" ]; then
     echo "WARN: no hay rx_subscriptions configuradas, arrancando sin suscripciones Dante"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -c "$CONFIG"
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 "$CONFIG"
 fi
 echo "Subscriptions: $SUBSCRIPTIONS_SRC"
 
@@ -112,8 +112,15 @@ done
 
 if [ "$DANTE_OK" -eq 1 ]; then
     echo "Arrancando CamillaDSP Dante con config (PROCESS_ID=$new, IP=$ETH_IP)"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -c "$CONFIG"
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 "$CONFIG"
 else
-    echo "Sin flujo Dante tras 60s, arrancando en modo espera (configurar desde la UI)"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+    # Sin flujo Dante: cargar preset fallback si existe, sino modo espera
+    FALLBACK="/root/camilladsp/config/presets/maya44usb.yml"
+    if [ -f "$FALLBACK" ]; then
+        echo "Sin flujo Dante, cargando preset fallback: maya44usb"
+        exec "$ENGINE" -p 1234 -a 0.0.0.0 "$FALLBACK"
+    else
+        echo "Sin flujo Dante y sin fallback, arrancando en modo espera"
+        exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+    fi
 fi
