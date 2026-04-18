@@ -36,19 +36,42 @@ fi
 
 # --- Modo Dante (inferno_rx) ---
 
-# La BIND_IP configurada por el usuario en .asoundrc es siempre la fuente de verdad.
-# eth0 solo se usa como fallback si no hay nada guardado.
+# La BIND_IP del .asoundrc es la fuente de verdad. Puede ser una IP o un nombre de interfaz.
+# inferno acepta ambos; usamos el nombre de interfaz para que el multicast mDNS
+# salga por la interfaz correcta independientemente del enrutamiento del kernel.
 SAVED_BIND=$(grep -oP 'BIND_IP\s+"\K[^"]+' "$ASOUNDRC" | head -1)
 
+resolve_iface_to_ip() {
+    # Si el argumento ya es una IP, devolverla; si es un nombre de interfaz, resolver su IP
+    local val="$1"
+    if echo "$val" | grep -qP '^\d+\.\d+\.\d+\.\d+$'; then
+        echo "$val"
+    else
+        ip -4 addr show dev "$val" 2>/dev/null | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+' | head -1
+    fi
+}
+
 if [ -n "$SAVED_BIND" ]; then
-    ETH_IP="$SAVED_BIND"
-    echo "Usando BIND_IP configurada: $ETH_IP"
+    DANTE_IFACE_OR_IP="$SAVED_BIND"
+    ETH_IP=$(resolve_iface_to_ip "$SAVED_BIND")
+    echo "Usando BIND_IP configurada: $SAVED_BIND (IP: $ETH_IP)"
+    if [ -z "$ETH_IP" ]; then
+        echo "WARN: interfaz '$SAVED_BIND' sin IP, arrancando con null"
+        python3 -c "
+import re; txt=open('$CONFIG').read()
+txt=re.sub(r'(device:\s*)\"?inferno_\S+\"?',r'\1\"null\"',txt)
+open('/tmp/camilladsp_nulldante.yml','w').write(txt)
+"
+        exec "$ENGINE" -p 1234 -a 0.0.0.0 /tmp/camilladsp_nulldante.yml
+    fi
 else
-    # Sin configuración guardada: buscar primera IP disponible (cualquier interfaz)
-    ETH_IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+' | grep -v '^127\.' | head -1)
+    # Sin configuración: detectar primera interfaz disponible y guardar su nombre
+    DANTE_IFACE_OR_IP=$(ip -4 addr show 2>/dev/null | awk '/^[0-9]+:/{iface=$2; sub(/:$/,"",iface)} /inet / && iface!="lo"{print iface; exit}')
+    ETH_IP=$(resolve_iface_to_ip "$DANTE_IFACE_OR_IP")
     if [ -n "$ETH_IP" ]; then
-        echo "WARN: sin BIND_IP en .asoundrc, usando primera IP detectada: $ETH_IP"
-        sed -i "s/BIND_IP \"[^\"]*\"/BIND_IP \"$ETH_IP\"/g" "$ASOUNDRC"
+        echo "WARN: sin BIND_IP en .asoundrc, usando interfaz detectada: $DANTE_IFACE_OR_IP ($ETH_IP)"
+        sed -i "/pcm\.inferno_rx/,/^\}/ s/BIND_IP \"[^\"]*\"/BIND_IP \"$DANTE_IFACE_OR_IP\"/" "$ASOUNDRC"
+        sed -i "/pcm\.inferno_tx/,/^\}/ s/BIND_IP \"[^\"]*\"/BIND_IP \"$DANTE_IFACE_OR_IP\"/" "$ASOUNDRC"
     else
         echo "WARN: sin IP disponible, arrancando con null"
         python3 -c "
@@ -67,14 +90,16 @@ n = struct.unpack('>I', socket.inet_aton('$ETH_IP'))[0]
 print('0000' + format(n, '08x'))
 ")
 
-echo "Dante: IP=$ETH_IP hex=$IP_HEX"
+echo "Dante: interfaz=$DANTE_IFACE_OR_IP IP=$ETH_IP hex=$IP_HEX"
 
-# Si hay otras interfaces en la misma subred que BIND_IP, bajarlas para que
-# el kernel no las use en lugar de la interfaz Dante elegida
+# Derivar nombre de interfaz desde DANTE_IFACE_OR_IP (ya resuelto arriba)
 DANTE_IFACE=$(ip -4 addr show | awk -v ip="$ETH_IP" '
     /^[0-9]+:/ { iface=$2; sub(/:$/, "", iface) }
     /inet / { if (index($2, ip"/") == 1) print iface }
 ')
+# Con BIND_IP como nombre de interfaz inferno ya maneja el multicast correctamente.
+# Aun así, bajamos las otras interfaces de la misma subred para evitar confusión
+# en el kernel y en otras herramientas del sistema.
 BIND_PREFIX=$(echo "$ETH_IP" | cut -d. -f1-3)
 if [ -n "$DANTE_IFACE" ]; then
     echo "Interfaz Dante: $DANTE_IFACE ($ETH_IP)"

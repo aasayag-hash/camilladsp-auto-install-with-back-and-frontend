@@ -369,13 +369,40 @@ def _get_iface_for_ip(bind_ip):
     return None
 
 def _set_dante_interface(bind_ip):
-    """Configura el sistema para que todo el tráfico Dante salga por la interfaz de bind_ip.
-    Deshabilita las otras interfaces de la misma subred para que el kernel no las use."""
+    """Configura el sistema para que inferno_rx use la interfaz correcta.
+
+    Clave: inferno acepta nombre de interfaz en BIND_IP además de IP.
+    Usando el nombre, inferno hace bind de multicast mDNS en esa interfaz
+    específicamente, sin depender del enrutamiento del kernel.
+    """
     import re as _re
     iface = _get_iface_for_ip(bind_ip)
     if not iface:
         print(f"[dante-iface] no se encontró interfaz para {bind_ip}")
         return
+
+    # Escribir nombre de interfaz en BIND_IP del .asoundrc (no la IP)
+    # inferno acepta tanto IP como nombre de interfaz; con nombre de interfaz
+    # hace bind de multicast explícitamente en esa NIC, ignorando rutas del kernel
+    try:
+        content = open(DANTE_ASOUNDRC).read()
+        # Reemplazar BIND_IP en el bloque inferno_rx
+        new_content = _re.sub(
+            r'(pcm\.inferno_rx\s*\{[^}]*BIND_IP\s+)"[^"]+"',
+            rf'\1"{iface}"',
+            content, flags=_re.DOTALL
+        )
+        # También reemplazar en inferno_tx si existe
+        new_content = _re.sub(
+            r'(pcm\.inferno_tx\s*\{[^}]*BIND_IP\s+)"[^"]+"',
+            rf'\1"{iface}"',
+            new_content, flags=_re.DOTALL
+        )
+        if new_content != content:
+            open(DANTE_ASOUNDRC, 'w').write(new_content)
+            print(f"[dante-iface] .asoundrc BIND_IP → {iface} (nombre de interfaz)")
+    except Exception as e:
+        print(f"[dante-iface] error actualizando .asoundrc: {e}")
 
     # Actualizar statime-inferno.toml
     try:
@@ -386,35 +413,6 @@ def _set_dante_interface(bind_ip):
             print(f"[dante-iface] statime: interfaz → {iface}")
     except Exception as e:
         print(f"[dante-iface] error actualizando statime toml: {e}")
-
-    bind_prefix = '.'.join(bind_ip.split('.')[:3])
-
-    # Levantar la interfaz elegida si estaba bajada
-    try:
-        subprocess.run(["ip", "link", "set", iface, "up"], timeout=5)
-        print(f"[dante-iface] {iface} levantada")
-    except Exception as e:
-        print(f"[dante-iface] error levantando {iface}: {e}")
-
-    # Desgestionar con NetworkManager las interfaces competidoras en la misma subred
-    # nmcli set unmanaged evita que NM las vuelva a levantar al conectar el cable
-    try:
-        out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=5)
-        current_iface = None
-        for line in out.splitlines():
-            m = re.match(r'\d+:\s+(\S+):', line)
-            if m:
-                current_iface = m.group(1)
-            if current_iface and current_iface != iface and current_iface != 'lo':
-                m2 = re.search(r'inet\s+(\d+\.\d+\.\d+)\.\d+/\d+', line)
-                if m2 and m2.group(1) == bind_prefix:
-                    subprocess.run(["nmcli", "device", "set", current_iface, "managed", "no"], timeout=5)
-                    subprocess.run(["ip", "link", "set", current_iface, "down"], timeout=5)
-                    print(f"[dante-iface] {current_iface} desactivado de NM (conflicto subred con {iface})")
-        # Asegurar que la interfaz elegida sí es gestionada por NM
-        subprocess.run(["nmcli", "device", "set", iface, "managed", "yes"], timeout=5)
-    except Exception as e:
-        print(f"[dante-iface] error gestionando interfaces: {e}")
 
 def _update_statime_interface(bind_ip):
     """Mantener por compatibilidad — ahora usa _set_dante_interface."""
@@ -1088,7 +1086,16 @@ def dante_bind_ip():
             content = open(DANTE_ASOUNDRC).read()
             import re as _re3
             m = _re3.search(r'BIND_IP\s+"([^"]+)"', content)
-            ip = m.group(1) if m else ''
+            val = m.group(1) if m else ''
+            # Si es nombre de interfaz, resolverlo a IP para el dropdown
+            ip = val
+            if val and not _re3.match(r'^\d+\.\d+\.\d+\.\d+$', val):
+                try:
+                    out = subprocess.check_output(["ip", "-4", "addr", "show", "dev", val], text=True, timeout=3)
+                    m2 = _re3.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)', out)
+                    ip = m2.group(1) if m2 else val
+                except Exception:
+                    ip = val
             return jsonify({'ok': True, 'bind_ip': ip})
         except Exception as e:
             return jsonify({'ok': False, 'bind_ip': '', 'error': str(e)})
