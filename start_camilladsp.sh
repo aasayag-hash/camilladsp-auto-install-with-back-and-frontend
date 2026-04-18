@@ -36,28 +36,27 @@ fi
 
 # --- Modo Dante (inferno_rx) ---
 
-# Detectar IP de eth0; si no hay, usar la última BIND_IP configurada en .asoundrc
-ETH_IP=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+' | head -1)
+# La BIND_IP configurada por el usuario en .asoundrc es siempre la fuente de verdad.
+# eth0 solo se usa como fallback si no hay nada guardado.
 SAVED_BIND=$(grep -oP 'BIND_IP\s+"\K[^"]+' "$ASOUNDRC" | head -1)
 
-if [ -z "$ETH_IP" ]; then
-    if [ -n "$SAVED_BIND" ]; then
-        echo "WARN: eth0 sin IP, usando BIND_IP guardado: $SAVED_BIND"
-        ETH_IP="$SAVED_BIND"
+if [ -n "$SAVED_BIND" ]; then
+    ETH_IP="$SAVED_BIND"
+    echo "Usando BIND_IP configurada: $ETH_IP"
+else
+    # Sin configuración guardada: buscar primera IP disponible (cualquier interfaz)
+    ETH_IP=$(ip -4 addr show 2>/dev/null | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+' | grep -v '^127\.' | head -1)
+    if [ -n "$ETH_IP" ]; then
+        echo "WARN: sin BIND_IP en .asoundrc, usando primera IP detectada: $ETH_IP"
+        sed -i "s/BIND_IP \"[^\"]*\"/BIND_IP \"$ETH_IP\"/g" "$ASOUNDRC"
     else
-        echo "WARN: eth0 sin IP y sin BIND_IP en .asoundrc, arrancando con null"
+        echo "WARN: sin IP disponible, arrancando con null"
         python3 -c "
 import re; txt=open('$CONFIG').read()
 txt=re.sub(r'(device:\s*)\"?inferno_\S+\"?',r'\1\"null\"',txt)
 open('/tmp/camilladsp_nulldante.yml','w').write(txt)
 "
         exec "$ENGINE" -p 1234 -a 0.0.0.0 /tmp/camilladsp_nulldante.yml
-    fi
-else
-    # Actualizar BIND_IP en .asoundrc si la IP de eth0 cambió
-    if [ "$SAVED_BIND" != "$ETH_IP" ]; then
-        sed -i "s/BIND_IP \"$SAVED_BIND\"/BIND_IP \"$ETH_IP\"/g" "$ASOUNDRC"
-        echo "BIND_IP actualizado: $SAVED_BIND -> $ETH_IP"
     fi
 fi
 
