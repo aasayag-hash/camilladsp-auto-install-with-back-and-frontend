@@ -8,6 +8,10 @@ ASOUNDRC="/root/.asoundrc"
 STATE_BASE="/root/.local/state/inferno_aoip"
 ENGINE="/root/camilladsp/engine/camilladsp"
 
+# Matar instancias previas del engine (no del servicio web)
+pkill -9 -x camilladsp 2>/dev/null || true
+sleep 2
+
 # Leer dispositivo de captura del YAML activo
 CAPTURE_DEV=$(python3 -c "
 import sys
@@ -41,8 +45,13 @@ if [ -z "$ETH_IP" ]; then
         echo "WARN: eth0 sin IP, usando BIND_IP guardado: $SAVED_BIND"
         ETH_IP="$SAVED_BIND"
     else
-        echo "WARN: eth0 sin IP y sin BIND_IP en .asoundrc, arrancando en modo espera"
-        exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+        echo "WARN: eth0 sin IP y sin BIND_IP en .asoundrc, arrancando con null"
+        python3 -c "
+import re; txt=open('$CONFIG').read()
+txt=re.sub(r'(device:\s*)\"?inferno_\S+\"?',r'\1\"null\"',txt)
+open('/tmp/camilladsp_nulldante.yml','w').write(txt)
+"
+        exec "$ENGINE" -p 1234 -a 0.0.0.0 /tmp/camilladsp_nulldante.yml
     fi
 else
     # Actualizar BIND_IP en .asoundrc si la IP de eth0 cambió
@@ -71,8 +80,13 @@ while IFS= read -r d; do
 done < <(ls -dt "$STATE_BASE"/*/ 2>/dev/null)
 
 if [ -z "$SUBSCRIPTIONS_SRC" ]; then
-    echo "WARN: no hay rx_subscriptions configuradas, arrancando sin suscripciones Dante"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 "$CONFIG"
+    echo "WARN: no hay rx_subscriptions configuradas, arrancando con null"
+    python3 -c "
+import re; txt=open('$CONFIG').read()
+txt=re.sub(r'(device:\s*)\"?inferno_\S+\"?',r'\1\"null\"',txt)
+open('/tmp/camilladsp_nulldante.yml','w').write(txt)
+"
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 /tmp/camilladsp_nulldante.yml
 fi
 echo "Subscriptions: $SUBSCRIPTIONS_SRC"
 
@@ -91,36 +105,24 @@ new_dir="${STATE_BASE}/${IP_HEX}${new_hex}"
 mkdir -p "$new_dir"
 cp "$SUBSCRIPTIONS_SRC" "$new_dir/rx_subscriptions.toml"
 
-# Esperar que el P300 expire el flow anterior (keepalive timeout ~4s)
-echo "Esperando expiracion de flow anterior en P300..."
-sleep 6
+# Generar config con device inferno reemplazado por null
+TMPCONFIG="/tmp/camilladsp_nulldante.yml"
+python3 -c "
+import re
+txt = open('$CONFIG').read()
+txt = re.sub(r'(device:\s*)\"?inferno_\S+\"?', r'\1\"null\"', txt)
+open('$TMPCONFIG', 'w').write(txt)
+"
+echo "Arrancando CamillaDSP con null en lugar de Dante (PROCESS_ID=$new, IP=$ETH_IP)"
+echo "Cuando haya flujo Dante, recargar el preset desde la UI"
 
-# Verificar flujo Dante (hasta 60s)
-echo "Verificando flujo Dante..."
-DANTE_OK=0
+# Esperar que hw:1,0 quede libre verificando via /proc (max 15s)
 for i in $(seq 1 5); do
-    bytes=$(RUST_LOG=error arecord -D inferno_rx -f S32_LE -r 48000 -c 2 -d 2 2>/dev/null | wc -c)
-    if [ "$bytes" -gt 300000 ]; then
-        echo "Flujo OK ($bytes bytes)"
-        sleep 6
-        DANTE_OK=1
+    if ! grep -rl 'pcmC1D0' /proc/*/fd 2>/dev/null | grep -q .; then
         break
     fi
-    echo "Intento $i: $bytes bytes"
+    echo "Esperando que hw:1,0 quede libre ($i)..."
     sleep 3
 done
 
-if [ "$DANTE_OK" -eq 1 ]; then
-    echo "Arrancando CamillaDSP Dante con config (PROCESS_ID=$new, IP=$ETH_IP)"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 "$CONFIG"
-else
-    # Sin flujo Dante: cargar preset fallback si existe, sino modo espera
-    FALLBACK="/root/camilladsp/config/presets/maya44usb.yml"
-    if [ -f "$FALLBACK" ]; then
-        echo "Sin flujo Dante, cargando preset fallback: maya44usb"
-        exec "$ENGINE" -p 1234 -a 0.0.0.0 "$FALLBACK"
-    else
-        echo "Sin flujo Dante y sin fallback, arrancando en modo espera"
-        exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
-    fi
-fi
+exec "$ENGINE" -p 1234 -a 0.0.0.0 "$TMPCONFIG"
