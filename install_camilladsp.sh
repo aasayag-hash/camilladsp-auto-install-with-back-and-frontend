@@ -768,6 +768,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+Environment=RUST_LOG=warn
+StandardOutput=null
+StandardError=null
 ExecStartPre=/usr/local/bin/statime-update-iface.sh
 ExecStart=/usr/local/bin/statime -c /etc/statime-inferno.toml
 Restart=on-failure
