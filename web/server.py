@@ -380,11 +380,65 @@ def _update_statime_interface(bind_ip):
     except Exception as e:
         print(f"[statime] error actualizando toml: {e}")
 
+def _update_dante_hosts():
+    """Resuelve los tx_hostname de las suscripciones activas y los escribe en /etc/hosts.
+    Necesario cuando mDNS no cruza entre interfaces (ej. cable→WiFi)."""
+    import socket, re as _re2
+    rx_dir = _find_active_rx_dir()
+    if not rx_dir:
+        return
+    sub_file = os.path.join(rx_dir, 'rx_subscriptions.toml')
+    if not os.path.exists(sub_file):
+        return
+    # Recopilar hostnames únicos de las suscripciones
+    hostnames = set()
+    for line in open(sub_file):
+        m = _re2.match(r'\s*tx_hostname\s*=\s*"([^"]+)"', line)
+        if m:
+            hostnames.add(m.group(1))
+    if not hostnames:
+        return
+    # Resolver cada hostname por mDNS/DNS con la IP de bind como hint
+    hosts_path = '/etc/hosts'
+    try:
+        content = open(hosts_path).read()
+    except Exception:
+        return
+    changed = False
+    for hostname in hostnames:
+        # Intentar resolver .local primero, luego sin sufijo
+        ip = None
+        for name in [f'{hostname}.local', hostname]:
+            try:
+                ip = socket.gethostbyname(name)
+                if not ip.startswith('127.'):
+                    break
+            except Exception:
+                continue
+        if not ip or ip.startswith('127.'):
+            print(f"[dante-hosts] no se pudo resolver {hostname}, omitiendo")
+            continue
+        # Eliminar entradas viejas del hostname y agregar la nueva
+        lines = [l for l in content.splitlines()
+                 if hostname not in l or l.strip().startswith('#')]
+        entry = f'{ip} {hostname}.local {hostname}.localdomain {hostname}'
+        lines.append(entry)
+        content = '\n'.join(lines) + '\n'
+        changed = True
+        print(f"[dante-hosts] {hostname} → {ip}")
+    if changed:
+        try:
+            open(hosts_path, 'w').write(content)
+            print(f"[dante-hosts] /etc/hosts actualizado")
+        except Exception as e:
+            print(f"[dante-hosts] error escribiendo hosts: {e}")
+
 def _restart_dante_and_camilla(bind_ip=None):
     """Reinicia statime-inferno y camilladsp (sin tocar el web service)."""
     import time
     if bind_ip:
         _update_statime_interface(bind_ip)
+        _update_dante_hosts()
     try:
         subprocess.run(["systemctl", "restart", "statime-inferno"], timeout=15)
         print("[dante] statime-inferno reiniciado")
