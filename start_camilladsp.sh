@@ -69,23 +69,22 @@ print('0000' + format(n, '08x'))
 
 echo "Dante: IP=$ETH_IP hex=$IP_HEX"
 
-# Forzar rutas de red hacia hosts Dante por la interfaz correcta (BIND_IP)
-# Necesario cuando hay múltiples interfaces y la ruta por defecto no es la de Dante
+# Si hay otras interfaces en la misma subred que BIND_IP, bajarlas para que
+# el kernel no las use en lugar de la interfaz Dante elegida
 DANTE_IFACE=$(ip -4 addr show | awk -v ip="$ETH_IP" '
     /^[0-9]+:/ { iface=$2; sub(/:$/, "", iface) }
     /inet / { if (index($2, ip"/") == 1) print iface }
 ')
+BIND_PREFIX=$(echo "$ETH_IP" | cut -d. -f1-3)
 if [ -n "$DANTE_IFACE" ]; then
-    # Rutas de host específicas para cada tx_hostname conocido en /etc/hosts
-    grep -v '^#' /etc/hosts | grep -v '^127\.' | grep -v '^::' | while read h_ip h_names; do
-        [ -z "$h_ip" ] && continue
-        # Solo aplicar si hay alguna suscripción que use este host
-        if grep -rq "$h_ip\|$(echo $h_names | tr ' ' '\n' | head -1)" "$STATE_BASE"/*/rx_subscriptions.toml 2>/dev/null; then
-            current_route=$(ip route get "$h_ip" 2>/dev/null)
-            if ! echo "$current_route" | grep -q "dev $DANTE_IFACE"; then
-                ip route replace "$h_ip" dev "$DANTE_IFACE" src "$ETH_IP" 2>/dev/null && \
-                    echo "Ruta $h_ip → $DANTE_IFACE (src $ETH_IP)"
-            fi
+    echo "Interfaz Dante: $DANTE_IFACE ($ETH_IP)"
+    ip -4 addr show | awk '/^[0-9]+:/{iface=$2; sub(/:$/,"",iface)} /inet /{print iface, $2}' | \
+    while read iface cidr; do
+        [ "$iface" = "$DANTE_IFACE" ] && continue
+        [ "$iface" = "lo" ] && continue
+        iface_prefix=$(echo "$cidr" | cut -d. -f1-3)
+        if [ "$iface_prefix" = "$BIND_PREFIX" ]; then
+            ip link set "$iface" down 2>/dev/null && echo "Interfaz $iface bajada (conflicto de subred con $DANTE_IFACE)"
         fi
     done
 fi

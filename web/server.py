@@ -353,32 +353,68 @@ title: default
 
 STATIME_TOML = "/etc/statime-inferno.toml"
 
-def _update_statime_interface(bind_ip):
-    """Actualiza la interfaz en statime-inferno.toml según la IP elegida."""
-    import re as _re
+def _get_iface_for_ip(bind_ip):
+    """Devuelve la interfaz que tiene la IP dada."""
     try:
         out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=5)
-        iface = None
         current = None
         for line in out.splitlines():
             m = re.match(r'\d+:\s+(\S+):', line)
             if m:
                 current = m.group(1)
             if bind_ip in line and current:
-                iface = current
-                break
-        if not iface:
-            print(f"[statime] no se encontró interfaz para IP {bind_ip}, no se actualiza toml")
-            return
+                return current
+    except Exception:
+        pass
+    return None
+
+def _set_dante_interface(bind_ip):
+    """Configura el sistema para que todo el tráfico Dante salga por la interfaz de bind_ip.
+    Deshabilita las otras interfaces de la misma subred para que el kernel no las use."""
+    import re as _re
+    iface = _get_iface_for_ip(bind_ip)
+    if not iface:
+        print(f"[dante-iface] no se encontró interfaz para {bind_ip}")
+        return
+
+    # Actualizar statime-inferno.toml
+    try:
         content = open(STATIME_TOML).read()
         new_content = _re.sub(r'(interface\s*=\s*)"[^"]+"', f'\\1"{iface}"', content)
         if new_content != content:
             open(STATIME_TOML, 'w').write(new_content)
-            print(f"[statime] interfaz actualizada a {iface} para IP {bind_ip}")
-        else:
-            print(f"[statime] interfaz ya era {iface}, sin cambios")
+            print(f"[dante-iface] statime: interfaz → {iface}")
     except Exception as e:
-        print(f"[statime] error actualizando toml: {e}")
+        print(f"[dante-iface] error actualizando statime toml: {e}")
+
+    bind_prefix = '.'.join(bind_ip.split('.')[:3])
+
+    # Levantar la interfaz elegida si estaba bajada
+    try:
+        subprocess.run(["ip", "link", "set", iface, "up"], timeout=5)
+        print(f"[dante-iface] {iface} levantada")
+    except Exception as e:
+        print(f"[dante-iface] error levantando {iface}: {e}")
+
+    # Bajar otras interfaces en la misma subred para que el kernel no las use
+    try:
+        out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=5)
+        current_iface = None
+        for line in out.splitlines():
+            m = re.match(r'\d+:\s+(\S+):', line)
+            if m:
+                current_iface = m.group(1)
+            if current_iface and current_iface != iface and current_iface != 'lo':
+                m2 = re.search(r'inet\s+(\d+\.\d+\.\d+)\.\d+/\d+', line)
+                if m2 and m2.group(1) == bind_prefix:
+                    subprocess.run(["ip", "link", "set", current_iface, "down"], timeout=5)
+                    print(f"[dante-iface] {current_iface} bajado (conflicto de subred con {iface})")
+    except Exception as e:
+        print(f"[dante-iface] error gestionando interfaces: {e}")
+
+def _update_statime_interface(bind_ip):
+    """Mantener por compatibilidad — ahora usa _set_dante_interface."""
+    _set_dante_interface(bind_ip)
 
 def _fix_routing_for_dante(bind_ip):
     """Agrega ruta de host específica hacia cada tx_hostname por la interfaz de bind_ip.
