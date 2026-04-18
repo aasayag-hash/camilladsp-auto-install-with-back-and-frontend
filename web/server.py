@@ -882,8 +882,16 @@ import re as _re
 INFERNO_STATE = os.path.expanduser('~/.local/state/inferno_aoip')
 
 def _find_active_rx_dir():
+    """Devuelve el directorio inferno_rx activo.
+
+    Estrategia (por orden de prioridad):
+    1. Directorio exacto por BIND_IP + PROCESS_ID del .asoundrc (si existe y tiene suscripciones)
+    2. Directorio más reciente (por mtime) con tx_hostname en rx_subscriptions.toml
+    3. Directorio exacto por BIND_IP + PROCESS_ID aunque no tenga suscripciones (para escritura)
+    """
     PAT_IP  = r'inferno_rx' + r'\s*\{[^}]*BIND_IP\s+' + '"([^"]+)"'
     PAT_PID = r'inferno_rx' + r'\s*\{[^}]*PROCESS_ID\s+' + '"([^"]+)"'
+    exact_cand = None
     try:
         asoundrc = open(DANTE_ASOUNDRC).read()
         m_ip  = _re.search(PAT_IP,  asoundrc, _re.DOTALL)
@@ -892,19 +900,25 @@ def _find_active_rx_dir():
             parts   = m_ip.group(1).split('.')
             ip_hex  = ''.join('{:02x}'.format(int(p)) for p in parts)
             pid_hex = '{:04x}'.format(int(m_pid.group(1)))
-            cand = os.path.join(INFERNO_STATE, '0000' + ip_hex + pid_hex)
-            if os.path.exists(cand):
-                return cand
+            exact_cand = os.path.join(INFERNO_STATE, '0000' + ip_hex + pid_hex)
+            sub_path = os.path.join(exact_cand, 'rx_subscriptions.toml')
+            if os.path.exists(exact_cand) and os.path.exists(sub_path) and 'tx_hostname' in open(sub_path).read():
+                return exact_cand
     except Exception:
         pass
+    # Fallback: directorio más reciente por mtime con suscripciones configuradas
     try:
-        for d in sorted(os.listdir(INFERNO_STATE), reverse=True):
-            path = os.path.join(INFERNO_STATE, d, 'rx_subscriptions.toml')
+        dirs = [os.path.join(INFERNO_STATE, d) for d in os.listdir(INFERNO_STATE)
+                if os.path.isdir(os.path.join(INFERNO_STATE, d))]
+        dirs.sort(key=lambda d: os.path.getmtime(d), reverse=True)
+        for d in dirs:
+            path = os.path.join(d, 'rx_subscriptions.toml')
             if os.path.exists(path) and 'tx_hostname' in open(path).read():
-                return os.path.join(INFERNO_STATE, d)
+                return d
     except Exception:
         pass
-    return None
+    # Último recurso: directorio exacto aunque esté vacío (para escritura inicial)
+    return exact_cand
 
 @app.route('/api/dante-bind-ip', methods=['GET', 'POST'])
 def dante_bind_ip():
