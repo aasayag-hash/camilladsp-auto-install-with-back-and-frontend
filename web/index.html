@@ -377,7 +377,7 @@ table.ftable tr:hover td{background:#1a1a1a}
           <option value="2048">2048</option><option value="4096">4096</option>
         </select>
         <button class="device-apply-btn" id="dev-refresh-btn" onclick="loadDevices()" title="Recargar lista de dispositivos">&#x21BA; Actualizar</button>
-        <button class="device-restart-btn" onclick="restartEngine()" title="Reiniciar motor de audio">&#x2699; Motor</button>
+        <button class="device-restart-btn" id="dev-restart-btn" onclick="restartEngine()" title="Reiniciar motor de audio">&#x2699; Motor</button>
         <button class="device-apply-btn" onclick="openDanteSub()" title="Configurar fuente Dante" style="background:#005080;border-color:#0af">&#x266B; Dante RX</button>
       </div>
     </div>
@@ -3530,7 +3530,7 @@ function applyLang(){
   }
   const dab = document.getElementById('dev-refresh-btn');
   if(dab) dab.textContent = isEs ? '\u21BA Actualizar' : '\u21BA Refresh';
-  const drb = document.querySelector('.device-restart-btn');
+  const drb = document.getElementById('dev-restart-btn');
   if(drb) drb.textContent = isEs ? '\u2699 Motor' : '\u2699 Engine';
 }
 
