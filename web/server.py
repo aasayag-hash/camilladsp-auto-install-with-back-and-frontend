@@ -972,8 +972,10 @@ pcm.inferno_tx {{
 import re as _re
 
 INFERNO_STATE = os.path.expanduser('~/.local/state/inferno_aoip')
-DANTE_SUBSCRIPTIONS_FILE = '/root/camilladsp/config/dante_subscriptions.toml'
+DANTE_SUBSCRIPTIONS_FILE = INSTALL_BASE + '/config/dante_subscriptions.toml'
 _IP_RE = _re.compile(r'^\d+\.\d+\.\d+\.\d+$')
+_PAT_RX_IP  = r'inferno_rx\s*\{[^}]*BIND_IP\s+"([^"]+)"'
+_PAT_RX_PID = r'inferno_rx\s*\{[^}]*PROCESS_ID\s+"([^"]+)"'
 
 def _iface_to_ip(val):
     """Dado un nombre de interfaz o IP, devuelve siempre una IP."""
@@ -994,13 +996,11 @@ def _find_active_rx_dir():
     2. Directorio más reciente (por mtime) con tx_hostname en rx_subscriptions.toml
     3. Directorio exacto por BIND_IP + PROCESS_ID aunque no tenga suscripciones (para escritura)
     """
-    PAT_IP  = r'inferno_rx' + r'\s*\{[^}]*BIND_IP\s+' + '"([^"]+)"'
-    PAT_PID = r'inferno_rx' + r'\s*\{[^}]*PROCESS_ID\s+' + '"([^"]+)"'
     exact_cand = None
     try:
         asoundrc = open(DANTE_ASOUNDRC).read()
-        m_ip  = _re.search(PAT_IP,  asoundrc, _re.DOTALL)
-        m_pid = _re.search(PAT_PID, asoundrc, _re.DOTALL)
+        m_ip  = _re.search(_PAT_RX_IP,  asoundrc, _re.DOTALL)
+        m_pid = _re.search(_PAT_RX_PID, asoundrc, _re.DOTALL)
         if m_ip and m_pid:
             parts   = _iface_to_ip(m_ip.group(1)).split('.')
             ip_hex  = ''.join('{:02x}'.format(int(p)) for p in parts)
@@ -1084,15 +1084,13 @@ def dante_get_subscriptions():
 @app.route('/api/dante-subscriptions', methods=['POST'])
 def dante_set_subscriptions():
     try:
-        PAT_IP  = r'inferno_rx' + r'\s*\{[^}]*BIND_IP\s+' + '"([^"]+)"'
-        PAT_PID = r'inferno_rx' + r'\s*\{[^}]*PROCESS_ID\s+' + '"([^"]+)"'
         d = json.loads(request.data)
         channels = d.get('channels', [])
         rx_dir = _find_active_rx_dir()
         if not rx_dir:
             asoundrc = open(DANTE_ASOUNDRC).read()
-            m_ip  = _re.search(PAT_IP,  asoundrc, _re.DOTALL)
-            m_pid = _re.search(PAT_PID, asoundrc, _re.DOTALL)
+            m_ip  = _re.search(_PAT_RX_IP,  asoundrc, _re.DOTALL)
+            m_pid = _re.search(_PAT_RX_PID, asoundrc, _re.DOTALL)
             if m_ip and m_pid:
                 parts   = _iface_to_ip(m_ip.group(1)).split('.')
                 ip_hex  = ''.join('{:02x}'.format(int(p)) for p in parts)
