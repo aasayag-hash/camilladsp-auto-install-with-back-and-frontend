@@ -109,7 +109,35 @@ cp "$SUBSCRIPTIONS_SRC" "$new_dir/rx_subscriptions.toml"
 find "$STATE_BASE" -mindepth 1 -maxdepth 1 -type d ! -path "$new_dir" -exec rm -rf {} + 2>/dev/null || true
 echo "Directorios inferno limpiados, activo: $new_dir"
 
-# Generar config con device inferno reemplazado por null
+# Verificar si hay flujo Dante disponible (max 8s)
+# El plugin inferno_rx necesita ~2s para resolver mDNS y abrir el stream.
+# Si "Recording WAVE" aparece en stderr, el dispositivo abrió correctamente.
+DANTE_FLUJO=0
+echo "Verificando flujo Dante..."
+for i in 1 2 3 4; do
+    err=$(timeout 2 arecord -D inferno_rx -r 48000 -f S32_LE -c 2 -d 1 /dev/null 2>&1)
+    if echo "$err" | grep -q "Recording WAVE"; then
+        DANTE_FLUJO=1
+        break
+    fi
+    echo "Intento $i: sin flujo Dante aún, esperando..."
+    sleep 2
+done
+
+if [ "$DANTE_FLUJO" -eq 1 ]; then
+    echo "Flujo Dante detectado, arrancando CamillaDSP con inferno_rx (PROCESS_ID=$new)"
+    # Esperar que hw:1,0 quede libre (max 15s)
+    for i in $(seq 1 5); do
+        if ! grep -rl 'pcmC1D0' /proc/*/fd 2>/dev/null | grep -q .; then
+            break
+        fi
+        echo "Esperando que hw:1,0 quede libre ($i)..."
+        sleep 3
+    done
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 "$CONFIG"
+fi
+
+# Sin flujo Dante: arrancar con null para que el engine quede activo
 TMPCONFIG="/tmp/camilladsp_nulldante.yml"
 python3 -c "
 import re
@@ -117,10 +145,9 @@ txt = open('$CONFIG').read()
 txt = re.sub(r'(device:\s*)\"?inferno_\S+\"?', r'\1\"null\"', txt)
 open('$TMPCONFIG', 'w').write(txt)
 "
-echo "Arrancando CamillaDSP con null en lugar de Dante (PROCESS_ID=$new, IP=$ETH_IP)"
-echo "Cuando haya flujo Dante, recargar el preset desde la UI"
+echo "Sin flujo Dante, arrancando con null (PROCESS_ID=$new). Recargar preset cuando haya flujo."
 
-# Esperar que hw:1,0 quede libre verificando via /proc (max 15s)
+# Esperar que hw:1,0 quede libre (max 15s)
 for i in $(seq 1 5); do
     if ! grep -rl 'pcmC1D0' /proc/*/fd 2>/dev/null | grep -q .; then
         break
