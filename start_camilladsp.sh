@@ -32,28 +32,34 @@ fi
 
 # --- Modo Dante (inferno_rx) ---
 
-# Detectar IP de eth0
+# Detectar IP de eth0; si no hay, usar la última BIND_IP configurada en .asoundrc
 ETH_IP=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+' | head -1)
+SAVED_BIND=$(grep -oP 'BIND_IP\s+"\K[^"]+' "$ASOUNDRC" | head -1)
+
 if [ -z "$ETH_IP" ]; then
-    echo "WARN: eth0 sin IP, arrancando en modo espera"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+    if [ -n "$SAVED_BIND" ]; then
+        echo "WARN: eth0 sin IP, usando BIND_IP guardado: $SAVED_BIND"
+        ETH_IP="$SAVED_BIND"
+    else
+        echo "WARN: eth0 sin IP y sin BIND_IP en .asoundrc, arrancando en modo espera"
+        exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+    fi
+else
+    # Actualizar BIND_IP en .asoundrc si la IP de eth0 cambió
+    if [ "$SAVED_BIND" != "$ETH_IP" ]; then
+        sed -i "s/BIND_IP \"$SAVED_BIND\"/BIND_IP \"$ETH_IP\"/g" "$ASOUNDRC"
+        echo "BIND_IP actualizado: $SAVED_BIND -> $ETH_IP"
+    fi
 fi
 
-# Calcular hex de IP
+# Calcular hex de IP para directorio de estado inferno
 IP_HEX=$(python3 -c "
 import socket, struct
 n = struct.unpack('>I', socket.inet_aton('$ETH_IP'))[0]
 print('0000' + format(n, '08x'))
 ")
 
-echo "Dante: eth0 IP=$ETH_IP hex=$IP_HEX"
-
-# Actualizar BIND_IP en .asoundrc si cambió
-current_bind=$(grep 'BIND_IP "[0-9]' "$ASOUNDRC" | head -1 | grep -oP '\d+\.\d+\.\d+\.\d+')
-if [ "$current_bind" != "$ETH_IP" ]; then
-    sed -i "s/BIND_IP \"$current_bind\"/BIND_IP \"$ETH_IP\"/g" "$ASOUNDRC"
-    echo "BIND_IP actualizado: $current_bind -> $ETH_IP"
-fi
+echo "Dante: IP=$ETH_IP hex=$IP_HEX"
 
 # Buscar el directorio más reciente con suscripciones configuradas (tx_hostname)
 SUBSCRIPTIONS_SRC=""

@@ -3679,16 +3679,18 @@ async function saveDanteSub() {
   if (!channels.length) { document.getElementById('dante-sub-status').textContent = 'Ingrese al menos un canal TX'; return; }
   document.getElementById('dante-sub-status').textContent = 'Guardando...';
   try {
-    // Si se seleccionó una interfaz diferente, actualizar BIND_IP en .asoundrc
-    if (bindIp) {
-      await fetch('/api/dante-bind-ip', {method:'POST', body: JSON.stringify({bind_ip: bindIp})});
-    }
+    // Guardar suscripciones primero
     const r = await fetch('/api/dante-subscriptions', {method:'POST', body: JSON.stringify({channels})});
     const data = await r.json();
     if (!data.ok) throw new Error(data.error);
-    document.getElementById('dante-sub-status').textContent = 'Guardado. Reiniciando CamillaDSP...';
-    await fetch('/api/restart', {method:'POST'});
-    setTimeout(closeDanteSub, 1500);
+    // Actualizar BIND_IP y reiniciar statime-inferno + camilladsp
+    if (bindIp) {
+      await fetch('/api/dante-bind-ip', {method:'POST', body: JSON.stringify({bind_ip: bindIp})});
+    } else {
+      await fetch('/api/restart', {method:'POST'});
+    }
+    document.getElementById('dante-sub-status').textContent = 'Guardado. Reiniciando servicios Dante...';
+    setTimeout(closeDanteSub, 2000);
   } catch(e) {
     document.getElementById('dante-sub-status').textContent = 'Error: ' + e.message;
   }

@@ -318,15 +318,35 @@ processors: {}
 title: default
 """
 
+def _restart_dante_and_camilla():
+    """Reinicia statime-inferno y camilladsp (sin tocar el web service)."""
+    import time
+    try:
+        subprocess.run(["systemctl", "restart", "statime-inferno"], timeout=15)
+        print("[dante] statime-inferno reiniciado")
+    except Exception as e:
+        print(f"[dante] error reiniciando statime-inferno: {e}")
+    time.sleep(2)
+    try:
+        subprocess.run(["systemctl", "restart", "camilladsp"], timeout=15)
+        print("[dante] camilladsp reiniciado")
+    except Exception as e:
+        print(f"[dante] error reiniciando camilladsp: {e}")
+
 def _restart_all_services():
+    import time
+    try:
+        subprocess.run(["systemctl", "restart", "statime-inferno"], timeout=15)
+    except Exception: pass
+    time.sleep(1)
     try:
         subprocess.run(["systemctl", "restart", "camilladsp"], timeout=10)
     except Exception: pass
-    import time; time.sleep(2)
+    time.sleep(2)
     try:
         subprocess.run(["systemctl", "restart", "camilladsp-web"], timeout=10)
     except Exception: pass
-    import time; time.sleep(3)
+    time.sleep(3)
 
 @app.route("/api/recovery", methods=["POST"])
 def recover_engine():
@@ -843,6 +863,7 @@ def dante_bind_ip():
             new_content = _re3.sub(r'(BIND_IP\s+)"[^"]+"', r'\1"' + new_ip + '"', content)
             open(DANTE_ASOUNDRC, 'w').write(new_content)
             print(f"[dante] BIND_IP actualizado a {new_ip}")
+            threading.Thread(target=_restart_dante_and_camilla, daemon=True).start()
             return jsonify({'ok': True, 'bind_ip': new_ip})
         except Exception as e:
             return jsonify({'ok': False, 'error': str(e)})
