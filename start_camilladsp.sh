@@ -24,10 +24,10 @@ print('')
 
 echo "Capture device: '$CAPTURE_DEV'"
 
-# Si no es inferno_rx, arrancar directamente
+# Si no es inferno_rx, arrancar directamente con config
 if [ "$CAPTURE_DEV" != "inferno_rx" ]; then
     echo "No es Dante, arrancando directamente"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 -c "$CONFIG"
 fi
 
 # --- Modo Dante (inferno_rx) ---
@@ -35,8 +35,8 @@ fi
 # Detectar IP de eth0
 ETH_IP=$(ip -4 addr show eth0 2>/dev/null | grep -oP '(?<=inet\s)\d+\.\d+\.\d+\.\d+' | head -1)
 if [ -z "$ETH_IP" ]; then
-    echo "ERROR: eth0 sin IP, abortando"
-    exit 1
+    echo "WARN: eth0 sin IP, arrancando en modo espera"
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
 fi
 
 # Calcular hex de IP
@@ -66,8 +66,7 @@ done < <(ls -dt "$STATE_BASE"/*/ 2>/dev/null)
 
 if [ -z "$SUBSCRIPTIONS_SRC" ]; then
     echo "WARN: no hay rx_subscriptions configuradas, arrancando sin suscripciones Dante"
-    # Arrancar igual — el usuario puede configurar desde la UI luego
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 -c "$CONFIG"
 fi
 echo "Subscriptions: $SUBSCRIPTIONS_SRC"
 
@@ -104,4 +103,4 @@ for i in $(seq 1 20); do
 done
 
 echo "Arrancando CamillaDSP Dante (PROCESS_ID=$new, IP=$ETH_IP)"
-exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+exec "$ENGINE" -p 1234 -a 0.0.0.0 -c "$CONFIG"
