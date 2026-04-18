@@ -396,7 +396,8 @@ def _set_dante_interface(bind_ip):
     except Exception as e:
         print(f"[dante-iface] error levantando {iface}: {e}")
 
-    # Bajar otras interfaces en la misma subred para que el kernel no las use
+    # Desgestionar con NetworkManager las interfaces competidoras en la misma subred
+    # nmcli set unmanaged evita que NM las vuelva a levantar al conectar el cable
     try:
         out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=5)
         current_iface = None
@@ -407,8 +408,11 @@ def _set_dante_interface(bind_ip):
             if current_iface and current_iface != iface and current_iface != 'lo':
                 m2 = re.search(r'inet\s+(\d+\.\d+\.\d+)\.\d+/\d+', line)
                 if m2 and m2.group(1) == bind_prefix:
+                    subprocess.run(["nmcli", "device", "set", current_iface, "managed", "no"], timeout=5)
                     subprocess.run(["ip", "link", "set", current_iface, "down"], timeout=5)
-                    print(f"[dante-iface] {current_iface} bajado (conflicto de subred con {iface})")
+                    print(f"[dante-iface] {current_iface} desactivado de NM (conflicto subred con {iface})")
+        # Asegurar que la interfaz elegida sí es gestionada por NM
+        subprocess.run(["nmcli", "device", "set", iface, "managed", "yes"], timeout=5)
     except Exception as e:
         print(f"[dante-iface] error gestionando interfaces: {e}")
 

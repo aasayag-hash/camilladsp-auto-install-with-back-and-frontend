@@ -84,9 +84,12 @@ if [ -n "$DANTE_IFACE" ]; then
         [ "$iface" = "lo" ] && continue
         iface_prefix=$(echo "$cidr" | cut -d. -f1-3)
         if [ "$iface_prefix" = "$BIND_PREFIX" ]; then
-            ip link set "$iface" down 2>/dev/null && echo "Interfaz $iface bajada (conflicto de subred con $DANTE_IFACE)"
+            nmcli device set "$iface" managed no 2>/dev/null
+            ip link set "$iface" down 2>/dev/null
+            echo "Interfaz $iface desactivada de NM (conflicto de subred con $DANTE_IFACE)"
         fi
     done
+    nmcli device set "$DANTE_IFACE" managed yes 2>/dev/null
 fi
 
 # Buscar el directorio más reciente con suscripciones configuradas (tx_hostname)
