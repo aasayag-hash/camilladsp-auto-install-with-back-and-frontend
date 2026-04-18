@@ -4,7 +4,7 @@
 #  Engine  +  GUI Backend  +  Frontend
 # ==============================================================
 
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.2.0"
 
 # Repositorios GitHub
 CAMILLADSP_REPO="HEnquist/camilladsp"
@@ -31,8 +31,24 @@ for arg in "$@"; do
     --no-service) ARG_NO_SERVICE=1 ;;
     --dir=*)      ARG_DIR="${arg#--dir=}" ;;
     -h|--help)
+      echo ""
       echo "Uso: bash install_camilladsp.sh [opciones]"
-      echo "Opciones: --update, --uninstall, --check, --dir <ruta>"
+      echo ""
+      echo "Opciones:"
+      echo "  (sin opciones)   Instalación completa interactiva"
+      echo "  --update         Actualiza el engine y frontend a la última versión"
+      echo "  --check          Muestra el estado de los servicios instalados"
+      echo "  --uninstall      Elimina la instalación completa de CamillaDSP"
+      echo "  --no-service     Instala archivos pero no inicia servicios"
+      echo "  --dir=<ruta>     Directorio de instalación (default: ~/camilladsp)"
+      echo ""
+      echo "Servicios instalados:"
+      echo "  camilladsp        Puerto WebSocket 1234 (engine DSP)"
+      echo "  camilladsp-web    Puerto HTTP 5000 (consola web)"
+      echo "  statime-inferno   Daemon PTP para sincronización Dante/AES67"
+      echo ""
+      echo "Acceso web: http://<ip-dispositivo>:5000"
+      echo ""
       exit 0
       ;;
   esac
@@ -57,8 +73,9 @@ header() {
   echo -e ""
   echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════════════╗"
   echo -e "║         CamillaDSP  —  Instalador Automático             ║"
-  echo -e "║    Engine  +  GUI Backend  +  Frontend                   ║"
+  echo -e "║         Engine DSP  +  Consola Web  +  Dante/AES67       ║"
   printf  "║                                         v%-19s║\n" "$SCRIPT_VERSION"
+  echo -e "╚══════════════════════════════════════════════════════════╝${RESET}"
 }
 
 # Limpieza profunda de instalaciones previas
@@ -335,63 +352,8 @@ install_engine() {
   return 0
 }
 
-# Instalación de la GUI
-install_gui() {
-  log_step "CamillaDSP GUI"
-
-  log_info "Consultando GitHub..."
-  github_api_get "$CAMILLAGUI_REPO"
-
-  local tag version
-  tag=$(json_get "$GH_JSON" "tag_name")
-  version="${tag#v}"
-  log_info "Versión: ${version}"
-
-  local assets_list
-  assets_list=$(json_array_urls "$GH_JSON")
-
-  local gui_dir="${INSTALL_BASE}/gui"
-
-  if find_gui_asset "$assets_list"; then
-    local asset_name="${FOUND_ASSET%%|*}"
-    local asset_url="${FOUND_ASSET##*|}"
-    log_info "Asset: ${asset_name}"
-
-    local tmpdir=$(mktemp -d)
-    local archive="${tmpdir}/${asset_name}"
-    download_file "$asset_url" "$archive"
-
-    local extract_dir="${tmpdir}/extracted"
-    log_info "Extrayendo..."
-    extract_archive "$archive" "$extract_dir"
-
-    local config_backup=""
-    if [ -f "${gui_dir}/config/camillagui.yml" ]; then
-      config_backup=$(mktemp)
-      cp "${gui_dir}/config/camillagui.yml" "$config_backup"
-    fi
-    
-    [ -d "$gui_dir" ] && rm -rf "$gui_dir"
-    cp -r "$extract_dir"/* "$gui_dir/"
-    echo "$version" > "${gui_dir}/VERSION"
-    
-    if [ -n "$config_backup" ]; then
-      mkdir -p "${gui_dir}/config"
-      cp "$config_backup" "${gui_dir}/config/camillagui.yml"
-      rm -f "$config_backup"
-    else
-      create_gui_config
-    fi
-
-    rm -rf "$tmpdir"
-  else
-    log_error "No se encontró bundle"
-    return 1
-  fi
-
-  log_ok "GUI instalada"
-  return 0
-}
+# install_gui: no se usa — este proyecto usa solo la consola web propia
+install_gui() { return 0; }
 
 
 # Liberar puertos y detener servicios conflictivos
@@ -494,98 +456,24 @@ install_web_frontend() {
   return 0
 }
 
-# Scripts de control
+# Scripts de estado
 create_scripts() {
-  log_step "Creando scripts"
+  log_step "Creando scripts de utilidad"
   local scripts_dir="${INSTALL_BASE}/scripts"
-  local logs_dir="${INSTALL_BASE}/logs"
-  local pids_dir="${INSTALL_BASE}/pids"
-  mkdir -p "$scripts_dir" "$logs_dir" "$pids_dir"
-
-  cat > "${scripts_dir}/start_all.sh" << SCRIPT
-#!/bin/bash
-PIDS=${INSTALL_BASE}/pids
-LOGS=${INSTALL_BASE}/logs
-ENGINE=${INSTALL_BASE}/engine/camilladsp
-CONFIG=${INSTALL_BASE}/config/camilladsp.yml
-GUI=${INSTALL_BASE}/gui/camillagui_backend
-
-start_svc() {
-  local name=\$1; shift
-  local pid_file=\$PIDS/\$name.pid
-  local max_retries=5
-  local retry=0
-
-  if [ -f \$pid_file ]; then
-    local old_pid=\$(cat \$pid_file 2>/dev/null)
-    if [ -n "\$old_pid" ] && kill -0 "\$old_pid" 2>/dev/null; then
-      kill "\$old_pid" 2>/dev/null
-      sleep 1
-    fi
-    if kill -0 "\$old_pid" 2>/dev/null; then
-      kill -9 "\$old_pid" 2>/dev/null
-    fi
-    rm -f \$pid_file
-  fi
-
-  mkdir -p "\$LOGS" "\$PIDS"
-  > "\$LOGS/\$name.log"
-
-  while [ \$retry -lt \$max_retries ]; do
-    setsid "\$@" >> "\$LOGS/\$name.log" 2>&1 &
-    local new_pid=\$!
-    echo \$new_pid > \$pid_file
-    sleep 3
-
-    if kill -0 "\$new_pid" 2>/dev/null; then
-      echo "  [OK] \$name iniciado (PID \$new_pid)"
-      return 0
-    fi
-
-    retry=\$((retry + 1))
-    if [ \$retry -lt \$max_retries ]; then
-      echo "  [WARN] \$name no pudo iniciar, reintentando (\$retry/\$max_retries)..."
-      sleep 2
-    fi
-  done
-
-  echo "  [ERROR] \$name no pudo iniciar"
-  return 1
-}
-
-echo "Iniciando CamillaDSP..."
-start_svc engine \$ENGINE -p ${ENGINE_WS_PORT} -a 0.0.0.0 -w
-sleep 3
-start_svc gui \$GUI --config ${INSTALL_BASE}/gui/config/camillagui.yml
-sleep 2
-# Liberar puerto del web server si está ocupado
-fuser -k ${WEB_GUI_PORT}/tcp 2>/dev/null || true
-sleep 1
-start_svc web python3 ${INSTALL_BASE}/web/server.py
-echo ""
-echo "  GUI CamillaGUI: http://localhost:${GUI_HTTP_PORT}"
-echo "  Web Console:    http://localhost:${WEB_GUI_PORT}"
-SCRIPT
-
-  cat > "${scripts_dir}/stop_all.sh" << SCRIPT
-#!/bin/bash
-PIDS=${INSTALL_BASE}/pids
-for svc in web gui engine; do
-  [ -f \$PIDS/\$svc.pid ] && kill \$(cat \$PIDS/\$svc.pid) 2>/dev/null
-done
-echo "Detenido"
-SCRIPT
+  mkdir -p "$scripts_dir"
 
   cat > "${scripts_dir}/status.sh" << SCRIPT
 #!/bin/bash
-PIDS=${INSTALL_BASE}/pids
-echo "Estado:"
-for svc in engine gui web; do
-  [ -f \$PIDS/\$svc.pid ] && kill -0 \$(cat \$PIDS/\$svc.pid) 2>/dev/null && echo "  [ON] \$svc" || echo "  [OFF] \$svc"
+echo "=== CamillaDSP Status ==="
+for svc in camilladsp camilladsp-web statime-inferno; do
+  state=\$(systemctl is-active "\$svc" 2>/dev/null || echo "not-found")
+  echo "  \$svc: \$state"
 done
+echo ""
+echo "Web Console: http://\$(hostname -I | awk '{print \$1}'):5000"
 SCRIPT
 
-  chmod +x "${scripts_dir}"/*.sh
+  chmod +x "${scripts_dir}/status.sh"
   log_ok "Scripts creados"
 }
 
@@ -657,15 +545,16 @@ setup_autostart() {
 
     cat > "${unit_dir}/camilladsp.service" << EOF
 [Unit]
-Description=CamillaDSP + GUI + Web Console
+Description=CamillaDSP + Web Console
 After=network.target
 
 [Service]
-Type=forking
-ExecStart=${start_script}
-ExecStop=${base}/scripts/stop_all.sh
+Type=simple
+ExecStart=python3 ${base}/web/server.py
 Restart=on-failure
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=default.target
@@ -983,94 +872,25 @@ EOF
 
   # ── 9. Instalar start_camilladsp.sh (arranque robusto) ──────────────────
   local start_script="${INSTALL_BASE}/start_camilladsp.sh"
-  cat > "$start_script" << 'STARTSCRIPT'
-#!/bin/bash
-# Arranque robusto de CamillaDSP con inferno_rx (Dante via Ethernet)
-# - Auto-detecta IP de eth0
-# - Auto-incrementa PROCESS_ID para evitar error 1102 del P300
-# - Verifica que el flujo Dante llegue antes de arrancar CamillaDSP
-
-ASOUNDRC="$HOME/.asoundrc"
-INFERNO_STATE="$HOME/.local/state/inferno_aoip"
-ENGINE="/root/camilladsp/engine/camilladsp"
-CONFIG="/root/camilladsp/config/camilladsp.yml"
-
-# Detectar si la configuración activa usa inferno_rx
-CAPTURE_DEV=$(grep -A5 'capture:' "$CONFIG" 2>/dev/null | grep 'device:' | head -1 | awk '{print $2}' | tr -d '"')
-
-if [ "$CAPTURE_DEV" != "inferno_rx" ]; then
-    # No es Dante, arrancar directo
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
-fi
-
-# Modo Dante: auto-incrementar PROCESS_ID
-ETH_IP=$(ip -4 addr show eth0 2>/dev/null | grep -o 'inet [0-9.]*' | awk '{print $2}' | head -1)
-if [ -z "$ETH_IP" ]; then
-    ETH_IP=$(ip -4 addr show | grep -o 'inet [0-9.]*' | awk 'NR==2{print $2}')
-fi
-
-# Calcular IP_HEX
-IP_HEX=$(printf '%02x' $(echo "$ETH_IP" | tr '.' ' '))
-
-# Obtener PROCESS_ID actual del .asoundrc
-CURRENT_PID=$(grep -A10 'pcm.inferno_rx' "$ASOUNDRC" | grep 'PROCESS_ID' | head -1 | grep -o '[0-9]*')
-NEW_PID=$((CURRENT_PID + 1))
-NEW_PID_HEX=$(printf '%04x' $NEW_PID)
-
-# Actualizar BIND_IP y PROCESS_ID en .asoundrc
-sed -i "s/BIND_IP \"[^\"]*\"/BIND_IP \"$ETH_IP\"/g" "$ASOUNDRC"
-# Actualizar solo el bloque inferno_rx
-python3 - << EOF
-import re
-with open('$ASOUNDRC') as f: c = f.read()
-c = re.sub(r'(pcm\.inferno_rx \{[^}]*PROCESS_ID\s+")[^"]+(")', r'\g<1>$NEW_PID\g<2>', c, flags=re.DOTALL)
-with open('$ASOUNDRC', 'w') as f: f.write(c)
-EOF
-
-# Crear nuevo directorio de estado y copiar suscripciones
-OLD_DIR=$(find "$INFERNO_STATE" -name "rx_subscriptions.toml" | xargs grep -l 'tx_hostname' 2>/dev/null | sort -r | head -1 | xargs dirname 2>/dev/null)
-NEW_DIR="${INFERNO_STATE}/0000${IP_HEX}${NEW_PID_HEX}"
-mkdir -p "$NEW_DIR"
-[ -n "$OLD_DIR" ] && [ -f "${OLD_DIR}/rx_subscriptions.toml" ] && \
-    cp "${OLD_DIR}/rx_subscriptions.toml" "${NEW_DIR}/rx_subscriptions.toml"
-
-# Verificar que el hostname Dante está configurado
-HOSTNAME=$(grep 'tx_hostname' "${NEW_DIR}/rx_subscriptions.toml" 2>/dev/null | grep -v '""' | head -1)
-if [ -z "$HOSTNAME" ]; then
-    echo "WARN: tx_hostname no configurado — arrancando CamillaDSP sin verificar flujo Dante"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
-fi
-
-# Esperar expiración del flujo anterior en P300 (4s keepalive + margen)
-sleep 6
-
-# Verificar que llega audio Dante (max 5 intentos de 2s)
-FLOW_OK=0
-for i in 1 2 3 4 5; do
-    BYTES=$(arecord -D inferno_rx -f S32_LE -r 48000 -c 2 -d 2 2>/dev/null | wc -c)
-    if [ "$BYTES" -gt 300000 ]; then
-        FLOW_OK=1
-        break
-    fi
-    sleep 2
-done
-
-if [ "$FLOW_OK" = "0" ]; then
-    echo "WARN: No llegó audio Dante — arrancando igual (puede estar en silencio)"
-fi
-
-# Esperar expiración del flujo de prueba
-sleep 6
-
-exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
-STARTSCRIPT
+  if [ -f "${SCRIPT_DIR}/start_camilladsp.sh" ]; then
+    cp "${SCRIPT_DIR}/start_camilladsp.sh" "$start_script"
+    sed -i "s|CONFIG=\"/root/camilladsp/config/camilladsp.yml\"|CONFIG=\"${INSTALL_BASE}/config/camilladsp.yml\"|" "$start_script"
+    sed -i "s|ASOUNDRC=\"/root/.asoundrc\"|ASOUNDRC=\"${HOME}/.asoundrc\"|" "$start_script"
+    sed -i "s|STATE_BASE=\"/root/.local/state/inferno_aoip\"|STATE_BASE=\"${HOME}/.local/state/inferno_aoip\"|" "$start_script"
+    sed -i "s|ENGINE=\"/root/camilladsp/engine/camilladsp\"|ENGINE=\"${INSTALL_BASE}/engine/camilladsp\"|" "$start_script"
+    log_ok "start_camilladsp.sh instalado desde repo"
+  else
+    log_warn "start_camilladsp.sh no encontrado en ${SCRIPT_DIR} — descargando..."
+    local start_url="https://raw.githubusercontent.com/aasayag-hash/camilladsp-auto-install-with-back-and-frontend/main/start_camilladsp.sh"
+    curl -fsSL "$start_url" -o "$start_script" 2>/dev/null || \
+      wget -q "$start_url" -O "$start_script" 2>/dev/null || \
+      { log_error "No se pudo obtener start_camilladsp.sh"; return 1; }
+    sed -i "s|/root/camilladsp|${INSTALL_BASE}|g" "$start_script"
+    sed -i "s|/root/\.asoundrc|${HOME}/.asoundrc|g" "$start_script"
+    sed -i "s|/root/\.local|${HOME}/.local|g" "$start_script"
+    log_ok "start_camilladsp.sh descargado"
+  fi
   chmod +x "$start_script"
-
-  # Reemplazar ruta del engine en el script
-  sed -i "s|ENGINE=\"/root/camilladsp/engine/camilladsp\"|ENGINE=\"${INSTALL_BASE}/engine/camilladsp\"|" "$start_script"
-  sed -i "s|CONFIG=\"/root/camilladsp/config/camilladsp.yml\"|CONFIG=\"${INSTALL_BASE}/config/camilladsp.yml\"|" "$start_script"
-
-  log_ok "start_camilladsp.sh creado"
 
   # ── 10. Servicio camilladsp systemd (root, Restart=always) ───────────────
   sudo tee /etc/systemd/system/camilladsp.service > /dev/null << EOF
@@ -1081,12 +901,14 @@ Wants=network-online.target
 
 [Service]
 ExecStart=${start_script}
-Restart=always
+Restart=on-failure
 RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=5
 KillMode=process
 TimeoutStartSec=120
-StandardOutput=null
-StandardError=null
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -1099,10 +921,12 @@ After=network-online.target
 
 [Service]
 ExecStart=python3 ${INSTALL_BASE}/web/server.py
-Restart=always
+Restart=on-failure
 RestartSec=5
-StandardOutput=null
-StandardError=null
+StartLimitIntervalSec=60
+StartLimitBurst=5
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -1295,13 +1119,8 @@ main() {
   install_engine
   ENGINE_OK=$?
 
-  # Instalar GUI
-  log_step "Instalando GUI..."
-  install_gui
-  GUI_OK=$?
-
-  if [ "$ENGINE_OK" != "0" ] || [ "$GUI_OK" != "0" ]; then
-    log_error "La instalación falló"
+  if [ "$ENGINE_OK" != "0" ]; then
+    log_error "La instalación del engine falló"
     exit 1
   fi
 
@@ -1311,12 +1130,6 @@ main() {
   # Crear config y scripts
   if [ "$ARG_UPDATE" != "1" ]; then
     create_default_config
-    create_gui_config
-  else
-    if [ ! -f "${INSTALL_BASE}/gui/config/camillagui.yml" ]; then
-      log_info "Creando configuración de GUI..."
-      create_gui_config
-    fi
   fi
   create_scripts
 
@@ -1324,7 +1137,6 @@ main() {
   mkdir -p "${INSTALL_BASE}/config"
   mkdir -p "${INSTALL_BASE}/coeffs"
   mkdir -p "${INSTALL_BASE}/logs"
-  mkdir -p "${INSTALL_BASE}/pids"
   mkdir -p "${INSTALL_BASE}/scripts"
 
   # ── Dante opcional ────────────────────────────────────────────────────────
@@ -1371,10 +1183,8 @@ main() {
   
   echo ""
   echo -e "  ${GREEN}Accede a:${RESET}"
-  echo -e "    ${CYAN}CamillaGUI  → http://localhost:${GUI_HTTP_PORT}${RESET}"
   echo -e "    ${CYAN}Web Console → http://localhost:${WEB_GUI_PORT}${RESET}"
   if [ -n "$host_ip" ]; then
-    echo -e "    ${CYAN}CamillaGUI  → http://${host_ip}:${GUI_HTTP_PORT}${RESET}"
     echo -e "    ${CYAN}Web Console → http://${host_ip}:${WEB_GUI_PORT}${RESET}"
   fi
   echo ""
