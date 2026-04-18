@@ -448,9 +448,9 @@ install_web_frontend() {
     return 1
   fi
 
-  # Reemplazar ruta de instalación en server.py
-  sed -i "s|INSTALL_BASE = \"/root/camilladsp\"|INSTALL_BASE = \"${INSTALL_BASE}\"|" "${web_dir}/server.py" 2>/dev/null || true
-  sed -i "s|WEB_PORT     = 5000|WEB_PORT     = ${WEB_GUI_PORT}|" "${web_dir}/server.py" 2>/dev/null || true
+  # Reemplazar ruta de instalación en server.py (cualquier valor previo de INSTALL_BASE)
+  sed -i "s|^INSTALL_BASE .*= .*|INSTALL_BASE  = \"${INSTALL_BASE}\"|" "${web_dir}/server.py" 2>/dev/null || true
+  sed -i "s|^WEB_PORT .*= .*|WEB_PORT      = ${WEB_GUI_PORT}|" "${web_dir}/server.py" 2>/dev/null || true
 
   log_ok "Frontend Web instalado en ${web_dir}"
   return 0
@@ -533,70 +533,62 @@ EOF
   log_ok "Config GUI creada"
 }
 
-# Autostart al arranque del sistema
+# Autostart al arranque del sistema (sin Dante — instala servicios system)
 setup_autostart() {
   local base="${INSTALL_BASE}"
-  local start_script="${base}/scripts/start_all.sh"
+  local start_script="${base}/start_camilladsp.sh"
 
-  # --- systemd (modo usuario) ---
   if command -v systemctl &>/dev/null; then
-    local unit_dir="$HOME/.config/systemd/user"
-    mkdir -p "$unit_dir"
-
-    cat > "${unit_dir}/camilladsp.service" << EOF
+    sudo tee /etc/systemd/system/camilladsp.service > /dev/null << EOF
 [Unit]
-Description=CamillaDSP + Web Console
-After=network.target
+Description=CamillaDSP Audio Processor
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-Type=simple
-ExecStart=python3 ${base}/web/server.py
+ExecStart=${start_script}
 Restart=on-failure
-RestartSec=5
+RestartSec=10
+StartLimitIntervalSec=60
+StartLimitBurst=5
+KillMode=process
+TimeoutStartSec=120
 StandardOutput=journal
 StandardError=journal
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
 EOF
 
-    # Habilitar el servicio (requiere lingering para arranque sin sesión)
-    systemctl --user daemon-reload 2>/dev/null || true
-    systemctl --user enable camilladsp.service 2>/dev/null && \
-      loginctl enable-linger "$(whoami)" 2>/dev/null || true
-    log_ok "Autostart systemd habilitado (systemctl --user)"
+    sudo tee /etc/systemd/system/camilladsp-web.service > /dev/null << EOF
+[Unit]
+Description=CamillaDSP Web Console
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 ${base}/web/server.py
+Restart=on-failure
+RestartSec=5
+StartLimitIntervalSec=60
+StartLimitBurst=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable camilladsp camilladsp-web
+    sudo systemctl start camilladsp-web
+    sudo systemctl start camilladsp
+    sleep 3
+    systemctl is-active --quiet camilladsp-web && log_ok "camilladsp-web activo" || log_warn "camilladsp-web no arrancó"
+    systemctl is-active --quiet camilladsp      && log_ok "camilladsp activo"    || log_warn "camilladsp iniciando..."
     return 0
   fi
 
-  # --- rc.local (fallback para sistemas sin systemd) ---
-  local rc_local="/etc/rc.local"
-  local marker="# camilladsp-autostart"
-
-  if [ -f "$rc_local" ] || [ -d "/etc/rc.d" ]; then
-    if ! grep -q "$marker" "$rc_local" 2>/dev/null; then
-      # Insertar antes de 'exit 0' o al final
-      if grep -q "^exit 0" "$rc_local" 2>/dev/null; then
-        sed -i "s|^exit 0|${marker}\nbash ${start_script} &\n\nexit 0|" "$rc_local"
-      else
-        printf "\n%s\nbash %s &\n" "$marker" "$start_script" >> "$rc_local"
-      fi
-      chmod +x "$rc_local"
-    fi
-    log_ok "Autostart rc.local habilitado"
-    return 0
-  fi
-
-  # --- cron @reboot (último recurso) ---
-  if command -v crontab &>/dev/null; then
-    local existing
-    existing=$(crontab -l 2>/dev/null | grep -v "camilladsp-autostart" || true)
-    printf "%s\n@reboot sleep 10 && bash %s  # camilladsp-autostart\n" \
-      "$existing" "$start_script" | crontab -
-    log_ok "Autostart cron @reboot habilitado"
-    return 0
-  fi
-
-  log_warn "No se pudo configurar autostart (sin systemd, rc.local ni cron)"
+  log_warn "No se pudo configurar autostart (requiere systemd)"
 }
 
 # ── Dante / Inferno ───────────────────────────────────────────────────────────
@@ -685,8 +677,9 @@ install_dante() {
   fi
 
   # ── 3. Instalar statime-inferno ─────────────────────────────────────────────
-  if ! command -v statime-inferno &>/dev/null && [ ! -f /usr/local/bin/statime-inferno ]; then
-    log_info "Buscando statime-inferno en zip..."
+  # El binario en el zip se llama "statime" y se instala en /usr/local/bin/statime
+  if ! command -v statime &>/dev/null && [ ! -f /usr/local/bin/statime ]; then
+    log_info "Buscando statime en zip..."
     local zip_path=""
     if [ -f "${SCRIPT_DIR}/${DANTE_ZIP_NAME}" ]; then
       zip_path="${SCRIPT_DIR}/${DANTE_ZIP_NAME}"
@@ -699,18 +692,20 @@ install_dante() {
       rm -rf "$tmp_dir"; mkdir -p "$tmp_dir"
       unzip -q "$zip_path" -d "$tmp_dir"
       local statime_bin
+      # Buscar primero "statime-inferno", luego "statime" (nombre varía según versión del zip)
       statime_bin=$(find "$tmp_dir" -name "statime-inferno" -type f | head -1)
+      [ -z "$statime_bin" ] && statime_bin=$(find "$tmp_dir" -name "statime" -type f | head -1)
       if [ -n "$statime_bin" ]; then
-        sudo cp "$statime_bin" /usr/local/bin/statime-inferno
-        sudo chmod +x /usr/local/bin/statime-inferno
-        log_ok "statime-inferno instalado"
+        sudo cp "$statime_bin" /usr/local/bin/statime
+        sudo chmod +x /usr/local/bin/statime
+        log_ok "statime instalado en /usr/local/bin/statime"
       else
-        log_warn "statime-inferno no encontrado en el zip (opcional)"
+        log_warn "statime no encontrado en el zip"
       fi
       rm -rf "$tmp_dir"
     fi
   else
-    log_ok "statime-inferno ya instalado"
+    log_ok "statime ya instalado"
   fi
 
   # ── 4. Configurar statime-inferno.toml ────────────────────────────────────
@@ -744,7 +739,7 @@ EOF
   sudo cp "$(dirname "$0")/statime-update-iface.sh" /usr/local/bin/statime-update-iface.sh 2>/dev/null || \
   sudo tee /usr/local/bin/statime-update-iface.sh > /dev/null << 'SCRIPTEOF'
 #!/bin/bash
-ASOUNDRC="/root/.asoundrc"
+ASOUNDRC="${HOME:-/root}/.asoundrc"
 TOML="/etc/statime-inferno.toml"
 BIND_IP=$(grep -oP 'BIND_IP\s+"\K[^"]+' "$ASOUNDRC" | head -1)
 if [ -z "$BIND_IP" ]; then exit 0; fi
@@ -1106,10 +1101,8 @@ main() {
 
   if [ "$ARG_UPDATE" = "1" ]; then
     log_step "Modo actualización"
-    if [ -f "${INSTALL_BASE}/scripts/stop_all.sh" ]; then
-      bash "${INSTALL_BASE}/scripts/stop_all.sh" 2>/dev/null
-      log_info "Servicios detenidos"
-    fi
+    sudo systemctl stop camilladsp camilladsp-web 2>/dev/null || true
+    log_info "Servicios detenidos"
   fi
 
   # Liberar puertos y detener procesos anteriores para evitar el error "Text file busy" al copiar binarios
@@ -1130,9 +1123,32 @@ main() {
   # Instalar Frontend Web
   install_web_frontend || true
 
+  # Instalar start_camilladsp.sh (siempre, Dante o no)
+  local start_script="${INSTALL_BASE}/start_camilladsp.sh"
+  if [ ! -f "$start_script" ]; then
+    if [ -f "${SCRIPT_DIR}/start_camilladsp.sh" ]; then
+      cp "${SCRIPT_DIR}/start_camilladsp.sh" "$start_script"
+      sed -i "s|/root/camilladsp|${INSTALL_BASE}|g" "$start_script"
+      sed -i "s|/root/\.asoundrc|${HOME}/.asoundrc|g" "$start_script"
+      sed -i "s|/root/\.local|${HOME}/.local|g" "$start_script"
+      log_ok "start_camilladsp.sh instalado"
+    else
+      local start_url="https://raw.githubusercontent.com/aasayag-hash/camilladsp-auto-install-with-back-and-frontend/main/start_camilladsp.sh"
+      curl -fsSL "$start_url" -o "$start_script" 2>/dev/null || \
+        wget -q "$start_url" -O "$start_script" 2>/dev/null || \
+        log_warn "No se pudo obtener start_camilladsp.sh"
+      sed -i "s|/root/camilladsp|${INSTALL_BASE}|g" "$start_script" 2>/dev/null || true
+      sed -i "s|/root/\.asoundrc|${HOME}/.asoundrc|g" "$start_script" 2>/dev/null || true
+      sed -i "s|/root/\.local|${HOME}/.local|g" "$start_script" 2>/dev/null || true
+      log_ok "start_camilladsp.sh descargado"
+    fi
+    chmod +x "$start_script"
+  fi
+
   # Crear config y scripts
   if [ "$ARG_UPDATE" != "1" ]; then
     create_default_config
+    create_gui_config
   fi
   create_scripts
 
@@ -1151,26 +1167,21 @@ main() {
     fi
   fi
 
-  # Iniciar servicios
+  # Configurar e iniciar servicios
   if [ "$ARG_NO_SERVICE" != "1" ]; then
     if [ "$INSTALL_DANTE" = "1" ]; then
-      log_step "Iniciando servicios con Dante..."
-      sudo systemctl start camilladsp-web
-      sudo systemctl start camilladsp
+      # install_dante() ya creó e inició los servicios systemd
+      log_step "Reiniciando servicios con Dante..."
+      sudo systemctl restart camilladsp-web
+      sudo systemctl restart camilladsp
       sleep 5
       systemctl is-active --quiet camilladsp-web && log_ok "camilladsp-web activo" || log_warn "camilladsp-web no arrancó"
       systemctl is-active --quiet camilladsp      && log_ok "camilladsp activo"     || log_warn "camilladsp iniciando (arranca lento con Dante)"
     else
-      log_step "Iniciando servicios..."
-      bash "${INSTALL_BASE}/scripts/start_all.sh"
-      sleep 3
+      # Sin Dante: setup_autostart crea los servicios systemd y los inicia
+      log_step "Configurando e iniciando servicios..."
+      setup_autostart
     fi
-  fi
-
-  # Configurar arranque automático al inicio del sistema
-  if [ "$ARG_NO_SERVICE" != "1" ] && [ "$ARG_UPDATE" != "1" ] && [ "$INSTALL_DANTE" != "1" ]; then
-    log_step "Configurando autostart..."
-    setup_autostart
   fi
 
 
@@ -1192,8 +1203,12 @@ main() {
   fi
   echo ""
 
-  # Eliminar el directorio clonado del instalador
-  if [ -n "$SCRIPT_DIR" ] && [ "$SCRIPT_DIR" != "/" ] && [ "$SCRIPT_DIR" != "$HOME" ] && [ "$SCRIPT_DIR" != "$INSTALL_BASE" ]; then
+  # Eliminar el directorio clonado del instalador solo si es un clone temporal (sin .git propio usado)
+  if [ -n "$SCRIPT_DIR" ] && \
+     [ "$SCRIPT_DIR" != "/" ] && \
+     [ "$SCRIPT_DIR" != "$HOME" ] && \
+     [ "$SCRIPT_DIR" != "$INSTALL_BASE" ] && \
+     [ ! -d "$SCRIPT_DIR/.git" ]; then
     log_step "Limpiando instalador..."
     rm -rf "$SCRIPT_DIR"
     log_ok "Directorio del instalador eliminado: $SCRIPT_DIR"
