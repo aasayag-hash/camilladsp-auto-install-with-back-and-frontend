@@ -92,30 +92,7 @@ print('0000' + format(n, '08x'))
 
 echo "Dante: interfaz=$DANTE_IFACE_OR_IP IP=$ETH_IP hex=$IP_HEX"
 
-# Derivar nombre de interfaz desde DANTE_IFACE_OR_IP (ya resuelto arriba)
-DANTE_IFACE=$(ip -4 addr show | awk -v ip="$ETH_IP" '
-    /^[0-9]+:/ { iface=$2; sub(/:$/, "", iface) }
-    /inet / { if (index($2, ip"/") == 1) print iface }
-')
-# Con BIND_IP como nombre de interfaz inferno ya maneja el multicast correctamente.
-# Aun así, bajamos las otras interfaces de la misma subred para evitar confusión
-# en el kernel y en otras herramientas del sistema.
-BIND_PREFIX=$(echo "$ETH_IP" | cut -d. -f1-3)
-if [ -n "$DANTE_IFACE" ]; then
-    echo "Interfaz Dante: $DANTE_IFACE ($ETH_IP)"
-    ip -4 addr show | awk '/^[0-9]+:/{iface=$2; sub(/:$/,"",iface)} /inet /{print iface, $2}' | \
-    while read iface cidr; do
-        [ "$iface" = "$DANTE_IFACE" ] && continue
-        [ "$iface" = "lo" ] && continue
-        iface_prefix=$(echo "$cidr" | cut -d. -f1-3)
-        if [ "$iface_prefix" = "$BIND_PREFIX" ]; then
-            nmcli device set "$iface" managed no 2>/dev/null
-            ip link set "$iface" down 2>/dev/null
-            echo "Interfaz $iface desactivada de NM (conflicto de subred con $DANTE_IFACE)"
-        fi
-    done
-    nmcli device set "$DANTE_IFACE" managed yes 2>/dev/null
-fi
+echo "Interfaz Dante: $DANTE_IFACE_OR_IP ($ETH_IP)"
 
 # Buscar el directorio más reciente con suscripciones configuradas (tx_hostname)
 SUBSCRIPTIONS_SRC=""

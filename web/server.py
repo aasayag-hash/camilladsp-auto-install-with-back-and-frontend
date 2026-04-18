@@ -418,70 +418,6 @@ def _update_statime_interface(bind_ip):
     """Mantener por compatibilidad — ahora usa _set_dante_interface."""
     _set_dante_interface(bind_ip)
 
-def _fix_routing_for_dante(bind_ip):
-    """Agrega ruta de host específica hacia cada tx_hostname por la interfaz de bind_ip.
-    Necesario cuando hay múltiples interfaces y la ruta por defecto sale por la incorrecta."""
-    import re as _re2
-    # Encontrar la interfaz que tiene bind_ip
-    try:
-        out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=5)
-        iface = None
-        current = None
-        for line in out.splitlines():
-            m = re.match(r'\d+:\s+(\S+):', line)
-            if m:
-                current = m.group(1)
-            if bind_ip in line and current:
-                iface = current
-                break
-        if not iface:
-            print(f"[route] no se encontró interfaz para {bind_ip}")
-            return
-        # Leer tx_hostname IPs del /etc/hosts
-        hosts_ips = {}
-        for line in open('/etc/hosts'):
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-            parts = line.split()
-            if len(parts) >= 2:
-                hosts_ips[parts[0]] = parts[1:]
-        # Leer hostnames de suscripciones activas
-        rx_dir = _find_active_rx_dir()
-        if not rx_dir:
-            return
-        sub_file = os.path.join(rx_dir, 'rx_subscriptions.toml')
-        hostnames = set()
-        for line in open(sub_file):
-            m = _re2.match(r'\s*tx_hostname\s*=\s*"([^"]+)"', line)
-            if m:
-                hostnames.add(m.group(1))
-        # Para cada hostname, agregar ruta host por la interfaz correcta
-        for hostname in hostnames:
-            ip = None
-            for h_ip, h_names in hosts_ips.items():
-                if any(hostname in n for n in h_names):
-                    ip = h_ip
-                    break
-            if not ip:
-                print(f"[route] {hostname} no está en /etc/hosts, omitiendo ruta")
-                continue
-            # Verificar si ya hay ruta por la interfaz correcta
-            try:
-                route_out = subprocess.check_output(["ip", "route", "get", ip], text=True, timeout=3)
-                if iface in route_out:
-                    print(f"[route] {ip} ya sale por {iface}, sin cambios")
-                    continue
-            except Exception:
-                pass
-            # Agregar ruta de host específica por la interfaz correcta
-            try:
-                subprocess.run(["ip", "route", "replace", ip, "dev", iface, "src", bind_ip], timeout=5)
-                print(f"[route] ruta {ip} → {iface} (src {bind_ip}) establecida")
-            except Exception as e:
-                print(f"[route] error agregando ruta para {ip}: {e}")
-    except Exception as e:
-        print(f"[route] error general: {e}")
 
 def _update_dante_hosts():
     """Resuelve los tx_hostname de las suscripciones activas y los escribe en /etc/hosts.
@@ -542,7 +478,6 @@ def _restart_dante_and_camilla(bind_ip=None):
     if bind_ip:
         _update_statime_interface(bind_ip)
         _update_dante_hosts()
-        _fix_routing_for_dante(bind_ip)
     try:
         subprocess.run(["systemctl", "restart", "statime-inferno"], timeout=15)
         print("[dante] statime-inferno reiniciado")
