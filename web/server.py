@@ -989,13 +989,7 @@ def _iface_to_ip(val):
         return val
 
 def _find_active_rx_dir():
-    """Devuelve el directorio inferno_rx activo.
-
-    Estrategia (por orden de prioridad):
-    1. Directorio exacto por BIND_IP + PROCESS_ID del .asoundrc (si existe y tiene suscripciones)
-    2. Directorio más reciente (por mtime) con tx_hostname en rx_subscriptions.toml
-    3. Directorio exacto por BIND_IP + PROCESS_ID aunque no tenga suscripciones (para escritura)
-    """
+    """Devuelve el directorio inferno_rx activo (BIND_IP + PROCESS_ID del .asoundrc)."""
     exact_cand = None
     try:
         asoundrc = open(DANTE_ASOUNDRC).read()
