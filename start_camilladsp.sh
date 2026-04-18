@@ -99,11 +99,15 @@ new=$((current + 1))
 sed -i "/pcm\.inferno_rx/,/^\}/ s/PROCESS_ID \"$current\"/PROCESS_ID \"$new\"/" "$ASOUNDRC"
 echo "PROCESS_ID: $current -> $new"
 
-# Crear directorio de estado para el nuevo PROCESS_ID
+# Crear directorio de estado para el nuevo PROCESS_ID y limpiar obsoletos
 new_hex=$(printf "%04x" $new)
 new_dir="${STATE_BASE}/${IP_HEX}${new_hex}"
 mkdir -p "$new_dir"
 cp "$SUBSCRIPTIONS_SRC" "$new_dir/rx_subscriptions.toml"
+
+# Borrar todos los directorios excepto el recién creado
+find "$STATE_BASE" -mindepth 1 -maxdepth 1 -type d ! -path "$new_dir" -exec rm -rf {} + 2>/dev/null || true
+echo "Directorios inferno limpiados, activo: $new_dir"
 
 # Generar config con device inferno reemplazado por null
 TMPCONFIG="/tmp/camilladsp_nulldante.yml"
