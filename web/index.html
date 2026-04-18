@@ -120,6 +120,16 @@ table.ftable tr:hover td{background:#1a1a1a}
 .device-apply-btn:hover{background:#222;border-color:#0ff}
 .device-restart-btn{height:24px;padding:0 10px;font-size:10px;font-weight:bold;border:1px solid #555;border-radius:3px;background:linear-gradient(180deg,#1a3a1a,#0a1a0a);color:#0f0;cursor:pointer;white-space:nowrap}
 .device-restart-btn:hover{background:linear-gradient(180deg,#2a5a2a,#0a2a0a);border-color:#0f0}
+/* Opciones tab */
+.opt-card{background:#111;border:1px solid #2a2a2a;border-radius:5px;padding:10px 12px}
+.opt-card-title{font-size:11px;color:#0ff;font-weight:bold;letter-spacing:1px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px}
+.opt-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.opt-row:last-child{margin-bottom:0}
+.opt-lbl{font-size:11px;color:#aaa;flex:1;white-space:nowrap}
+.opt-inp{width:130px;background:#000;color:#0ff;border:1px solid #333;border-radius:3px;padding:3px 6px;font-size:11px;text-align:center}
+.opt-inp:focus{outline:none;border-color:#0ff}
+.opt-sel{width:138px;background:#111;color:#fff;border:1px solid #444;border-radius:3px;padding:3px 5px;font-size:11px}
+.opt-sel:focus{outline:none;border-color:#0ff}
 /* Presets panel */
 #presets-panel{width:160px;flex-shrink:0;display:flex;flex-direction:column;border-left:1px solid #222;background:#0a0a0a;padding:6px;gap:5px}
 #presets-panel .pset-title{font-size:11px;color:#0ff;font-weight:bold;text-align:center;letter-spacing:1px;padding-bottom:4px;border-bottom:1px solid #222}
@@ -261,6 +271,7 @@ table.ftable tr:hover td{background:#1a1a1a}
   <div class="tab" onclick="switchTab(2)">PARAMETRIC EQ</div>
   <div class="tab" onclick="switchTab(3)">CROSSOVERS</div>
   <div class="tab" onclick="switchTab(4)">MIXER</div>
+  <div class="tab" onclick="switchTab(5)">OPCIONES</div>
 </div>
 
 <!-- CHANNEL SELECTOR (shown on EQ/CROSS tabs) -->
@@ -369,6 +380,129 @@ table.ftable tr:hover td{background:#1a1a1a}
         <button class="device-restart-btn" onclick="restartEngine()" title="Reiniciar motor de audio">? Motor</button>
         <button class="device-apply-btn" onclick="openDanteSub()" title="Configurar fuente Dante" style="background:#005080;border-color:#0af">? Dante RX</button>
       </div>
+    </div>
+  </div>
+
+  <!-- OPCIONES TAB -->
+  <div class="tab-page" id="page-5" style="flex-direction:column;overflow-y:auto;padding:12px 16px">
+    <div style="color:#0ff;font-weight:bold;font-size:13px;margin-bottom:10px;letter-spacing:1px">OPCIONES DEL ENGINE</div>
+    <div id="opt-status" style="font-size:11px;color:#888;margin-bottom:8px"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+
+      <!-- Buffers -->
+      <div class="opt-card">
+        <div class="opt-card-title">Buffers</div>
+        <div class="opt-row">
+          <label class="opt-lbl">chunksize</label>
+          <select class="opt-sel" id="opt-chunksize" onchange="optApply('chunksize',+this.value)">
+            <option value="128">128</option><option value="256">256</option>
+            <option value="512">512</option><option value="1024">1024</option>
+            <option value="2048">2048</option><option value="4096">4096</option>
+            <option value="8192">8192</option>
+          </select>
+        </div>
+        <div class="opt-row">
+          <label class="opt-lbl">queuelimit</label>
+          <input class="opt-inp" id="opt-queuelimit" type="number" min="1" placeholder="default (4)" onchange="optApply('queuelimit',optNum(this))">
+        </div>
+      </div>
+
+      <!-- Silence -->
+      <div class="opt-card">
+        <div class="opt-card-title">Silencio</div>
+        <div class="opt-row">
+          <label class="opt-lbl">silence_threshold (dB)</label>
+          <input class="opt-inp" id="opt-silence_threshold" type="number" step="any" placeholder="default (desactivado)" onchange="optApply('silence_threshold',optNum(this))">
+        </div>
+        <div class="opt-row">
+          <label class="opt-lbl">silence_timeout (s)</label>
+          <input class="opt-inp" id="opt-silence_timeout" type="number" step="any" min="0" placeholder="default (desactivado)" onchange="optApply('silence_timeout',optNum(this))">
+        </div>
+      </div>
+
+      <!-- Rate adjust -->
+      <div class="opt-card">
+        <div class="opt-card-title">Ajuste de tasa</div>
+        <div class="opt-row">
+          <label class="opt-lbl">enable_rate_adjust</label>
+          <select class="opt-sel" id="opt-enable_rate_adjust" onchange="optApply('enable_rate_adjust',optBool(this))">
+            <option value="">default (no)</option>
+            <option value="true">sí</option>
+            <option value="false">no</option>
+          </select>
+        </div>
+        <div class="opt-row">
+          <label class="opt-lbl">adjust_period (s)</label>
+          <input class="opt-inp" id="opt-adjust_period" type="number" step="any" min="0" placeholder="default (10)" onchange="optApply('adjust_period',optNum(this))">
+        </div>
+        <div class="opt-row">
+          <label class="opt-lbl">target_level (frames)</label>
+          <input class="opt-inp" id="opt-target_level" type="number" min="0" placeholder="default (chunksize/2)" onchange="optApply('target_level',optNum(this))">
+        </div>
+      </div>
+
+      <!-- Resampling -->
+      <div class="opt-card">
+        <div class="opt-card-title">Resampling</div>
+        <div class="opt-row">
+          <label class="opt-lbl">resampler_type</label>
+          <select class="opt-sel" id="opt-resampler_type" onchange="optApplyResampler(this.value)">
+            <option value="">Ninguno</option>
+            <option value="FastAsync">FastAsync</option>
+            <option value="BalancedAsync">BalancedAsync</option>
+            <option value="AccurateAsync">AccurateAsync</option>
+            <option value="Synchronous">Synchronous</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Capture rate monitoring -->
+      <div class="opt-card">
+        <div class="opt-card-title">Monitor de tasa de captura</div>
+        <div class="opt-row">
+          <label class="opt-lbl">rate_measure_interval (s)</label>
+          <input class="opt-inp" id="opt-rate_measure_interval" type="number" step="any" min="0" placeholder="default (1)" onchange="optApply('rate_measure_interval',optNum(this))">
+        </div>
+        <div class="opt-row">
+          <label class="opt-lbl">stop_on_rate_change</label>
+          <select class="opt-sel" id="opt-stop_on_rate_change" onchange="optApply('stop_on_rate_change',optBool(this))">
+            <option value="">default (no)</option>
+            <option value="true">sí</option>
+            <option value="false">no</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Volume control -->
+      <div class="opt-card">
+        <div class="opt-card-title">Control de volumen</div>
+        <div class="opt-row">
+          <label class="opt-lbl">volume_ramp_time (ms)</label>
+          <input class="opt-inp" id="opt-volume_ramp_time" type="number" step="any" min="0" placeholder="default (200)" onchange="optApply('volume_ramp_time',optNum(this))">
+        </div>
+        <div class="opt-row">
+          <label class="opt-lbl">volume_limit (dB)</label>
+          <input class="opt-inp" id="opt-volume_limit" type="number" step="any" placeholder="default (sin límite)" onchange="optApply('volume_limit',optNum(this))">
+        </div>
+      </div>
+
+      <!-- Multithreaded -->
+      <div class="opt-card">
+        <div class="opt-card-title">Procesamiento multihilo</div>
+        <div class="opt-row">
+          <label class="opt-lbl">multithreaded</label>
+          <select class="opt-sel" id="opt-multithreaded" onchange="optApply('multithreaded',optBool(this))">
+            <option value="">default (no)</option>
+            <option value="true">sí</option>
+            <option value="false">no</option>
+          </select>
+        </div>
+        <div class="opt-row">
+          <label class="opt-lbl">worker_threads</label>
+          <input class="opt-inp" id="opt-worker_threads" type="number" min="1" placeholder="default (auto)" onchange="optApply('worker_threads',optNum(this))">
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -1009,6 +1143,7 @@ function switchTab(i){
   if(i===2) renderEQGraph();
   if(i===3) renderCrossGraph();
   if(i===4){ renderMixer(); loadDevices(); presetRefresh(); }
+  if(i===5) optLoad();
 }
 
 // ???????????????????????????????????????????????????????????????????????????
@@ -3337,9 +3472,11 @@ function applyLang(){
   if(isEs){
     tabs[0].textContent='VUMETROS'; tabs[1].textContent='GRAPHIC EQ';
     tabs[2].textContent='PARAMETRIC EQ'; tabs[3].textContent='CROSSOVERS'; tabs[4].textContent='MIXER';
+    if(tabs[5]) tabs[5].textContent='OPCIONES';
   } else {
     tabs[0].textContent='METERS'; tabs[1].textContent='GRAPHIC EQ';
     tabs[2].textContent='PARAMETRIC EQ'; tabs[3].textContent='CROSSOVERS'; tabs[4].textContent='MIXER';
+    if(tabs[5]) tabs[5].textContent='OPTIONS';
   }
   // View buttons
   const vb = document.querySelectorAll('.view-btn');
@@ -3700,6 +3837,101 @@ async function saveDanteSub() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeDanteSub();
 });
+
+// ???????????????????????????????????????????????????????????????????????????
+// OPCIONES TAB
+// ???????????????????????????????????????????????????????????????????????????
+let _optCfg = null;
+
+function optNum(el){
+  const v = el.value.trim();
+  return v === '' ? null : parseFloat(v);
+}
+function optBool(el){
+  if(el.value === '') return null;
+  return el.value === 'true';
+}
+
+async function optLoad(){
+  const st = document.getElementById('opt-status');
+  st.textContent = 'Cargando...';
+  try {
+    const r = await fetch('/api/config');
+    const d = await r.json();
+    if(!d.ok){ st.textContent = 'Error al leer config'; return; }
+    _optCfg = d.config;
+    const dev = d.config.devices || {};
+    optSet('chunksize',    dev.chunksize,    'sel');
+    optSet('queuelimit',   dev.queuelimit,   'inp');
+    optSet('silence_threshold',  dev.silence_threshold,  'inp');
+    optSet('silence_timeout',    dev.silence_timeout,    'inp');
+    optSet('enable_rate_adjust', dev.enable_rate_adjust, 'bool');
+    optSet('adjust_period',      dev.adjust_period,      'inp');
+    optSet('target_level',       dev.target_level,       'inp');
+    optSet('rate_measure_interval', dev.rate_measure_interval, 'inp');
+    optSet('stop_on_rate_change',   dev.stop_on_rate_change,   'bool');
+    optSet('volume_ramp_time', dev.volume_ramp_time, 'inp');
+    optSet('volume_limit',     dev.volume_limit,     'inp');
+    optSet('multithreaded',  dev.multithreaded,  'bool');
+    optSet('worker_threads', dev.worker_threads, 'inp');
+    // resampler_type: puede ser null, string, o {type:..., profile:...}
+    const res = dev.resampler;
+    const rsel = document.getElementById('opt-resampler_type');
+    if(!res){ rsel.value=''; }
+    else if(typeof res === 'string'){ rsel.value=res; }
+    else if(res && res.type){ rsel.value=res.type; }
+    st.textContent = 'Listo.';
+    setTimeout(()=>{ st.textContent=''; }, 1500);
+  } catch(e){ st.textContent = 'Error: '+e; }
+}
+
+function optSet(key, val, kind){
+  const el = document.getElementById('opt-'+key);
+  if(!el) return;
+  if(kind==='sel'){
+    if(val!=null) el.value = val;
+  } else if(kind==='bool'){
+    if(val==null) el.value='';
+    else el.value = val ? 'true' : 'false';
+  } else {
+    el.value = (val!=null) ? val : '';
+  }
+}
+
+async function optApply(key, val){
+  if(!_optCfg) return;
+  const cfg = JSON.parse(JSON.stringify(_optCfg));
+  if(!cfg.devices) cfg.devices = {};
+  cfg.devices[key] = val;
+  _optCfg = cfg;
+  await optSend(cfg, key);
+}
+
+async function optApplyResampler(val){
+  if(!_optCfg) return;
+  const cfg = JSON.parse(JSON.stringify(_optCfg));
+  if(!cfg.devices) cfg.devices = {};
+  cfg.devices.resampler = val === '' ? null : {type: val};
+  _optCfg = cfg;
+  await optSend(cfg, 'resampler_type');
+}
+
+async function optSend(cfg, key){
+  const st = document.getElementById('opt-status');
+  st.textContent = 'Guardando '+key+'...';
+  st.style.color='#ff0';
+  try {
+    const r = await fetch('/api/config', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({config: cfg})
+    });
+    const d = await r.json();
+    if(d.ok){ st.style.color='#0f0'; st.textContent='✔ '+key+' guardado'; }
+    else { st.style.color='#f44'; st.textContent='Error: '+(d.error||'?'); }
+  } catch(e){ st.style.color='#f44'; st.textContent='Error: '+e; }
+  setTimeout(()=>{ st.style.color=''; st.textContent=''; }, 2500);
+}
 </script>
 
 <!-- RESET MODAL -->
