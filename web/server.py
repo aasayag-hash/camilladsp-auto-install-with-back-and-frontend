@@ -617,6 +617,57 @@ def alsa_probe():
 
 DANTE_ASOUNDRC = os.path.expanduser("~/.asoundrc")
 
+@app.route('/api/network-interfaces', methods=['GET'])
+def network_interfaces():
+    """Lista interfaces de red con sus IPs (excluye loopback)."""
+    import socket
+    try:
+        out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=5)
+        ifaces = []
+        current = None
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith(('1:','2:','3:','4:','5:','6:','7:','8:','9:')) or (': ' in line and not line.startswith('inet')):
+                parts = line.split(':', 2)
+                if len(parts) >= 2:
+                    name = parts[1].strip().split('@')[0]
+                    current = name
+            elif line.startswith('inet ') and current and current != 'lo':
+                ip = line.split()[1].split('/')[0]
+                try:
+                    hostname = socket.gethostbyaddr(ip)[0]
+                except Exception:
+                    hostname = ip
+                ifaces.append({'iface': current, 'ip': ip, 'hostname': hostname})
+        return jsonify({'ok': True, 'interfaces': ifaces})
+    except Exception as e:
+        return jsonify({'ok': False, 'interfaces': [], 'error': str(e)})
+
+@app.route('/api/resolve-host', methods=['POST'])
+def resolve_host():
+    """Resuelve hostname → IP o IP → hostname."""
+    import socket
+    try:
+        d = json.loads(request.data)
+        value = d.get('value', '').strip()
+        if not value:
+            return jsonify({'ok': False, 'error': 'Valor vacío'})
+        import re as _re2
+        if _re2.match(r'^\d+\.\d+\.\d+\.\d+$', value):
+            try:
+                hostname = socket.gethostbyaddr(value)[0]
+                return jsonify({'ok': True, 'ip': value, 'hostname': hostname})
+            except Exception:
+                return jsonify({'ok': True, 'ip': value, 'hostname': None})
+        else:
+            try:
+                ip = socket.gethostbyname(value)
+                return jsonify({'ok': True, 'hostname': value, 'ip': ip})
+            except Exception:
+                return jsonify({'ok': False, 'error': f'No se pudo resolver: {value}'})
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)})
+
 def _dante_service_active():
     try:
         out = subprocess.check_output(["systemctl", "is-active", "statime-inferno"], text=True, timeout=3).strip()
@@ -768,6 +819,33 @@ def _find_active_rx_dir():
     except Exception:
         pass
     return None
+
+@app.route('/api/dante-bind-ip', methods=['GET', 'POST'])
+def dante_bind_ip():
+    """GET: devuelve BIND_IP actual. POST: actualiza BIND_IP en .asoundrc."""
+    if request.method == 'GET':
+        try:
+            content = open(DANTE_ASOUNDRC).read()
+            import re as _re3
+            m = _re3.search(r'BIND_IP\s+"([^"]+)"', content)
+            ip = m.group(1) if m else ''
+            return jsonify({'ok': True, 'bind_ip': ip})
+        except Exception as e:
+            return jsonify({'ok': False, 'bind_ip': '', 'error': str(e)})
+    else:
+        try:
+            d = json.loads(request.data)
+            new_ip = d.get('bind_ip', '').strip()
+            if not new_ip:
+                return jsonify({'ok': False, 'error': 'IP vacía'})
+            content = open(DANTE_ASOUNDRC).read()
+            import re as _re3
+            new_content = _re3.sub(r'(BIND_IP\s+)"[^"]+"', r'\1"' + new_ip + '"', content)
+            open(DANTE_ASOUNDRC, 'w').write(new_content)
+            print(f"[dante] BIND_IP actualizado a {new_ip}")
+            return jsonify({'ok': True, 'bind_ip': new_ip})
+        except Exception as e:
+            return jsonify({'ok': False, 'error': str(e)})
 
 @app.route('/api/dante-subscriptions', methods=['GET'])
 def dante_get_subscriptions():

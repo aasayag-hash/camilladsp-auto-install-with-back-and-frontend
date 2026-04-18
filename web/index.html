@@ -3547,10 +3547,14 @@ async function openDanteSub() {
   overlay.style.display = 'flex';
   document.getElementById('dante-sub-status').textContent = 'Cargando...';
   try {
-    const r = await fetch('/api/dante-subscriptions');
-    const data = await r.json();
+    // Cargar interfaces de red disponibles
+    const [subRes, ifaceRes] = await Promise.all([
+      fetch('/api/dante-subscriptions'),
+      fetch('/api/network-interfaces')
+    ]);
+    const data = await subRes.json();
+    const ifaceData = await ifaceRes.json();
     _danteSubChannels = data.channels || [];
-    // Detectar cuantos canales RX tiene la config actual
     const cfg = config || {};
     const rxCh = cfg.devices?.capture?.channels || 2;
     if (_danteSubChannels.length === 0) {
@@ -3559,8 +3563,39 @@ async function openDanteSub() {
           tx_channel_name: 'Dante Output ' + i, tx_hostname: ''});
       }
     }
-    // Hostname: tomar del primer canal
-    document.getElementById('dante-sub-host').value = _danteSubChannels[0]?.tx_hostname || '';
+    // Poblar selector de interfaz
+    const sel = document.getElementById('dante-iface-select');
+    sel.innerHTML = '';
+    const ifaces = ifaceData.interfaces || [];
+    // Leer BIND_IP actual del .asoundrc
+    let currentBindIp = '';
+    try {
+      const bRes = await fetch('/api/dante-bind-ip');
+      const bData = await bRes.json();
+      currentBindIp = bData.bind_ip || '';
+    } catch(e) {}
+    ifaces.forEach(iface => {
+      const opt = document.createElement('option');
+      opt.value = iface.ip;
+      opt.textContent = iface.iface + ' — ' + iface.ip;
+      if (iface.ip === currentBindIp) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // Opción "Otra IP" para IP manual
+    const optManual = document.createElement('option');
+    optManual.value = '__manual__';
+    optManual.textContent = 'Otra IP...';
+    sel.appendChild(optManual);
+    // Si currentBindIp no está en la lista, mostrar campo manual
+    if (currentBindIp && !ifaces.find(i => i.ip === currentBindIp)) {
+      sel.value = '__manual__';
+      document.getElementById('dante-iface-manual').style.display = 'block';
+      document.getElementById('dante-iface-manual').value = currentBindIp;
+    }
+    // Hostname transmisor: tomar del primer canal
+    const txHost = _danteSubChannels[0]?.tx_hostname || '';
+    document.getElementById('dante-sub-host').value = txHost;
+    document.getElementById('dante-sub-resolved').textContent = '';
     renderDanteSubRows(_danteSubChannels, rxCh);
     document.getElementById('dante-sub-status').textContent = '';
   } catch(e) {
@@ -3585,13 +3620,55 @@ function renderDanteSubRows(channels, rxCh) {
   }
 }
 
+function danteIfaceChanged(sel) {
+  const manual = document.getElementById('dante-iface-manual');
+  if (sel.value === '__manual__') {
+    manual.style.display = 'block';
+    manual.focus();
+  } else {
+    manual.style.display = 'none';
+  }
+}
+
+async function resolveDanteHost() {
+  const val = document.getElementById('dante-sub-host').value.trim();
+  if (!val) return;
+  const el = document.getElementById('dante-sub-resolved');
+  el.textContent = 'Resolviendo...';
+  el.style.color = '#aaa';
+  try {
+    const r = await fetch('/api/resolve-host', {method:'POST', body: JSON.stringify({value: val})});
+    const data = await r.json();
+    if (data.ok) {
+      if (data.hostname && data.hostname !== val) {
+        el.textContent = 'Nombre: ' + data.hostname + ' | IP: ' + (data.ip || '—');
+      } else if (data.ip && data.ip !== val) {
+        el.textContent = 'IP: ' + data.ip;
+      } else {
+        el.textContent = 'Resuelto: ' + (data.ip || val);
+      }
+      el.style.color = '#0f8';
+    } else {
+      el.textContent = 'No se pudo resolver: ' + (data.error || val);
+      el.style.color = '#f80';
+    }
+  } catch(e) {
+    el.textContent = 'Error: ' + e.message;
+    el.style.color = '#f44';
+  }
+}
+
 function closeDanteSub() {
   document.getElementById('dante-sub-overlay').style.display = 'none';
 }
 
 async function saveDanteSub() {
   const host = document.getElementById('dante-sub-host').value.trim();
-  if (!host) { document.getElementById('dante-sub-status').textContent = 'Ingrese el hostname del equipo Dante'; return; }
+  if (!host) { document.getElementById('dante-sub-status').textContent = 'Ingrese el nombre o IP del equipo Dante transmisor'; return; }
+  const selVal = document.getElementById('dante-iface-select').value;
+  const bindIp = selVal === '__manual__'
+    ? document.getElementById('dante-iface-manual').value.trim()
+    : selVal;
   const inputs = document.querySelectorAll('.dante-tx-name');
   const channels = Array.from(inputs).map((inp, i) => ({
     local_channel_id: i + 1,
@@ -3602,6 +3679,10 @@ async function saveDanteSub() {
   if (!channels.length) { document.getElementById('dante-sub-status').textContent = 'Ingrese al menos un canal TX'; return; }
   document.getElementById('dante-sub-status').textContent = 'Guardando...';
   try {
+    // Si se seleccionó una interfaz diferente, actualizar BIND_IP en .asoundrc
+    if (bindIp) {
+      await fetch('/api/dante-bind-ip', {method:'POST', body: JSON.stringify({bind_ip: bindIp})});
+    }
     const r = await fetch('/api/dante-subscriptions', {method:'POST', body: JSON.stringify({channels})});
     const data = await r.json();
     if (!data.ok) throw new Error(data.error);
@@ -3640,17 +3721,37 @@ document.addEventListener('keydown', e => {
 
 <!-- DANTE SUBSCRIPTION MODAL -->
 <div id="dante-sub-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9000;align-items:center;justify-content:center">
-  <div style="background:#1a1a1a;border:1px solid #0af;border-radius:8px;padding:20px;min-width:420px;max-width:95vw;color:#eee;font-family:monospace">
-    <h3 style="margin:0 0 14px;color:#0af;font-size:14px">? FUENTE DANTE RX</h3>
+  <div style="background:#1a1a1a;border:1px solid #0af;border-radius:8px;padding:20px;min-width:440px;max-width:95vw;color:#eee;font-family:monospace">
+    <h3 style="margin:0 0 14px;color:#0af;font-size:14px">CONFIGURACIÓN DANTE RX</h3>
+
     <div style="margin-bottom:12px">
-      <label style="font-size:11px;color:#aaa">Hostname del equipo Dante transmisore</label>
-      <input id="dante-sub-host" type="text" placeholder="P300-fb2f11" style="width:100%;box-sizing:border-box;background:#000;color:#0ff;border:1px solid #444;padding:6px 8px;border-radius:4px;font-size:12px;margin-top:4px">
+      <label style="font-size:11px;color:#aaa;display:block;margin-bottom:4px">Interfaz de red local (Dante)</label>
+      <div style="display:flex;gap:6px;align-items:center">
+        <select id="dante-iface-select" onchange="danteIfaceChanged(this)"
+          style="flex:1;box-sizing:border-box;background:#000;color:#0ff;border:1px solid #444;padding:6px 8px;border-radius:4px;font-size:12px">
+          <option value="">Cargando...</option>
+        </select>
+        <input id="dante-iface-manual" type="text" placeholder="IP manual (ej: 192.168.1.180)"
+          style="display:none;flex:1;box-sizing:border-box;background:#000;color:#0ff;border:1px solid #f80;padding:6px 8px;border-radius:4px;font-size:12px">
+      </div>
     </div>
-    <div style="margin-bottom:4px;font-size:11px;color:#aaa">Asignacion de canales (nombre de salida en el equipo Dante):</div>
+
+    <div style="margin-bottom:4px">
+      <label style="font-size:11px;color:#aaa;display:block;margin-bottom:4px">Equipo Dante transmisor (nombre de host o dirección IP)</label>
+      <div style="display:flex;gap:6px">
+        <input id="dante-sub-host" type="text" placeholder="P300-fb2f11 o 192.168.1.100"
+          style="flex:1;box-sizing:border-box;background:#000;color:#0ff;border:1px solid #444;padding:6px 8px;border-radius:4px;font-size:12px"
+          onblur="resolveDanteHost()">
+        <button onclick="resolveDanteHost()" style="background:#003040;color:#0af;border:1px solid #0af;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;white-space:nowrap">Resolver</button>
+      </div>
+      <div id="dante-sub-resolved" style="font-size:11px;color:#0f8;margin-top:4px;min-height:16px"></div>
+    </div>
+
+    <div style="margin-bottom:4px;font-size:11px;color:#aaa;margin-top:12px">Asignación de canales (nombre de salida en el equipo Dante transmisor):</div>
     <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px" id="dante-sub-table">
       <thead><tr>
         <th style="background:#111;color:#0ff;padding:4px 8px;border:1px solid #333;text-align:left">Canal local</th>
-        <th style="background:#111;color:#0ff;padding:4px 8px;border:1px solid #333;text-align:left">Nombre canal TX (equipo Dante)</th>
+        <th style="background:#111;color:#0ff;padding:4px 8px;border:1px solid #333;text-align:left">Canal TX en el equipo Dante</th>
       </tr></thead>
       <tbody id="dante-sub-rows"></tbody>
     </table>
