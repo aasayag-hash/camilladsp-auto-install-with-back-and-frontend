@@ -564,8 +564,8 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 KillMode=process
 TimeoutStartSec=120
-StandardOutput=journal
-StandardError=journal
+StandardOutput=null
+StandardError=null
 
 [Install]
 WantedBy=multi-user.target
@@ -916,8 +916,8 @@ StartLimitIntervalSec=60
 StartLimitBurst=5
 KillMode=process
 TimeoutStartSec=120
-StandardOutput=journal
-StandardError=journal
+StandardOutput=null
+StandardError=null
 
 [Install]
 WantedBy=multi-user.target
