@@ -94,82 +94,33 @@ echo "Dante: interfaz=$DANTE_IFACE_OR_IP IP=$ETH_IP hex=$IP_HEX"
 
 echo "Interfaz Dante: $DANTE_IFACE_OR_IP ($ETH_IP)"
 
-# Buscar el directorio más reciente con suscripciones configuradas (tx_hostname)
-SUBSCRIPTIONS_SRC=""
-while IFS= read -r d; do
-    if grep -q "tx_hostname" "$d/rx_subscriptions.toml" 2>/dev/null; then
-        SUBSCRIPTIONS_SRC="$d/rx_subscriptions.toml"
-        break
-    fi
-done < <(ls -dt "$STATE_BASE"/*/ 2>/dev/null)
-
-if [ -z "$SUBSCRIPTIONS_SRC" ]; then
-    echo "WARN: no hay rx_subscriptions configuradas, arrancando con null"
-    python3 -c "
-import re; txt=open('$CONFIG').read()
-txt=re.sub(r'(device:\s*)\"?inferno_\S+\"?',r'\1\"null\"',txt)
-open('/tmp/camilladsp_nulldante.yml','w').write(txt)
-"
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 /tmp/camilladsp_nulldante.yml
+# Suscripciones gestionadas por Dante Controller (modo push desde P300)
+# inferno_rx arranca siempre — Dante Controller asigna los canales desde su interfaz
+# El archivo canónico se mantiene para referencia pero no bloquea el arranque
+CANONICAL_SUBS="/root/camilladsp/config/dante_subscriptions.toml"
+if [ -f "$CANONICAL_SUBS" ] && grep -q "tx_hostname" "$CANONICAL_SUBS" 2>/dev/null; then
+    echo "Suscripciones previas en archivo canónico (gestionadas por Dante Controller)"
 fi
-echo "Subscriptions: $SUBSCRIPTIONS_SRC"
 
-# Leer PROCESS_ID actual del bloque inferno_rx
+# Leer PROCESS_ID actual — inferno lo incrementará al arrancar, así que pre-creamos
+# el directorio con PROCESS_ID+1 para que inferno encuentre las suscripciones ya listas
 current=$(awk '/pcm.inferno_rx/,/^\}/' "$ASOUNDRC" | grep 'PROCESS_ID' | grep -o '[0-9]*' | head -1)
 if [ -z "$current" ]; then current=1000; fi
 new=$((current + 1))
-
-# Actualizar PROCESS_ID en .asoundrc
 sed -i "/pcm\.inferno_rx/,/^\}/ s/PROCESS_ID \"$current\"/PROCESS_ID \"$new\"/" "$ASOUNDRC"
-echo "PROCESS_ID: $current -> $new"
+echo "PROCESS_ID: $current -> $new (inferno usará este al arrancar)"
 
-# Crear directorio de estado para el nuevo PROCESS_ID y limpiar obsoletos
+# Limpiar directorios obsoletos — inferno creará el suyo al arrancar
+# Las suscripciones las gestiona Dante Controller (modo push desde P300)
+find "$STATE_BASE" -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
 new_hex=$(printf "%04x" $new)
 new_dir="${STATE_BASE}/${IP_HEX}${new_hex}"
 mkdir -p "$new_dir"
-cp "$SUBSCRIPTIONS_SRC" "$new_dir/rx_subscriptions.toml"
+echo "Directorio de estado pre-creado: $new_dir"
 
-# Borrar todos los directorios excepto el recién creado
-find "$STATE_BASE" -mindepth 1 -maxdepth 1 -type d ! -path "$new_dir" -exec rm -rf {} + 2>/dev/null || true
-echo "Directorios inferno limpiados, activo: $new_dir"
-
-# Verificar si hay flujo Dante disponible (max 8s)
-# El plugin inferno_rx necesita ~2s para resolver mDNS y abrir el stream.
-# Si "Recording WAVE" aparece en stderr, el dispositivo abrió correctamente.
-DANTE_FLUJO=0
-echo "Verificando flujo Dante..."
-for i in 1 2 3 4; do
-    err=$(timeout 2 arecord -D inferno_rx -r 48000 -f S32_LE -c 2 -d 1 /dev/null 2>&1)
-    if echo "$err" | grep -q "Recording WAVE"; then
-        DANTE_FLUJO=1
-        break
-    fi
-    echo "Intento $i: sin flujo Dante aún, esperando..."
-    sleep 2
-done
-
-if [ "$DANTE_FLUJO" -eq 1 ]; then
-    echo "Flujo Dante detectado, arrancando CamillaDSP con inferno_rx (PROCESS_ID=$new)"
-    # Esperar que hw:1,0 quede libre (max 15s)
-    for i in $(seq 1 5); do
-        if ! grep -rl 'pcmC1D0' /proc/*/fd 2>/dev/null | grep -q .; then
-            break
-        fi
-        echo "Esperando que hw:1,0 quede libre ($i)..."
-        sleep 3
-    done
-    exec "$ENGINE" -p 1234 -a 0.0.0.0 "$CONFIG"
-fi
-
-# Sin flujo Dante: arrancar con null para que el engine quede activo
-TMPCONFIG="/tmp/camilladsp_nulldante.yml"
-python3 -c "
-import re
-txt = open('$CONFIG').read()
-txt = re.sub(r'(device:\s*)\"?inferno_\S+\"?', r'\1\"null\"', txt)
-open('$TMPCONFIG', 'w').write(txt)
-"
-echo "Sin flujo Dante, arrancando con null (PROCESS_ID=$new). Recargar preset cuando haya flujo."
+# Arrancar con inferno_rx — Dante Controller gestiona la asignación de canales
+# inferno_rx queda a la escucha; el P300 iniciará el flujo al asignar en Dante Controller
+echo "Arrancando CamillaDSP con inferno_rx (esperando asignación desde Dante Controller)"
 
 # Esperar que hw:1,0 quede libre (max 15s)
 for i in $(seq 1 5); do
@@ -180,4 +131,4 @@ for i in $(seq 1 5); do
     sleep 3
 done
 
-exec "$ENGINE" -p 1234 -a 0.0.0.0 "$TMPCONFIG"
+exec "$ENGINE" -p 1234 -a 0.0.0.0 "$CONFIG"

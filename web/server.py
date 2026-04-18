@@ -831,8 +831,7 @@ def resolve_host():
         value = d.get('value', '').strip()
         if not value:
             return jsonify({'ok': False, 'error': 'Valor vacío'})
-        import re as _re2
-        if _re2.match(r'^\d+\.\d+\.\d+\.\d+$', value):
+        if _IP_RE.match(value):
             try:
                 hostname = socket.gethostbyaddr(value)[0]
                 return jsonify({'ok': True, 'ip': value, 'hostname': hostname})
@@ -973,6 +972,19 @@ pcm.inferno_tx {{
 import re as _re
 
 INFERNO_STATE = os.path.expanduser('~/.local/state/inferno_aoip')
+DANTE_SUBSCRIPTIONS_FILE = '/root/camilladsp/config/dante_subscriptions.toml'
+_IP_RE = _re.compile(r'^\d+\.\d+\.\d+\.\d+$')
+
+def _iface_to_ip(val):
+    """Dado un nombre de interfaz o IP, devuelve siempre una IP."""
+    if _IP_RE.match(val):
+        return val
+    try:
+        out = subprocess.check_output(['ip','-4','addr','show','dev',val], text=True, timeout=3)
+        m = _re.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)', out)
+        return m.group(1) if m else val
+    except Exception:
+        return val
 
 def _find_active_rx_dir():
     """Devuelve el directorio inferno_rx activo.
@@ -990,7 +1002,7 @@ def _find_active_rx_dir():
         m_ip  = _re.search(PAT_IP,  asoundrc, _re.DOTALL)
         m_pid = _re.search(PAT_PID, asoundrc, _re.DOTALL)
         if m_ip and m_pid:
-            parts   = m_ip.group(1).split('.')
+            parts   = _iface_to_ip(m_ip.group(1)).split('.')
             ip_hex  = ''.join('{:02x}'.format(int(p)) for p in parts)
             pid_hex = '{:04x}'.format(int(m_pid.group(1)))
             exact_cand = os.path.join(INFERNO_STATE, '0000' + ip_hex + pid_hex)
@@ -1019,18 +1031,9 @@ def dante_bind_ip():
     if request.method == 'GET':
         try:
             content = open(DANTE_ASOUNDRC).read()
-            import re as _re3
-            m = _re3.search(r'BIND_IP\s+"([^"]+)"', content)
+            m = _re.search(r'BIND_IP\s+"([^"]+)"', content)
             val = m.group(1) if m else ''
-            # Si es nombre de interfaz, resolverlo a IP para el dropdown
-            ip = val
-            if val and not _re3.match(r'^\d+\.\d+\.\d+\.\d+$', val):
-                try:
-                    out = subprocess.check_output(["ip", "-4", "addr", "show", "dev", val], text=True, timeout=3)
-                    m2 = _re3.search(r'inet\s+(\d+\.\d+\.\d+\.\d+)', out)
-                    ip = m2.group(1) if m2 else val
-                except Exception:
-                    ip = val
+            ip = _iface_to_ip(val) if val else val
             return jsonify({'ok': True, 'bind_ip': ip})
         except Exception as e:
             return jsonify({'ok': False, 'bind_ip': '', 'error': str(e)})
@@ -1041,8 +1044,7 @@ def dante_bind_ip():
             if not new_ip:
                 return jsonify({'ok': False, 'error': 'IP vacía'})
             content = open(DANTE_ASOUNDRC).read()
-            import re as _re3
-            new_content = _re3.sub(r'(BIND_IP\s+)"[^"]+"', r'\1"' + new_ip + '"', content)
+            new_content = _re.sub(r'(BIND_IP\s+)"[^"]+"', r'\1"' + new_ip + '"', content)
             open(DANTE_ASOUNDRC, 'w').write(new_content)
             print(f"[dante] BIND_IP actualizado a {new_ip}")
             threading.Thread(target=_restart_dante_and_camilla, args=(new_ip,), daemon=True).start()
@@ -1092,7 +1094,7 @@ def dante_set_subscriptions():
             m_ip  = _re.search(PAT_IP,  asoundrc, _re.DOTALL)
             m_pid = _re.search(PAT_PID, asoundrc, _re.DOTALL)
             if m_ip and m_pid:
-                parts   = m_ip.group(1).split('.')
+                parts   = _iface_to_ip(m_ip.group(1)).split('.')
                 ip_hex  = ''.join('{:02x}'.format(int(p)) for p in parts)
                 pid_hex = '{:04x}'.format(int(m_pid.group(1)))
                 rx_dir  = os.path.join(INFERNO_STATE, '0000' + ip_hex + pid_hex)
@@ -1108,7 +1110,13 @@ def dante_set_subscriptions():
             out.append('tx_channel_name = "' + ch['tx_channel_name'] + '"')
             out.append('tx_hostname = "' + ch['tx_hostname'] + '"')
             out.append('')
-        open(sub_file, 'w').write(chr(10).join(out))
+        content = chr(10).join(out)
+        open(sub_file, 'w').write(content)
+        # Copia canónica fuera del directorio inferno (que se borra/sobreescribe en cada arranque)
+        try:
+            open(DANTE_SUBSCRIPTIONS_FILE, 'w').write(content)
+        except Exception:
+            pass
         return jsonify({'ok': True, 'file': sub_file, 'channels': len(channels)})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)})
