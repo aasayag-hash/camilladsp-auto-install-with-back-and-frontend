@@ -318,9 +318,40 @@ processors: {}
 title: default
 """
 
-def _restart_dante_and_camilla():
+STATIME_TOML = "/etc/statime-inferno.toml"
+
+def _update_statime_interface(bind_ip):
+    """Actualiza la interfaz en statime-inferno.toml según la IP elegida."""
+    import re as _re
+    try:
+        out = subprocess.check_output(["ip", "-4", "addr", "show"], text=True, timeout=5)
+        iface = None
+        current = None
+        for line in out.splitlines():
+            m = re.match(r'\d+:\s+(\S+):', line)
+            if m:
+                current = m.group(1)
+            if bind_ip in line and current:
+                iface = current
+                break
+        if not iface:
+            print(f"[statime] no se encontró interfaz para IP {bind_ip}, no se actualiza toml")
+            return
+        content = open(STATIME_TOML).read()
+        new_content = _re.sub(r'(interface\s*=\s*)"[^"]+"', f'\\1"{iface}"', content)
+        if new_content != content:
+            open(STATIME_TOML, 'w').write(new_content)
+            print(f"[statime] interfaz actualizada a {iface} para IP {bind_ip}")
+        else:
+            print(f"[statime] interfaz ya era {iface}, sin cambios")
+    except Exception as e:
+        print(f"[statime] error actualizando toml: {e}")
+
+def _restart_dante_and_camilla(bind_ip=None):
     """Reinicia statime-inferno y camilladsp (sin tocar el web service)."""
     import time
+    if bind_ip:
+        _update_statime_interface(bind_ip)
     try:
         subprocess.run(["systemctl", "restart", "statime-inferno"], timeout=15)
         print("[dante] statime-inferno reiniciado")
@@ -863,7 +894,7 @@ def dante_bind_ip():
             new_content = _re3.sub(r'(BIND_IP\s+)"[^"]+"', r'\1"' + new_ip + '"', content)
             open(DANTE_ASOUNDRC, 'w').write(new_content)
             print(f"[dante] BIND_IP actualizado a {new_ip}")
-            threading.Thread(target=_restart_dante_and_camilla, daemon=True).start()
+            threading.Thread(target=_restart_dante_and_camilla, args=(new_ip,), daemon=True).start()
             return jsonify({'ok': True, 'bind_ip': new_ip})
         except Exception as e:
             return jsonify({'ok': False, 'error': str(e)})

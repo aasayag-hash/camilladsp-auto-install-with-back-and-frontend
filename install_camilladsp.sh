@@ -733,14 +733,19 @@ ask_dante() {
 install_dante() {
   log_step "Instalando soporte Dante / Inferno"
 
-  # ── 1. Detectar interfaz ethernet ──────────────────────────────────────────
+  # ── 1. Detectar interfaz de red para Dante ─────────────────────────────────
   local eth_iface eth_ip
-  eth_iface=$(ip -o link show | awk -F': ' '$2 !~ /^lo|^wl|^docker|^veth|^br/ {print $2; exit}')
+  # Primero buscar Ethernet con IP; si no hay, usar cualquier interfaz con IP (incluido WiFi)
+  eth_iface=$(ip -o link show | awk -F': ' '$2 !~ /^lo|^docker|^veth|^br/ {print $2}' | while read iface; do
+    ip=$(ip -4 addr show "$iface" 2>/dev/null | grep -o 'inet [0-9.]*' | awk '{print $2}' | head -1)
+    if [ -n "$ip" ]; then echo "$iface"; break; fi
+  done)
   eth_ip=$(ip -4 addr show "$eth_iface" 2>/dev/null | grep -o 'inet [0-9.]*' | awk '{print $2}' | head -1)
 
   if [ -z "$eth_ip" ]; then
-    log_warn "No se detectó IP en $eth_iface — asegurate de tener Ethernet conectado"
+    log_warn "No se detectó IP en ninguna interfaz — asegurate de tener red conectada"
     eth_ip="0.0.0.0"
+    eth_iface="eth0"
   fi
   log_info "Interfaz Dante: $eth_iface ($eth_ip)"
 
@@ -823,16 +828,26 @@ install_dante() {
   local statime_cfg="/etc/statime-inferno.toml"
   if [ ! -f "$statime_cfg" ]; then
     sudo tee "$statime_cfg" > /dev/null << EOF
-[port-configs.${eth_iface}]
-announce-interval = 1
-sync-interval = 0
-delay-req-interval = 0
-delay-mechanism = "E2E"
+loglevel = "info"
+identity = "$(cat /sys/class/net/${eth_iface}/address 2>/dev/null | tr -d ':' | head -c 12)0000"
+sdo-id = 0
+domain = 0
+priority1 = 251
+virtual-system-clock = true
+virtual-system-clock-base = "tai"
+usrvclock-export = true
+usrvclock-path = "/tmp/ptp-usrvclock"
+
+[[port]]
+interface = "${eth_iface}"
+network-mode = "ipv4"
+hardware-clock = "none"
+protocol-version = "PTPv1"
 EOF
     log_ok "statime-inferno.toml creado ($eth_iface)"
   else
     # Actualizar interfaz si cambió
-    sudo sed -i "s/^\[port-configs\.[^]]*\]/[port-configs.${eth_iface}]/" "$statime_cfg"
+    sudo sed -i "s/^interface = \"[^\"]*\"/interface = \"${eth_iface}\"/" "$statime_cfg"
     log_ok "statime-inferno.toml actualizado (interfaz: $eth_iface)"
   fi
 
