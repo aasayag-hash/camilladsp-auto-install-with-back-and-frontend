@@ -835,7 +835,7 @@ pcm.inferno {
 pcm.inferno_rx {
     type inferno
     NAME "tvbox-dante"
-    BIND_IP "${eth_ip}"
+    BIND_IP "${eth_iface}"
     SAMPLE_RATE "48000"
     RX_CHANNELS "2"
     TX_CHANNELS "0"
@@ -846,7 +846,7 @@ pcm.inferno_rx {
 
 pcm.inferno_tx {
     type inferno
-    BIND_IP "${eth_ip}"
+    BIND_IP "${eth_iface}"
     SAMPLE_RATE "48000"
     RX_CHANNELS "0"
     TX_CHANNELS "2"
@@ -857,26 +857,21 @@ pcm.inferno_tx {
     TX_LATENCY_NS "1000000"
 }
 EOF
-  log_ok ".asoundrc configurado (IP: $eth_ip)"
+  log_ok ".asoundrc configurado (interfaz: $eth_iface / IP: $eth_ip)"
 
   # ── 8. Crear directorio de estado inferno_rx con suscripciones vacías ────
   local rx_dir="${INFERNO_STATE_BASE}/0000${ip_hex}$(printf '%04x' $rx_pid)"
   mkdir -p "$rx_dir"
   if [ ! -f "${rx_dir}/rx_subscriptions.toml" ]; then
-    cat > "${rx_dir}/rx_subscriptions.toml" << 'EOF'
-[[channels]]
-local_channel_id = 1
-local_channel_name = "RX 1"
-tx_channel_name = "Dante Output 1"
-tx_hostname = ""
+    echo 'channels = []' > "${rx_dir}/rx_subscriptions.toml"
+    log_ok "rx_subscriptions.toml creado vacío (Dante Controller asigna canales)"
+  fi
 
-[[channels]]
-local_channel_id = 2
-local_channel_name = "RX 2"
-tx_channel_name = "Dante Output 2"
-tx_hostname = ""
-EOF
-    log_ok "rx_subscriptions.toml creado (configurar hostname Dante en la web)"
+  # Archivo canónico de suscripciones (referencia fuera del dir inferno que se limpia en cada arranque)
+  local dante_subs="${INSTALL_BASE}/config/dante_subscriptions.toml"
+  if [ ! -f "$dante_subs" ]; then
+    echo 'channels = []' > "$dante_subs"
+    log_ok "dante_subscriptions.toml creado vacío"
   fi
 
   # ── 9. Instalar start_camilladsp.sh (arranque robusto) ──────────────────
