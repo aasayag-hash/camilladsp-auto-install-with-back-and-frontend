@@ -146,6 +146,17 @@ detect_system() {
   esac
 }
 
+# Limitar tamaño del journal para evitar que llene la RAM en equipos embebidos
+configure_journal_limits() {
+  local cfg="/etc/systemd/journald.conf"
+  if ! grep -q "^SystemMaxUse=50M" "$cfg" 2>/dev/null; then
+    sed -i '/^SystemMaxUse/d; /^RuntimeMaxUse/d; /^SystemKeepFree/d' "$cfg" 2>/dev/null || true
+    printf '\nSystemMaxUse=50M\nRuntimeMaxUse=20M\nSystemKeepFree=100M\n' | sudo tee -a "$cfg" > /dev/null
+    sudo systemctl restart systemd-journald 2>/dev/null || true
+    log_ok "Journal limitado a 50MB"
+  fi
+}
+
 # Verificación y resolución de dependencias
 check_system_dependencies() {
   log_step "Verificando dependencias del sistema..."
@@ -1098,6 +1109,8 @@ main() {
 
   log_info "Sistema: $(uname -s) $(uname -m)"
   log_info "Directorio: ${INSTALL_BASE}"
+
+  configure_journal_limits
 
   if [ "$ARG_UPDATE" = "1" ]; then
     log_step "Modo actualización"
