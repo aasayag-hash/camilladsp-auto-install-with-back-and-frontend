@@ -3982,10 +3982,12 @@ async function optSend(cfg, key){
   st.textContent = 'Guardando '+key+'...';
   st.style.color='#ff0';
   try {
-    const r = await fetch('/api/config', {
+    // Usar PatchConfig (solo devices) para evitar recargar filtros FIR y disparar CPU
+    const patch = {devices: cfg.devices};
+    const r = await fetch('/api/patch', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({config: cfg})
+      body: JSON.stringify({patch: patch})
     });
     const d = await r.json();
     if(d.ok){ st.style.color='#0f0'; st.textContent='✔ '+key+' guardado'; }
