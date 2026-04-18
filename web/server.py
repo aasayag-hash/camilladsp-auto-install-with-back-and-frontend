@@ -196,10 +196,15 @@ def _cdsp_gui_get(path):
 def _gui_running():
     """Devuelve True si camillagui_backend responde en :5005."""
     try:
-        urllib.request.urlopen(CDSP_GUI + "/api/getversion", timeout=2)
+        urllib.request.urlopen(CDSP_GUI + "/", timeout=2)
         return True
     except Exception:
         return False
+
+@app.route("/api/gui-status", methods=["GET"])
+def gui_status():
+    """Devuelve si camillagui_backend está respondiendo en :5005."""
+    return jsonify({"running": _gui_running()})
 
 @app.route("/api/start-gui", methods=["POST"])
 def start_gui():
@@ -214,13 +219,7 @@ def start_gui():
             [CDSP_GUI_BIN, "--config", CDSP_GUI_CFG],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
-        # Esperar hasta 5s a que responda
-        import time
-        for _ in range(10):
-            time.sleep(0.5)
-            if _gui_running():
-                return jsonify({"ok": True, "msg": "arrancado"})
-        return jsonify({"ok": False, "error": "no respondió en 5s"})
+        return jsonify({"ok": True, "msg": "iniciando"})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)})
 

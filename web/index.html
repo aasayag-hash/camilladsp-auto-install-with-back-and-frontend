@@ -454,6 +454,17 @@ table.ftable tr:hover td{background:#1a1a1a}
             <option value="Synchronous">Synchronous</option>
           </select>
         </div>
+        <div class="opt-row" id="opt-row-capture_samplerate" style="display:none">
+          <label class="opt-lbl">capture_samplerate</label>
+          <select class="opt-sel" id="opt-capture_samplerate" onchange="optApplyCaptureSr(this.value)">
+            <option value="44100">44100</option>
+            <option value="48000">48000</option>
+            <option value="88200">88200</option>
+            <option value="96000">96000</option>
+            <option value="176400">176400</option>
+            <option value="192000">192000</option>
+          </select>
+        </div>
       </div>
 
       <!-- Capture rate monitoring -->
@@ -3846,11 +3857,21 @@ async function openGui(){
   try {
     const r = await fetch('/api/start-gui', {method:'POST'});
     const d = await r.json();
-    if(d.ok){
-      window.open('http://'+location.hostname+':5005','_blank');
-    } else {
-      alert('No se pudo iniciar CamillaGUI:\n'+(d.error||'?'));
+    if(!d.ok){ alert('No se pudo iniciar CamillaGUI:\n'+(d.error||'?')); btn.textContent=orig; btn.disabled=false; return; }
+    // Si ya estaba corriendo, abrir directo
+    if(d.msg === 'ya corriendo'){ window.open('http://'+location.hostname+':5005','_blank'); btn.textContent=orig; btn.disabled=false; return; }
+    // Esperar hasta 20s a que responda con polling
+    const guiUrl = 'http://'+location.hostname+':5005';
+    for(let i=0; i<20; i++){
+      await new Promise(res=>setTimeout(res,1000));
+      try{
+        const s = await fetch('/api/gui-status');
+        const sd = await s.json();
+        if(sd.running){ window.open(guiUrl,'_blank'); btn.textContent=orig; btn.disabled=false; return; }
+      }catch(_){}
+      btn.textContent = 'Iniciando '+(i+1)+'s…';
     }
+    alert('CamillaGUI no respondió en 20s. Probá abrir http://'+location.hostname+':5005 manualmente.');
   } catch(e){
     alert('Error: '+e);
   }
@@ -3897,9 +3918,13 @@ async function optLoad(){
     // resampler_type: puede ser null, string, o {type:..., profile:...}
     const res = dev.resampler;
     const rsel = document.getElementById('opt-resampler_type');
-    if(!res){ rsel.value=''; }
-    else if(typeof res === 'string'){ rsel.value=res; }
-    else if(res && res.type){ rsel.value=res.type; }
+    const csrRow = document.getElementById('opt-row-capture_samplerate');
+    const csrSel = document.getElementById('opt-capture_samplerate');
+    if(!res){ rsel.value=''; csrRow.style.display='none'; }
+    else if(typeof res === 'string'){ rsel.value=res; csrRow.style.display=''; }
+    else if(res && res.type){ rsel.value=res.type; csrRow.style.display=''; }
+    // cargar capture_samplerate actual
+    if(dev.capture_samplerate){ csrSel.value = String(dev.capture_samplerate); }
     st.textContent = 'Listo.';
     setTimeout(()=>{ st.textContent=''; }, 1500);
   } catch(e){ st.textContent = 'Error: '+e; }
@@ -3931,9 +3956,25 @@ async function optApplyResampler(val){
   if(!_optCfg) return;
   const cfg = JSON.parse(JSON.stringify(_optCfg));
   if(!cfg.devices) cfg.devices = {};
-  cfg.devices.resampler = val === '' ? null : {type: val};
+  const csrRow = document.getElementById('opt-row-capture_samplerate');
+  if(val === ''){
+    cfg.devices.resampler = null;
+    csrRow.style.display = 'none';
+  } else {
+    cfg.devices.resampler = {type: val};
+    csrRow.style.display = '';
+  }
   _optCfg = cfg;
   await optSend(cfg, 'resampler_type');
+}
+
+async function optApplyCaptureSr(val){
+  if(!_optCfg) return;
+  const cfg = JSON.parse(JSON.stringify(_optCfg));
+  if(!cfg.devices) cfg.devices = {};
+  cfg.devices.capture_samplerate = parseInt(val, 10);
+  _optCfg = cfg;
+  await optSend(cfg, 'capture_samplerate');
 }
 
 async function optSend(cfg, key){
