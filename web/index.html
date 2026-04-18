@@ -255,7 +255,7 @@ table.ftable tr:hover td{background:#1a1a1a}
     <span class="dsp-stat">CPU: <span id="cpu-load">-</span></span>
   </div>
   <div style="flex:1"></div>
-  <button class="top-btn web" onclick="window.open('http://'+location.hostname+':5005','_blank')">WEB 5005</button>
+  <button class="top-btn web" onclick="openGui()">WEB 5005</button>
   <button class="top-btn" onclick="importEQ()">Imp EQ</button>
   <button class="top-btn" onclick="exportEQ()">Exp EQ</button>
   <button class="top-btn danger" onclick="resetConfig()">Reset</button>
@@ -3837,6 +3837,26 @@ async function saveDanteSub() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeDanteSub();
 });
+
+async function openGui(){
+  const btn = document.querySelector('.top-btn.web');
+  const orig = btn.textContent;
+  btn.textContent = 'Iniciando...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/start-gui', {method:'POST'});
+    const d = await r.json();
+    if(d.ok){
+      window.open('http://'+location.hostname+':5005','_blank');
+    } else {
+      alert('No se pudo iniciar CamillaGUI:\n'+(d.error||'?'));
+    }
+  } catch(e){
+    alert('Error: '+e);
+  }
+  btn.textContent = orig;
+  btn.disabled = false;
+}
 
 // ???????????????????????????????????????????????????????????????????????????
 // OPCIONES TAB

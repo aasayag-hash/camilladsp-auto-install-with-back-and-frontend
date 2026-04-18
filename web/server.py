@@ -184,11 +184,45 @@ def export_config():
 def import_support():
     return jsonify({"ok": True})
 
-CDSP_GUI = "http://127.0.0.1:5005"
+CDSP_GUI     = "http://127.0.0.1:5005"
+CDSP_GUI_BIN = INSTALL_BASE + "/gui/camillagui_backend"
+CDSP_GUI_CFG = INSTALL_BASE + "/gui/config/camillagui.yml"
+_gui_proc    = None  # proceso arrancado bajo demanda
 
 def _cdsp_gui_get(path):
     with urllib.request.urlopen(f"{CDSP_GUI}{path}", timeout=5) as r:
         return json.loads(r.read())
+
+def _gui_running():
+    """Devuelve True si camillagui_backend responde en :5005."""
+    try:
+        urllib.request.urlopen(CDSP_GUI + "/api/getversion", timeout=2)
+        return True
+    except Exception:
+        return False
+
+@app.route("/api/start-gui", methods=["POST"])
+def start_gui():
+    """Arranca camillagui_backend bajo demanda si no está corriendo."""
+    global _gui_proc
+    if _gui_running():
+        return jsonify({"ok": True, "msg": "ya corriendo"})
+    if not os.path.isfile(CDSP_GUI_BIN):
+        return jsonify({"ok": False, "error": f"No encontrado: {CDSP_GUI_BIN}"}), 404
+    try:
+        _gui_proc = subprocess.Popen(
+            [CDSP_GUI_BIN, "--config", CDSP_GUI_CFG],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        # Esperar hasta 5s a que responda
+        import time
+        for _ in range(10):
+            time.sleep(0.5)
+            if _gui_running():
+                return jsonify({"ok": True, "msg": "arrancado"})
+        return jsonify({"ok": False, "error": "no respondió en 5s"})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)})
 
 import re
 
