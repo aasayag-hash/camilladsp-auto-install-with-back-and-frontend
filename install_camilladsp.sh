@@ -851,17 +851,37 @@ EOF
     log_ok "statime-inferno.toml actualizado (interfaz: $eth_iface)"
   fi
 
-  # ── 5. Servicio systemd statime-inferno ────────────────────────────────────
+  # ── 5. Script pre-start para detectar interfaz automáticamente ─────────────
+  sudo cp "$(dirname "$0")/statime-update-iface.sh" /usr/local/bin/statime-update-iface.sh 2>/dev/null || \
+  sudo tee /usr/local/bin/statime-update-iface.sh > /dev/null << 'SCRIPTEOF'
+#!/bin/bash
+ASOUNDRC="/root/.asoundrc"
+TOML="/etc/statime-inferno.toml"
+BIND_IP=$(grep -oP 'BIND_IP\s+"\K[^"]+' "$ASOUNDRC" | head -1)
+if [ -z "$BIND_IP" ]; then exit 0; fi
+IFACE=$(ip -4 addr show | awk -v ip="$BIND_IP" '/^[0-9]+:/ { iface=$2; sub(/:$/, "", iface) } /inet / { if (index($2, ip"/") == 1) print iface }')
+if [ -z "$IFACE" ]; then exit 0; fi
+CURRENT=$(grep -oP 'interface\s*=\s*"\K[^"]+' "$TOML" | head -1)
+if [ "$CURRENT" != "$IFACE" ]; then
+    sed -i "s/interface = \"$CURRENT\"/interface = \"$IFACE\"/" "$TOML"
+    echo "[statime-pre] interfaz actualizada: $CURRENT -> $IFACE (IP=$BIND_IP)"
+fi
+SCRIPTEOF
+  sudo chmod +x /usr/local/bin/statime-update-iface.sh
+
+  # ── 6. Servicio systemd statime-inferno ────────────────────────────────────
   if [ ! -f /etc/systemd/system/statime-inferno.service ]; then
     sudo tee /etc/systemd/system/statime-inferno.service > /dev/null << 'EOF'
 [Unit]
-Description=statime PTP daemon for Dante/AES67
+Description=Statime PTP Daemon for Inferno/Dante
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/local/bin/statime-inferno -c /etc/statime-inferno.toml
-Restart=always
+Type=simple
+ExecStartPre=/usr/local/bin/statime-update-iface.sh
+ExecStart=/usr/local/bin/statime -c /etc/statime-inferno.toml
+Restart=on-failure
 RestartSec=5
 
 [Install]
