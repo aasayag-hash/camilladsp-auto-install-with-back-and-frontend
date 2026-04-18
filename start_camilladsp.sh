@@ -97,16 +97,23 @@ sleep 6
 
 # Verificar flujo Dante (hasta 60s)
 echo "Verificando flujo Dante..."
-for i in $(seq 1 20); do
+DANTE_OK=0
+for i in $(seq 1 5); do
     bytes=$(RUST_LOG=error arecord -D inferno_rx -f S32_LE -r 48000 -c 2 -d 2 2>/dev/null | wc -c)
     if [ "$bytes" -gt 300000 ]; then
         echo "Flujo OK ($bytes bytes)"
         sleep 6
+        DANTE_OK=1
         break
     fi
     echo "Intento $i: $bytes bytes"
     sleep 3
 done
 
-echo "Arrancando CamillaDSP Dante (PROCESS_ID=$new, IP=$ETH_IP)"
-exec "$ENGINE" -p 1234 -a 0.0.0.0 -c "$CONFIG"
+if [ "$DANTE_OK" -eq 1 ]; then
+    echo "Arrancando CamillaDSP Dante con config (PROCESS_ID=$new, IP=$ETH_IP)"
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 -c "$CONFIG"
+else
+    echo "Sin flujo Dante tras 60s, arrancando en modo espera (configurar desde la UI)"
+    exec "$ENGINE" -p 1234 -a 0.0.0.0 -w
+fi
